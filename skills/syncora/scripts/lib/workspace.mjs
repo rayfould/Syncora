@@ -17,7 +17,11 @@ import { normalizeSyncoraRuntimeConfig } from "./checkpoint-config.mjs";
 const CONFIG_MAX_BYTES = 1_048_576;
 export const LOCAL_CONFIG_SCHEMA_VERSION = 1;
 export const LOCAL_CONFIG_MAX_BYTES = 65_536;
-const WINDOWS_SAFE_READ_TIMEOUT_MS = 2_000;
+// The isolated-reader deadline includes a cold Node process start as well as
+// the bounded file operation. Windows process startup can exceed two seconds
+// under antivirus or CI load, so keep enough scheduling headroom while still
+// failing closed on a hung or hostile file.
+const WINDOWS_SAFE_READ_TIMEOUT_MS = 5_000;
 const WINDOWS_SAFE_READER_PATH = fileURLToPath(
   new URL("./bounded-reader-worker.mjs", import.meta.url),
 );
