@@ -2,6 +2,8 @@
 
 All notable changes to Syncora are documented here.
 
+## [Unreleased]
+
 ## [0.1.0-preview.1] - 2026-07-16
 
 First public development preview of the portable Syncora Agent Skill.

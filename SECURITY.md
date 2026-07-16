@@ -2,7 +2,7 @@
 
 ## Current status
 
-Syncora `0.1.x` is a development preview. Its runtime operates on local
+Syncora `0.1.0-preview.1` is a development preview. Its runtime operates on local
 workspace and instruction files, so path containment, rollback, marker
 ownership, and prompt-injection failures are security-relevant even before a
 stable release.

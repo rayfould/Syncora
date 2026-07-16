@@ -1,6 +1,6 @@
 # Syncora Skill Architecture
 
-Status: Accepted for implementation
+Status: Accepted target architecture; preview implementation incomplete
 Architecture version: 2
 Date: 2026-07-15
 
@@ -630,7 +630,7 @@ These controls mitigate prompt injection; they do not claim to eliminate it.
 
 Migration is additive and reversible:
 
-1. record the parent and graph repository baselines;
+1. record the workspace and graph repository baselines;
 2. inventory note encodings, schemas, sizes, links, and malformed content;
 3. export any unique state from predecessor systems in read-only mode;
 4. treat every legacy note as noncanonical until explicitly promoted;

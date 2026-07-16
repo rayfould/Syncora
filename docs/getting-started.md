@@ -4,6 +4,12 @@ This guide initializes Syncora in one project and verifies the result. Syncora
 has no background service: every command runs synchronously during an agent
 turn or direct CLI invocation.
 
+## Requirements
+
+- Node.js 22 or 24
+- Codex, Cursor, or Claude Code
+- A version-controlled or otherwise recoverable test workspace is recommended
+
 ## 1. Install the skill
 
 From any directory, install Syncora for the agents you use:

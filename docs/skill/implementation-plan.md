@@ -1,6 +1,6 @@
 # Syncora Skill Implementation Plan
 
-Status: Active
+Status: Active toward stable release
 Plan version: 3
 Started: 2026-07-15
 
@@ -192,12 +192,12 @@ Status: Complete
 - [x] Establish the public repository as an independent distribution boundary.
 - [x] Record external graph-root and predecessor-instruction cutover hazards.
 - [x] Record the portable skill architecture and replace the hosted launch plan.
-- [ ] Capture a byte-preserving graph baseline and database reconciliation
-      status.
+- [ ] Capture a byte-preserving graph baseline and external-source
+      reconciliation status for each real migration.
 
 ### Milestone 1: Portable bootstrap runtime
 
-Status: Implemented locally; remote CI pending
+Status: Included in `0.1.0-preview.1`
 
 - [x] Create the skill package and progressive-disclosure references.
 - [x] Implement workspace resolution and containment.
@@ -212,8 +212,8 @@ Status: Implemented locally; remote CI pending
 - [x] Run the official skill validator.
 
 The patcher is implemented and fixture-tested in this milestone, but it must not
-replace this repository's predecessor KG instruction block yet. Live cutover
-waits for the shadow context and authority gates.
+replace a predecessor knowledge workflow without an explicit migration. Live
+cutover waits for the shadow context and authority gates.
 
 ### Milestone 2: Authority-aware graph kernel
 
@@ -240,7 +240,7 @@ Status: In progress
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Complete
+Status: Included in `0.1.0-preview.1`
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
       routing labels with positive dependency and durability tests.
@@ -300,7 +300,7 @@ Status: Pending
 - [ ] Implement changed-file drift checks.
 - [ ] Reconcile external-source projections before deprecating predecessor
       systems.
-- [ ] Migrate the current graph through preview and acceptance.
+- [ ] Migrate a representative existing graph through preview and acceptance.
 - [ ] Replace the predecessor AGENTS workflow through an explicit reversible
       migration.
 - [ ] Forward-test the installed skill across supported agents.
@@ -446,7 +446,7 @@ outside a local-skill boundary.
 
 ## 10. Definition of done
 
-The migration is complete when the skill—not the hosted application—can:
+The stable release is complete when the skill can:
 
 1. initialize a workspace safely;
 2. identify one authoritative hub;

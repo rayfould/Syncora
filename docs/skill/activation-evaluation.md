@@ -1,6 +1,7 @@
 # Syncora Activation Evaluation
 
-Status: Acceptance fixture
+Status: Preview semantic acceptance fixture
+Applies to: `0.1.0-preview.1`
 Updated: 2026-07-16
 
 This matrix tests routing independently of graph contents. It is a semantic
@@ -43,7 +44,7 @@ same installed skill and project hook.
 - Direct maintenance commands use their own lifecycle. Compound prompts retain
   every required clause rather than applying a lossy total precedence rule.
 - Missing `context` or governed `capture` remains an explicit capability gap in
-  this development version.
+  this development preview.
 
 ## Host coverage
 
