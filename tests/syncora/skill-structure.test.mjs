@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = join(testDirectory, "..", "..");
 const skillRoot = join(testDirectory, "..", "..", "skills", "syncora");
+const normalizeWhitespace = (value) => value.replace(/\s+/gu, " ").trim();
 
 test("skill frontmatter and progressive references are self-contained", async () => {
   const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
@@ -20,6 +21,48 @@ test("skill frontmatter and progressive references are self-contained", async ()
     .sort();
   assert.deepEqual(topLevelKeys, ["description", "name"]);
 
+  const description = frontmatter[1].match(/^description:\s*(.+)$/m)?.[1];
+  assert.ok(description, "SKILL.md must include a public description");
+  assert.ok(
+    description.length <= 600,
+    "public description should stay concise and scannable",
+  );
+  assert.match(description, /durable,?\s+local project memory/i);
+  assert.match(description, /development preview/i);
+
+  const quickStartIndex = skill.indexOf("## Quick start");
+  const agentInstructionsIndex = skill.indexOf("## Agent instructions");
+  assert.ok(quickStartIndex >= 0, "SKILL.md must include a public quick start");
+  assert.ok(
+    agentInstructionsIndex > quickStartIndex,
+    "human-facing guidance must precede internal agent instructions",
+  );
+  const intro = skill.slice(
+    skill.indexOf("# Syncora") + "# Syncora".length,
+    quickStartIndex,
+  );
+  assert.match(intro, /durable[\s\S]{0,60}project knowledge/i);
+  assert.doesNotMatch(
+    intro,
+    /<syncora-skill-root>|--workspace|checkpoint --phase/i,
+  );
+  const quickStart = skill.slice(quickStartIndex, agentInstructionsIndex);
+  const prompts = [...quickStart.matchAll(/```text\r?\n([\s\S]*?)\r?\n```/gu)].map(
+    (match) => match[1].trim(),
+  );
+  assert.ok(
+    prompts.some((prompt) => /^Use \$syncora to set up\b/iu.test(prompt)),
+  );
+  assert.ok(
+    prompts.some((prompt) => /^Use \$syncora to adopt\b/iu.test(prompt)),
+  );
+  assert.match(quickStart, /new workspace/iu);
+  assert.match(quickStart, /existing knowledge graph|agent-memory workflow/iu);
+  assert.match(
+    quickStart,
+    /README and documentation files[\s\S]{0,80}not[\s\S]{0,40}reason to use adoption/iu,
+  );
+
   const references = [
     ...skill.matchAll(/\]\((references\/[^)]+\.md)\)/g),
   ].map((match) => match[1]);
@@ -31,8 +74,15 @@ test("skill frontmatter and progressive references are self-contained", async ()
 
   await access(join(skillRoot, "scripts", "syncora.mjs"));
   await access(join(skillRoot, "assets", "agent-hooks", "shared.md"));
-  assert.match(skill, /absolute directory containing this\s+loaded `SKILL\.md`/);
-  assert.match(skill, /never\s+assume the active project's working directory contains Syncora's `scripts\/`/);
+  const normalizedSkill = normalizeWhitespace(skill);
+  assert.match(
+    normalizedSkill,
+    /absolute directory containing this loaded `SKILL\.md`/,
+  );
+  assert.match(
+    normalizedSkill,
+    /never assume the active project's working directory contains Syncora's `scripts\/`/,
+  );
 
   const commandDocuments = [
     skill,
@@ -50,6 +100,7 @@ test("skill frontmatter and progressive references are self-contained", async ()
 
 test("activation is relevance-gated and exposes all five profiles", async () => {
   const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const normalizedSkill = normalizeWhitespace(skill);
   const policy = await readFile(
     join(skillRoot, "references", "activation-policy.md"),
     "utf8",
@@ -65,7 +116,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
 
   assert.match(skill, /Do not invoke merely because `\.syncora\/config\.json` exists/);
   assert.match(skill, /ordinary work in an uninitialized workspace/);
-  assert.match(skill, /Every implicit project route requires/);
+  assert.match(normalizedSkill, /Every implicit project route requires/);
   assert.match(skill, /date\/time, arithmetic, translation, casual conversation/);
   for (const profile of [
     "none",
@@ -109,6 +160,19 @@ test("optional OpenAI metadata stays presentation-only", async () => {
   );
   assert.match(metadata, /display_name: "Syncora"/);
   assert.match(metadata, /default_prompt: "Use \$syncora/);
+  const shortDescription = metadata.match(
+    /short_description: "([^"]+)"/,
+  )?.[1];
+  assert.ok(shortDescription, "OpenAI metadata needs a short description");
+  assert.ok(shortDescription.length >= 25 && shortDescription.length <= 64);
+  assert.match(shortDescription, /project|workspace/i);
+  assert.match(shortDescription, /memory|context|knowledge/i);
+  const defaultPrompt = metadata.match(/default_prompt: "([^"]+)"/)?.[1];
+  assert.ok(defaultPrompt, "OpenAI metadata needs a default prompt");
+  assert.match(defaultPrompt, /\$syncora/);
+  assert.match(defaultPrompt, /set up/i);
+  assert.match(defaultPrompt, /adopt/i);
+  assert.match(defaultPrompt, /project|workspace/i);
   assert.doesNotMatch(metadata, /dependencies:/);
 });
 
@@ -124,12 +188,13 @@ test("legacy adoption documentation and release gates stay bundled", async () =>
   await access(join(repositoryRoot, "scripts", "smoke-legacy-adoption.mjs"));
 
   const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const normalizedSkill = normalizeWhitespace(skill);
   const adoption = await readFile(
     join(skillRoot, "references", "legacy-adoption.md"),
     "utf8",
   );
   assert.match(skill, /explicit request to set up Syncora/);
-  assert.match(skill, /one `adopt --bundle`/);
+  assert.match(normalizedSkill, /one `adopt --bundle`/);
   assert.match(adoption, /One explicit authorization/);
   assert.match(adoption, /internal phases/);
   assert.doesNotMatch(adoption, /approval before each non-dry-run/i);

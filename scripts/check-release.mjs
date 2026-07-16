@@ -189,11 +189,52 @@ if (!frontmatter) {
   if (!/development preview/iu.test(frontmatter)) {
     errors.push("skills/syncora/SKILL.md: public description must label the development preview");
   }
+  const description = frontmatter.match(/^description:\s*(.+)$/mu)?.[1];
+  if (!description || description.length > 600) {
+    errors.push(
+      "skills/syncora/SKILL.md: public description must be present and no longer than 600 characters",
+    );
+  }
+}
+
+for (const requiredPublicText of ["## Quick start", "## Agent instructions"]) {
+  if (!skillSource.includes(requiredPublicText)) {
+    errors.push(`skills/syncora/SKILL.md: approachable public guidance is missing (${requiredPublicText})`);
+  }
+}
+const quickStartIndex = skillSource.indexOf("## Quick start");
+const agentInstructionsIndex = skillSource.indexOf("## Agent instructions");
+if (quickStartIndex > agentInstructionsIndex) {
+  errors.push(
+    "skills/syncora/SKILL.md: public quick start must appear before internal agent instructions",
+  );
+}
+const quickStart = skillSource.slice(quickStartIndex, agentInstructionsIndex);
+if (!/```text\r?\nUse \$syncora to set up\b[^\r\n]*\r?\n```/iu.test(quickStart)) {
+  errors.push("skills/syncora/SKILL.md: quick start must include a Syncora setup prompt");
+}
+if (!/```text\r?\nUse \$syncora to adopt\b[^\r\n]*\r?\n```/iu.test(quickStart)) {
+  errors.push("skills/syncora/SKILL.md: quick start must include a Syncora adoption prompt");
 }
 
 const openAiMetadata = await readFile(path.join(skillRoot, "agents", "openai.yaml"), "utf8");
 if (!openAiMetadata.includes("$syncora")) {
   errors.push("skills/syncora/agents/openai.yaml: default_prompt must invoke $syncora explicitly");
+}
+const shortDescription = openAiMetadata.match(/short_description:\s*"([^"]+)"/u)?.[1];
+if (!shortDescription || shortDescription.length < 25 || shortDescription.length > 64) {
+  errors.push(
+    "skills/syncora/agents/openai.yaml: short_description must be 25-64 characters",
+  );
+}
+if (
+  shortDescription
+  && (!/project|workspace/iu.test(shortDescription)
+    || !/memory|context|knowledge/iu.test(shortDescription))
+) {
+  errors.push(
+    "skills/syncora/agents/openai.yaml: short_description must state the project scope and memory benefit",
+  );
 }
 
 for (const match of skillSource.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)) {

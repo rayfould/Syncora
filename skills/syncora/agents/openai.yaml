@@ -1,6 +1,6 @@
 interface:
   display_name: "Syncora"
-  short_description: "Route durable project context safely"
-  default_prompt: "Use $syncora to set up or adopt this workspace, or for relevant project work when Syncora is already initialized."
+  short_description: "Durable project memory for coding agents"
+  default_prompt: "Use $syncora to set up or safely adopt durable project memory for this workspace."
 policy:
   allow_implicit_invocation: true

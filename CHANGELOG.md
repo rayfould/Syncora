@@ -23,6 +23,9 @@ All notable changes to Syncora are documented here.
 
 ### Changed
 
+- Reworked the public skill entrypoint around a plain-language product
+  explanation, new-workspace and existing-graph quick starts, concise metadata,
+  and a clear boundary between visitor guidance and internal agent rules.
 - Greenfield `setup`/`init` now refuses pre-existing knowledge and unsupported
   predecessor workflows, while atomically replacing the exact supported
   predecessor marker when no graph exists.
