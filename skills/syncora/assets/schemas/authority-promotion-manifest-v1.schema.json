@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://syncora.dev/schemas/authority-promotion-manifest-v1.schema.json",
+  "title": "Syncora reviewed authority promotion manifest v1",
+  "description": "A human-reviewed semantic mapping from an immutable authority inventory snapshot. It is not itself a write transaction.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestSchemaVersion",
+    "kind",
+    "status",
+    "source",
+    "review",
+    "dispositions",
+    "operations"
+  ],
+  "properties": {
+    "manifestSchemaVersion": { "const": 1 },
+    "kind": { "const": "syncora.authority-promotion" },
+    "status": { "const": "reviewed" },
+    "source": { "$ref": "#/$defs/inventoryBinding" },
+    "review": { "$ref": "#/$defs/review" },
+    "dispositions": {
+      "type": "array",
+      "maxItems": 50000,
+      "items": { "$ref": "#/$defs/disposition" }
+    },
+    "operations": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/operation" }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "portablePathBase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[. ](?:/|$))(?!.*(?:^|/)(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(?:\\.|/|$))(?!.*(?:^|/)(?:[.][Gg][Ii][Tt]|[.][Oo][Bb][Ss][Ii][Dd][Ii][Aa][Nn]|[.][Ss][Yy][Nn][Cc][Oo][Rr][Aa]|[Nn][Oo][Dd][Ee]_[Mm][Oo][Dd][Uu][Ll][Ee][Ss])(?:/|$))(?![.][Cc][Ll][Aa][Uu][Dd][Ee]/[Ww][Oo][Rr][Kk][Tt][Rr][Ee][Ee][Ss](?:/|$))(?!.*[\\\\<>:\"|?*\\u0000-\\u001F\\u007F-\\u009F\\u061C\\u200E\\u200F\\u2028-\\u202E\\u2066-\\u2069])[^/]{1,240}(?:/[^/]{1,240})*$"
+    },
+    "portableSourceMarkdownPath": {
+      "allOf": [
+        { "$ref": "#/$defs/portablePathBase" },
+        { "type": "string", "pattern": "\\.[Mm][Dd]$" }
+      ]
+    },
+    "portableTargetMarkdownPath": {
+      "allOf": [
+        { "$ref": "#/$defs/portablePathBase" },
+        { "type": "string", "pattern": "\\.md$" }
+      ]
+    },
+    "boundedIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "inventoryBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inventorySpecification",
+        "validationSpecification",
+        "reportSchemaVersion",
+        "policyRevision",
+        "rootIdentity",
+        "graphRevision"
+      ],
+      "properties": {
+        "inventorySpecification": { "const": "syncora-authority-inventory-v1" },
+        "validationSpecification": { "const": "syncora-validation-v1" },
+        "reportSchemaVersion": { "const": 1 },
+        "policyRevision": { "$ref": "#/$defs/sha256" },
+        "rootIdentity": { "$ref": "#/$defs/sha256" },
+        "graphRevision": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewedBy", "reviewedAt", "reason"],
+      "properties": {
+        "reviewedBy": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "reviewedAt": { "$ref": "#/$defs/date" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "expectedSha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portableSourceMarkdownPath" },
+        "expectedSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "expectedSha256", "disposition"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portableSourceMarkdownPath" },
+        "expectedSha256": { "$ref": "#/$defs/sha256" },
+        "disposition": {
+          "enum": ["promote-via-targets", "evidence-only", "defer"]
+        }
+      }
+    },
+    "relationList": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "expectedPriorSha256",
+        "id",
+        "kind",
+        "scope",
+        "state",
+        "authority",
+        "schemaVersion",
+        "created",
+        "updated",
+        "summary",
+        "decisionKey",
+        "supersedes",
+        "supersededBy",
+        "appliesTo"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/portableTargetMarkdownPath" },
+        "expectedPriorSha256": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }]
+        },
+        "id": { "$ref": "#/$defs/boundedIdentifier" },
+        "kind": {
+          "enum": ["atlas", "project", "decision", "concept", "reference", "session", "inbox"]
+        },
+        "scope": { "$ref": "#/$defs/boundedIdentifier" },
+        "state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "authority": {
+          "enum": ["canonical", "supporting", "historical", "transient"]
+        },
+        "schemaVersion": { "const": 1 },
+        "created": { "$ref": "#/$defs/date" },
+        "updated": { "$ref": "#/$defs/date" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "decisionKey": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/boundedIdentifier" }]
+        },
+        "supersedes": { "$ref": "#/$defs/relationList" },
+        "supersededBy": { "$ref": "#/$defs/relationList" },
+        "appliesTo": { "$ref": "#/$defs/relationList" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "decision" } }, "required": ["kind"] },
+          "then": { "properties": { "decisionKey": { "$ref": "#/$defs/boundedIdentifier" } } },
+          "else": { "properties": { "decisionKey": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["atlas", "project", "decision", "concept"] } },
+            "required": ["kind"]
+          },
+          "then": { "properties": { "authority": { "const": "canonical" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "reference" } }, "required": ["kind"] },
+          "then": { "properties": { "authority": { "const": "supporting" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "session" } }, "required": ["kind"] },
+          "then": { "properties": { "authority": { "const": "historical" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "inbox" } }, "required": ["kind"] },
+          "then": { "properties": { "authority": { "const": "transient" } } }
+        }
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "sources", "target"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/boundedIdentifier" },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceReference" }
+        },
+        "target": { "$ref": "#/$defs/target" }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Syncora"
+  short_description: "Route durable project context safely"
+  default_prompt: "Use $syncora for an explicit Syncora operation, or for relevant project work only when this workspace is already initialized with Syncora."
+policy:
+  allow_implicit_invocation: true

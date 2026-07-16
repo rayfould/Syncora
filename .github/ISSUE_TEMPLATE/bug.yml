@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible Syncora failure in a disposable workspace
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not disclose security vulnerabilities here. Use the private advisory link in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Syncora version or commit
+      placeholder: 0.1.0-preview.1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Agent, operating system, and Node version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Use a disposable workspace and remove private content.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

@@ -1,0 +1,61 @@
+name: Syncora Skill
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: syncora-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        node:
+          - 22
+          - 24
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install the dependency-free development package
+        run: npm ci --ignore-scripts
+      - name: Run release, syntax, and runtime checks
+        run: npm run check
+
+  installer-smoke:
+    name: Skills CLI installer smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SKILLS_CLI_VERSION: "1.5.18"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install the dependency-free development package
+        run: npm ci --ignore-scripts
+      - name: Install through the pinned Skills CLI
+        run: npm run smoke:install

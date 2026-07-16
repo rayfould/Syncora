@@ -1,0 +1,2 @@
+# Normalize repository text to LF across operating systems.
+* text=auto eol=lf

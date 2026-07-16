@@ -1,0 +1,27 @@
+{
+  "name": "syncora",
+  "version": "0.1.0-preview.1",
+  "private": true,
+  "description": "Local-first Agent Skill for durable, bounded project context.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rayfould/Syncora.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rayfould/Syncora/issues"
+  },
+  "homepage": "https://github.com/rayfould/Syncora#readme",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "test": "npm run check",
+    "test:skill": "node --test --test-concurrency=1 tests/syncora/*.test.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "check:syntax": "node scripts/check-runtime-syntax.mjs",
+    "check": "npm run check:release && npm run check:syntax && npm run test:skill",
+    "smoke:install": "node scripts/smoke-skills-install.mjs"
+  }
+}

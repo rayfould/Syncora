@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "graphRoot": "local",
+  "agentPatching": {
+    "enabled": true
+  },
+  "maintenance": {
+    "mode": "hybrid",
+    "fullValidationEveryActivations": 50,
+    "fullValidationMaxAgeHours": 168
+  },
+  "context": {
+    "defaultBudget": "standard",
+    "characterBudgets": {
+      "lean": 4800,
+      "standard": 12000,
+      "deep": 32000
+    }
+  }
+}

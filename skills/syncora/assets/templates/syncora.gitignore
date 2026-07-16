@@ -1,0 +1,8 @@
+cache/
+locks/
+local.json
+operations/
+proposals/
+snapshots/
+state.json
+checkpoint-state.json
