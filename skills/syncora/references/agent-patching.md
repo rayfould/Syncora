@@ -52,3 +52,24 @@ Hook v2 adds relevance-gated activation. An exact tracked v1 hook retains its
 original pre-Syncora snapshot. A diverged or untracked v1 hook refreshes its
 baseline from current user-owned bytes with only the old marker removed, so a
 later unpatch cannot erase intervening edits.
+
+## Legacy-workflow cutover
+
+`patch-agents` adds or upgrades Syncora-owned markers; it is not authority to
+remove an unrelated broad knowledge-graph workflow. Existing-graph adoption
+uses `migrate --phase cutover` after manifest staging and a passing shadow
+comparison. By default that phase requires the exact delimited predecessor
+workflow, replaces it with hook v2, and records a predecessor-free restoration
+baseline in the migration recovery journal. It preserves unrelated bytes, BOM,
+and newline style.
+
+A custom, unmarked, malformed, or concurrently changed predecessor workflow
+fails the cutover gate by default. Inspect all active Codex, Cursor, and Claude
+instruction surfaces and remove any custom predecessor activation explicitly.
+Only then may the user pass `--confirm-predecessor-reviewed` to attest that no
+exact marker remains. The flag does not find or delete custom instructions.
+Later `unpatch-agents` cannot reactivate the retired predecessor block.
+
+Migration rollback is broader than ordinary unpatching: it restores the exact
+pre-cutover agent bytes together with graph and runtime bytes. See
+[legacy-adoption.md](legacy-adoption.md).

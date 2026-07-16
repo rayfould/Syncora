@@ -65,7 +65,8 @@ async function mapConcurrent(items, concurrency, mapper) {
 export function graphRevision(notes) {
   const hash = createHash("sha256");
   hash.update("syncora-graph-revision-v1\n");
-  for (const note of notes) {
+  for (const note of [...notes].sort((left, right) =>
+    portableCompare(left.path, right.path))) {
     hash.update(note.path, "utf8");
     hash.update("\0");
     hash.update(note.rawSha256 ?? "unreadable", "utf8");

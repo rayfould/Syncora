@@ -8,10 +8,11 @@ keeps plain Markdown as the source of truth while helping Codex, Cursor, and
 Claude load the right project knowledge without pulling an entire knowledge
 graph into every conversation.
 
-> **Development preview — `v0.1.0-preview.1`.** The bootstrap, validation,
-> search, checkpoint, migration-inventory, and reversible agent-patching
-> surfaces are usable today. Budgeted context compilation, governed capture,
-> manifest application, and drift detection are still under development.
+> **Development preview.** The latest public tag is `v0.1.0-preview.1`; current
+> source adds a reviewed, reversible legacy-adoption lifecycle for the next
+> preview. Bootstrap, validation, search, checkpoint, and reversible
+> agent-patching are also usable. General context compilation remains under
+> development. Governed capture and drift detection are too.
 
 ## Why Syncora
 
@@ -44,8 +45,8 @@ npx skills add rayfould/Syncora --skill syncora --global --agent codex --agent c
 Or omit `--global` to install into the current project. If your environment
 cannot create shared links, add `--copy`.
 
-Installation is inert: it only installs the skill. To initialize a workspace,
-ask your agent:
+Installation is inert: it only installs the skill. For a new workspace without
+an existing knowledge graph or predecessor agent workflow, ask your agent:
 
 ```text
 Use $syncora to initialize this workspace.
@@ -55,7 +56,18 @@ Syncora previews its plan, asks before project mutation, and patches supported
 project-level agent instruction files by default. Agent patching is reversible
 and can be disabled during initialization.
 
-## What the preview can do
+For a workspace that already has Markdown knowledge or a predecessor workflow,
+do **not** initialize over it. Ask:
+
+```text
+Use $syncora to adopt this existing knowledge graph with the reversible migration workflow.
+```
+
+Adoption inventories authority, stages exact reviewed v2 targets, shadow-tests
+bounded fixtures, then gates cutover, verification, retirement, and rollback.
+See [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
+
+## What current source can do
 
 - diagnose workspace and graph preconditions;
 - initialize a hub-first Markdown knowledge graph;
@@ -64,11 +76,17 @@ and can be disabled during initialization.
 - search with bounded deterministic output;
 - inspect backlinks without granting authority;
 - run foreground checkpoint decisions and maintain bounded local state;
-- inventory legacy Markdown in a dry-run, zero-authority migration phase.
+- inventory legacy Markdown in a dry-run, zero-authority migration phase;
+- stage a reviewed v2 promotion manifest and exact target Markdown;
+- shadow-test the proposed authority graph before canonical mutation;
+- cut over, verify, retire predecessor activation, or restore exact
+  pre-cutover bytes through a journaled migration lifecycle.
 
-It does **not** yet compile full task context packs, accept or apply promotion
-manifests, govern canonical writes, or perform changed-file drift detection.
-The [release status](docs/release-status.md) tracks this boundary explicitly.
+It does **not** yet compile general task context packs, provide governed capture,
+or perform changed-file drift detection. The adoption-only
+shadow compiler and migration transaction do not imply those general
+capabilities. The [release status](docs/release-status.md) tracks this boundary
+explicitly.
 
 ## Direct runtime use
 
@@ -80,6 +98,7 @@ node <installed-syncora-skill>/scripts/syncora.mjs --help
 node <installed-syncora-skill>/scripts/syncora.mjs doctor --workspace /absolute/path/to/project
 node <installed-syncora-skill>/scripts/syncora.mjs init --workspace /absolute/path/to/project --dry-run
 node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
+node <installed-syncora-skill>/scripts/syncora.mjs migrate --help
 ```
 
 Use an absolute workspace path for every mutating command. See the
@@ -99,6 +118,7 @@ npx skills remove syncora --global --agent '*' --yes
 ```
 
 Removing the skill never deletes a workspace's canonical `local/` Markdown.
+Resolve or intentionally retain any migration recovery journal before removal.
 See [upgrade and uninstall](docs/upgrade-and-uninstall.md) for details.
 
 ## Safety model
@@ -121,6 +141,12 @@ To exercise the real Skills CLI installer in a disposable workspace:
 
 ```bash
 npm run smoke:install
+```
+
+To exercise the complete installed-copy legacy-adoption lifecycle:
+
+```bash
+npm run smoke:adoption
 ```
 
 The runtime has no third-party production dependencies. Contributions should

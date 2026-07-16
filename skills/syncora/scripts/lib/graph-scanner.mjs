@@ -50,6 +50,12 @@ function checkpointStatIdentity(metadata) {
 function skipDirectory(relativePath, name) {
   if (SKIPPED_DIRECTORIES.has(name.toLowerCase())) return true;
   const normalized = relativePath.toLowerCase();
+  if (
+    normalized === "archive/migrations" ||
+    normalized.startsWith("archive/migrations/")
+  ) {
+    return true;
+  }
   return normalized === ".claude/worktrees" || normalized.startsWith(".claude/worktrees/");
 }
 

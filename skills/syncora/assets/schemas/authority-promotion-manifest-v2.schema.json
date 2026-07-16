@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://syncora.dev/schemas/authority-promotion-manifest-v1.schema.json",
-  "title": "Syncora reviewed authority promotion manifest v1",
-  "description": "A human-reviewed semantic mapping from an immutable authority inventory snapshot. It is not itself a write transaction.",
+  "$id": "https://syncora.dev/schemas/authority-promotion-manifest-v2.schema.json",
+  "title": "Syncora actionable authority promotion manifest v2",
+  "description": "A reviewed semantic mapping that also binds exact staged target bytes and structured source provenance.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
     "operations"
   ],
   "properties": {
-    "manifestSchemaVersion": { "const": 1 },
+    "manifestSchemaVersion": { "const": 2 },
     "kind": { "const": "syncora.authority-promotion" },
     "status": { "const": "reviewed" },
     "source": { "$ref": "#/$defs/inventoryBinding" },
@@ -140,7 +140,9 @@
         "decisionKey",
         "supersedes",
         "supersededBy",
-        "appliesTo"
+        "appliesTo",
+        "contentSha256",
+        "sourceRefs"
       ],
       "properties": {
         "path": { "$ref": "#/$defs/portableTargetMarkdownPath" },
@@ -152,7 +154,7 @@
           "enum": ["atlas", "project", "decision", "concept", "reference", "session", "inbox"]
         },
         "scope": { "$ref": "#/$defs/boundedIdentifier" },
-        "state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "state": { "$ref": "#/$defs/boundedIdentifier" },
         "authority": {
           "enum": ["canonical", "supporting", "historical", "transient"]
         },
@@ -165,7 +167,15 @@
         },
         "supersedes": { "$ref": "#/$defs/relationList" },
         "supersededBy": { "$ref": "#/$defs/relationList" },
-        "appliesTo": { "$ref": "#/$defs/relationList" }
+        "appliesTo": { "$ref": "#/$defs/relationList" },
+        "contentSha256": { "$ref": "#/$defs/sha256" },
+        "sourceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceReference" }
+        }
       },
       "allOf": [
         {

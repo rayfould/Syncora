@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { AUTHORITY_SEMANTICS } from "./authority-validator.mjs";
 import { stringifyJson, SyncoraError } from "./cli.mjs";
+import { NOTE_SCHEMA_SEMANTICS } from "./note-parser.mjs";
 import {
   inspectWorkspace,
   VALIDATION_POLICY,
@@ -37,6 +39,8 @@ export function authorityPolicyRevision() {
     JSON.stringify({
       validationSpecification: VALIDATION_SPECIFICATION,
       validation: VALIDATION_POLICY,
+      noteSchemaSemantics: NOTE_SCHEMA_SEMANTICS,
+      authoritySemantics: AUTHORITY_SEMANTICS,
       inventory: AUTHORITY_INVENTORY_POLICY,
     }),
   );
@@ -250,7 +254,8 @@ function resolveStart(queue, cursorToken, bindings) {
   return cursor.position + 1;
 }
 
-async function verifyStableInspection(options, inspection, hooks) {
+export async function verifyAuthoritySnapshot(options, snapshot, hooks = {}) {
+  const inspection = snapshot.inspection ?? snapshot;
   await hooks.beforeFinalInspection?.({ inspection });
   let verified;
   try {
@@ -328,7 +333,7 @@ function reportFor({
       sourceMutation: "none",
       ordering: "portable-path-ascending",
       approvedManifest: false,
-      manifestAcceptance: "unimplemented",
+      manifestAcceptance: "reviewed-v2-stage-gated",
       promotionOperations: 0,
       maxReportBytes: AUTHORITY_INVENTORY_POLICY.maxReportBytes,
     },
@@ -366,7 +371,7 @@ function serializedBytes(report) {
   return Buffer.byteLength(`${stringifyJson(report)}\n`, "utf8");
 }
 
-export async function inventoryAuthority(options, hooks = {}) {
+export async function inspectAuthoritySnapshot(options) {
   const inspection = await inspectWorkspace(options);
   assertCompleteRead(inspection);
 
@@ -376,6 +381,12 @@ export async function inventoryAuthority(options, hooks = {}) {
     policyRevision: authorityPolicyRevision(),
     rootIdentity: authorityRootIdentity(inspection.graph.resolvedGraphPath),
   };
+  return { inspection, queue, bindings };
+}
+
+export async function inventoryAuthority(options, hooks = {}) {
+  const snapshot = await inspectAuthoritySnapshot(options);
+  const { inspection, queue, bindings } = snapshot;
   const start = resolveStart(queue, options.cursor, bindings);
 
   const available = queue.slice(start, start + options.limit);
@@ -423,6 +434,6 @@ export async function inventoryAuthority(options, hooks = {}) {
       { maxReportBytes: AUTHORITY_INVENTORY_POLICY.maxReportBytes },
     );
   }
-  await verifyStableInspection(options, inspection, hooks);
+  await verifyAuthoritySnapshot(options, snapshot, hooks);
   return report;
 }

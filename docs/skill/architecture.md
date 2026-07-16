@@ -80,9 +80,12 @@ with overlapping descriptions.
 
 ### 5.2 Markdown owns truth
 
-Canonical knowledge lives under `local/`. Runtime state lives under
-`.syncora/`. Search indexes, compiled packs, locks, findings, and proposals are
-derived and can be rebuilt or discarded.
+Canonical knowledge lives under `local/`. Workspace runtime state lives under
+`.syncora/`; graph-scoped migration state and recovery evidence live under the
+resolved graph root at `local/.syncora/migrations/`. Search indexes, compiled
+packs, locks, findings, and proposals are derived. Migration evidence is also
+noncanonical, but must be retained while a transaction or rollback horizon is
+active.
 
 ### 5.3 Deterministic kernel, agent-mediated interpretation
 
@@ -508,6 +511,14 @@ surrounding file diverged before upgrade, the patcher refreshes the reversible
 baseline from current user-owned bytes with only the old marker removed, so a
 later unpatch cannot erase intervening user edits.
 
+Legacy adoption does not use ordinary patching to append hook v2 beside a broad
+predecessor workflow. The migration cutover atomically replaces an exact
+predecessor marker and records a predecessor-free unpatch baseline. When no
+exact marker remains, cutover fails closed unless the user has inspected every
+active agent instruction surface, removed custom predecessor activation, and
+explicitly attests that review with `--confirm-predecessor-reviewed`. The flag
+does not discover or delete custom instructions.
+
 Unpatching removes only Syncora-owned marker content. It deletes a
 Syncora-created instruction file only when recorded hashes prove the entire file
 is still Syncora-owned.
@@ -552,12 +563,23 @@ works non-interactively. Checkpoint mutates only bounded derived state and does
 not expose `--dry-run`. No command may infer a mutation target from the
 installed skill directory.
 
-The first implemented `migrate` surface is intentionally narrower than the
-eventual command: `migrate --phase authority --dry-run` emits a bounded,
-zero-authority source inventory. It is not a promotion manifest and cannot
-apply changes. A reviewed promotion manifest is a separate artifact bound to
-the inventory policy, resolved graph identity, graph revision, and exact source
-hashes.
+The implemented existing-graph adoption command family is:
+
+```text
+syncora migrate --phase authority --dry-run
+syncora migrate --phase stage --migration-id ID --manifest ABS --staged-content ABS_DIR [--dry-run]
+syncora migrate --phase shadow --migration-id ID --fixtures ABS [--dry-run]
+syncora migrate --phase cutover --migration-id ID [--confirm-predecessor-reviewed] [--dry-run]
+syncora migrate --phase verify --migration-id ID [--dry-run]
+syncora migrate --phase retire --migration-id ID [--dry-run]
+syncora migrate --phase rollback --migration-id ID [--dry-run]
+syncora migrate --phase status --migration-id ID
+```
+
+Authority inventory is bounded and zero-authority. Only a human-reviewed v2
+promotion manifest with exact staged target content is actionable. Cutover
+requires a recorded passing shadow comparison. Status is read-only; retirement
+preserves notes and rollback evidence.
 
 ## 16. Semantic validation
 
@@ -602,9 +624,22 @@ The runtime defines stable error codes, including:
 | `LOCK001` / `LOCK002` | Runtime locks are safe, owned, and bounded in wait time |
 | `CHECKPOINT001`-`CHECKPOINT009` | Foreground phase, identity, reservation, and publication invariants hold |
 | `PATCH005` | Agent patch transactions are serialized by the workspace lock |
-| `MIGRATE001` | Only an explicitly supported dry-run migration phase may execute |
+| `MIGRATE001` | Migration phase and required dry-run rules are valid |
 | `MIGRATE002` | Migration cursors must match graph, policy, revision, and position |
 | `MIGRATE003` | Migration inventory output remains within its hard byte budget |
+| `MIGRATE004` | Migration state, paths, and artifacts satisfy strict schemas and identity bounds |
+| `MIGRATE005` | Stored workspace, graph, manifest, source, and target bindings remain current |
+| `MIGRATE006` | The requested migration state transition and prerequisite gate are valid |
+| `MIGRATE007` | Graph-scoped migration lock ownership and wait bounds hold |
+| `MIGRATE008` | Recovery journals and exact before/after records remain valid |
+| `MIGRATE009` | Transaction publication or restoration sees no concurrent byte conflict |
+| `MIGRATE010` | Actionable v2 manifest and staged target content satisfy the stage contract |
+| `MIGRATE011` | Shadow fixtures and virtual staged-graph inputs satisfy their bounded contract |
+| `MIGRATE012` | A recorded passing shadow report exists before cutover |
+| `MIGRATE013` | Cutover graph, target bytes, runtime, and agent activation match their receipt |
+| `MIGRATE014` | Retirement retains every legacy source live or in recovery |
+| `MIGRATE015` | Greenfield init cannot modify existing knowledge or predecessor activation |
+| `CONTEXT001` | Adoption shadow compilation preserves required identity, provenance, and budget invariants |
 | `MANIFEST001` | Reviewed promotion manifests satisfy their declared schema |
 | `MANIFEST002` | Manifest graph, source, and target concurrency bindings match |
 | `MANIFEST003` | Review dispositions and authority assignments are complete and valid |
@@ -628,21 +663,21 @@ These controls mitigate prompt injection; they do not claim to eliminate it.
 
 ## 18. Legacy migration
 
-Migration is additive and reversible:
+Migration is note-preserving, foreground-only, and reversible:
 
-1. record the workspace and graph repository baselines;
-2. inventory note encodings, schemas, sizes, links, and malformed content;
-3. export any unique state from predecessor systems in read-only mode;
-4. treat every legacy note as noncanonical until explicitly promoted;
-5. identify candidate project scopes and current hubs;
-6. split independently changeable decisions;
-7. mark session and log material historical;
-8. create one proposed hub per scope;
-9. detect duplicate accepted decisions and unresolved conflicts;
-10. compile comparison packs in a read-only shadow runtime;
-11. preserve original bytes until the user accepts the migrated authority
-    model;
-12. only then exclude legacy mega-documents from normal retrieval.
+1. `authority` inventories exact source bytes without assigning authority;
+2. human review records one disposition per review-required source in an
+   actionable v2 manifest and supplies exact staged target Markdown;
+3. `stage` revalidates the complete source snapshot, prior targets, target
+   schema, relations, provenance, and virtual authority graph;
+4. `shadow` compiles bounded comparison fixtures against the virtual graph;
+5. `cutover` rechecks every binding and publishes only declared targets,
+   runtime initialization, and agent activation through one recovery journal;
+6. `verify` proves the active bytes still match the cutover receipt;
+7. `retire` proves all legacy sources remain live or recoverable, then records
+   predecessor activation as retired without deleting notes;
+8. `rollback` restores exact pre-cutover graph, runtime, and agent bytes after
+   an interrupted or applied cutover, verification, or retirement.
 
 Inventory and approval are separate. The generated inventory contains exactly
 one metadata-only row per discovered Markdown path, zero proposed targets, and
@@ -651,18 +686,23 @@ their opaque cursor to the inventory policy, resolved graph identity, graph
 revision, and checksummed last-row position, path, and source hash. A second
 full inspection must match before a page is published.
 
-The reviewed promotion manifest assigns explicit dispositions and semantic
+The reviewed v2 promotion manifest assigns explicit dispositions and semantic
 targets. Each promotion operation has one or more exact source path/hash pairs
 and exactly one explicit target. Multiple sources support merge; a source may
 participate in several one-target operations to support split. Target paths are
-unique. Missing kind, scope, state, authority, decision identity, or relation
-values are errors, never inference opportunities. The reviewed manifest is not
-itself a write transaction.
+unique. Missing kind, scope, state, authority, decision identity, relation,
+provenance, or target-body hash values are errors, never inference
+opportunities. Schema v1 remains a valid non-actionable review artifact.
 
-Before application, a separate proposed transaction binds the exact target
-bytes (or reviewed staged-content hashes), prior target hashes, and recovery
-snapshot. This is mandatory for split and merge because semantic target
-metadata alone cannot determine Markdown content.
+Exact target bodies live in a separate absolute staged-content directory. Stage
+requires their frontmatter to equal the manifest, body hashes to equal
+`contentSha256`, and canonical source references to equal structured source
+path/hash pairs. It copies reviewed manifest and content-addressed target bytes
+into graph-local migration storage without mutating canonical notes.
+
+The shadow compiler is migration-specific, not the general task context
+compiler. Its strict fixtures name required, evidence, and forbidden IDs and a
+hard character budget. All cases must pass before cutover.
 
 Legacy authority must not be inferred from status strings, recency, filename,
 link count, or prominence in a current-state log. Missing decision keys and
@@ -674,15 +714,19 @@ link counts are quarantined from normal packs without deletion. They remain
 available as migration evidence.
 
 A graph may live outside the workspace through a symlink or junction. Shared
-mutation locks, recovery journals, and byte snapshots must therefore be keyed
-by graph identity and resolved graph real path and must live on the same
-filesystem as the graph. Workspace-local locks cannot coordinate multiple
-worktrees that share an external graph.
+migration locks, state, recovery journals, and byte snapshots are therefore
+keyed by graph identity and resolved graph real path and live below
+`local/.syncora/migrations/<migration-id>/`. Graph and workspace locks use one
+defined acquisition order so multiple worktrees cannot publish against a
+shared external graph concurrently.
 
 A pre-existing broad agent workflow may require excessive operational-file
 reads. Appending a new hook does not constitute a context-efficiency cutover.
-The predecessor marker must be replaced through an explicit migration operation
-after the shadow compiler and authority model pass their gates.
+After stage and shadow pass, cutover replaces the exact predecessor marker and
+retains both pre-cutover agent bytes and a predecessor-free future-unpatch
+baseline. Without an exact marker, default cutover fails closed. A user may
+attest `--confirm-predecessor-reviewed` only after inspecting every active agent
+instruction surface and explicitly removing custom predecessor activation.
 
 Recursive indexing must exclude agent-created worktrees such as
 `.claude/worktrees/`.
@@ -690,7 +734,12 @@ Recursive indexing must exclude agent-created worktrees such as
 Predecessor systems cannot be retired until read-only reconciliation proves
 that no unique canonical state exists only in those systems. An unavailable
 source is an unresolved migration gate, not evidence that there is nothing to
-preserve.
+preserve. Runtime retirement also re-verifies cutover and proves every reviewed
+legacy source is still live or, when a target replaced its path, present
+byte-for-byte in both `archive/migrations/<migration-id>/` and exact recovery
+evidence. The archive subtree is excluded from active routing, authority, and
+context compilation. Retirement does not delete source notes, staged evidence,
+or rollback material.
 
 ## 19. Versioning and compatibility
 
@@ -716,6 +765,20 @@ The first stable release must prove:
 - patching and unpatching preserve unrelated bytes, BOM, and newline style;
 - malformed markers stop before any write;
 - external graph roots require an exact allowlist;
+- greenfield initialization refuses existing graph content or predecessor
+  activation and routes it to adoption;
+- only reviewed, snapshot-bound v2 manifests and exact staged target bytes can
+  enter migration state;
+- stale sources, prior targets, artifacts, or graph/workspace identities stop
+  before cutover publication;
+- every shadow fixture passes its required, evidence, forbidden, provenance,
+  and hard-budget checks before cutover;
+- migration cutover either replaces an exact predecessor marker or requires a
+  user attestation after all active agent instructions were reviewed and custom
+  predecessor activation removed;
+- verification and retirement preserve every legacy source live or in exact
+  recovery, and rollback after retirement restores pre-cutover graph, runtime,
+  and agent bytes;
 - a 72,000-character current-state document cannot overflow a standard pack;
 - ten thousand session notes do not flood normal retrieval;
 - mandatory overflow fails visibly;

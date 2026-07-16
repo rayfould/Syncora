@@ -1,7 +1,7 @@
 # Syncora Activation Evaluation
 
 Status: Preview semantic acceptance fixture
-Applies to: `0.1.0-preview.1`
+Applies to: current source after `0.1.0-preview.1`
 Updated: 2026-07-16
 
 This matrix tests routing independently of graph contents. It is a semantic
@@ -11,7 +11,8 @@ same installed skill and project hook.
 | Request shape | Pre route | Direct operation or context | Post |
 |---|---|---|---|
 | Ordinary project work in an uninitialized workspace | `none` | Normal host behavior; do not create Syncora state | Never |
-| Explicit Syncora initialization or adoption in an uninitialized workspace | Direct `maintenance` | Run the authorized `init` lifecycle | Operation-owned lifecycle |
+| Explicit greenfield initialization in an uninitialized workspace | Direct `maintenance` | Run the authorized `init` lifecycle; refuse existing knowledge or predecessor instructions | Operation-owned lifecycle |
+| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Run the reviewed `migrate` authority, stage, shadow, cutover, verify, and retire lifecycle; never run `init` first | Operation-owned lifecycle |
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
@@ -29,6 +30,9 @@ same installed skill and project hook.
   load.
 - A global installation does not activate implicit project routes until a
   project-local `.syncora/config.json` confirms initialization.
+- Explicit adoption may run before that config exists. Successful cutover
+  creates or enables it; inventory, stage, and shadow do not make implicit
+  routes available.
 - Uncertainty selects `checkpoint`, never recursive graph loading.
 - One active request publishes at most one preflight and one activation-sequence
   increment.
@@ -43,6 +47,11 @@ same installed skill and project hook.
   false durability claim.
 - Direct maintenance commands use their own lifecycle. Compound prompts retain
   every required clause rather than applying a lossy total precedence rule.
+- Legacy cutover requires a reviewed v2 manifest, exact staged content, a
+  passing recorded shadow report, and user-authorized publication. Missing
+  exact predecessor markers fail closed unless the user has inspected all
+  active agent instruction surfaces, removed custom predecessor activation,
+  and explicitly passes `--confirm-predecessor-reviewed`.
 - Missing `context` or governed `capture` remains an explicit capability gap in
   this development preview.
 

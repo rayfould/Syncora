@@ -62,8 +62,15 @@ a missing capability when the user's requested outcome depends on it.
   count never grants authority.
 - Use `search --query <text>` for bounded lexical candidates. Ranking never
   resolves identity or grants authority.
-- Use `migrate --phase authority --dry-run` only for legacy migration review;
-  its inventory has zero selection authority.
+- Use `init` for greenfield bootstrap or an idempotent rerun in a workspace it
+  already initialized. If pre-Syncora knowledge or a predecessor workflow
+  exists, use the reviewed, reversible migration lifecycle in
+  [legacy-adoption.md](references/legacy-adoption.md); greenfield `init` refuses
+  that case.
+- Use `migrate --phase authority --dry-run` for the zero-authority legacy
+  inventory, then `stage`, `shadow`, `cutover`, `verify`, and `retire` only
+  against reviewed artifacts. Use `status` to inspect the lifecycle and
+  `rollback` to restore the exact pre-cutover graph, runtime, and agent bytes.
 - Run `init`, `patch-agents`, or `unpatch-agents` only with user authorization.
 
 Require an absolute `--workspace` for every mutation. Never initialize, patch,
@@ -72,23 +79,25 @@ unpatch, delete knowledge, commit, or push merely because the skill triggered.
 ## Preview capability boundary
 
 This development preview implements bootstrap diagnostics, strict read-only
-graph validation, deterministic link resolution and backlinks, initialization,
-rebuildable lexical search, a bounded read-only authority migration inventory,
-foreground checkpoint orchestration, and reversible agent patching. Validation
-classifies legacy notes as unpromoted and quarantines unsafe inputs. The
-inventory does not infer target authority or approve a reviewed manifest.
-Manifest acceptance/application, context compilation, governed capture, and
-drift checks remain later milestones.
+graph validation, deterministic link resolution and backlinks, greenfield
+initialization, rebuildable lexical search, foreground checkpoint
+orchestration, reversible agent patching, and a full reviewed legacy-adoption
+lifecycle. Migration stages exact v2 manifest targets, shadow-compares bounded
+fixtures, applies a journaled cutover, verifies it, retires predecessor
+activation without deleting notes, and retains exact rollback evidence.
+General task context compilation, governed capture, and drift checks remain
+later milestones.
 
 ## Load only the relevant reference
 
-- Initialization or adoption: [initialize.md](references/initialize.md)
+- Greenfield initialization: [initialize.md](references/initialize.md)
+- Existing-graph adoption and rollback: [legacy-adoption.md](references/legacy-adoption.md)
 - Activation routing: [activation-policy.md](references/activation-policy.md)
 - Foreground checkpoint lifecycle: [checkpoint.md](references/checkpoint.md)
 - Graph inventory or validation: [validate.md](references/validate.md)
 - Link resolution or backlinks: [backlinks.md](references/backlinks.md)
 - Lexical search or cache behavior: [search.md](references/search.md)
-- Legacy authority inventory and reviewed-manifest contract: [migrate.md](references/migrate.md)
+- Legacy inventory and manifest authoring: [migrate.md](references/migrate.md)
 - Agent patching or unpatching: [agent-patching.md](references/agent-patching.md)
 - Initial graph structure: [graph-schema.md](references/graph-schema.md)
 - Trust boundaries or external graph roots: [security-model.md](references/security-model.md)

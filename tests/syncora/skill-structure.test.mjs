@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = join(testDirectory, "..", "..");
 const skillRoot = join(testDirectory, "..", "..", "skills", "syncora");
 
 test("skill frontmatter and progressive references are self-contained", async () => {
@@ -23,6 +24,7 @@ test("skill frontmatter and progressive references are self-contained", async ()
     ...skill.matchAll(/\]\((references\/[^)]+\.md)\)/g),
   ].map((match) => match[1]);
   assert.ok(references.length >= 3);
+  assert.ok(references.includes("references/legacy-adoption.md"));
   for (const reference of references) {
     await access(join(skillRoot, ...reference.split("/")));
   }
@@ -108,4 +110,35 @@ test("optional OpenAI metadata stays presentation-only", async () => {
   assert.match(metadata, /display_name: "Syncora"/);
   assert.match(metadata, /default_prompt: "Use \$syncora/);
   assert.doesNotMatch(metadata, /dependencies:/);
+});
+
+test("legacy adoption documentation and release gates stay bundled", async () => {
+  await access(join(repositoryRoot, "docs", "legacy-kg-adoption.md"));
+  await access(
+    join(skillRoot, "assets", "schemas", "authority-promotion-manifest-v2.schema.json"),
+  );
+  await access(join(skillRoot, "references", "legacy-adoption.md"));
+  await access(join(repositoryRoot, "scripts", "smoke-legacy-adoption.mjs"));
+
+  const packageJson = JSON.parse(
+    await readFile(join(repositoryRoot, "package.json"), "utf8"),
+  );
+  assert.equal(
+    packageJson.scripts["test:adoption"],
+    "node --test --test-concurrency=1 tests/syncora/adoption.test.mjs",
+  );
+  assert.equal(
+    packageJson.scripts["smoke:adoption"],
+    "node scripts/smoke-legacy-adoption.mjs",
+  );
+  assert.match(packageJson.scripts.check, /npm run test:skill/);
+  assert.doesNotMatch(packageJson.scripts.check, /npm run test:adoption/);
+
+  const workflow = await readFile(
+    join(repositoryRoot, ".github", "workflows", "syncora-skill.yml"),
+    "utf8",
+  );
+  assert.equal(workflow.match(/npm run check/g)?.length, 1);
+  assert.equal(workflow.match(/npm run smoke:adoption/g)?.length, 1);
+  assert.doesNotMatch(workflow, /npm run test:adoption/);
 });

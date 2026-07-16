@@ -33,6 +33,24 @@ const AUTHORITIES = new Set([
   "historical",
   "transient",
 ]);
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
+const UNSAFE_SCALAR_PATTERN =
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/;
+const RELATION_FIELDS = [
+  "supersedes",
+  "superseded_by",
+  "source_refs",
+  "applies_to",
+];
+
+export const NOTE_SCHEMA_SEMANTICS = Object.freeze({
+  specification: "syncora-note-schema-semantics-v1.1",
+  maxIdentifierCharacters: 200,
+  maxStateCharacters: 64,
+  maxSummaryCharacters: 1_000,
+  maxRelationItems: 256,
+  maxRelationCharacters: 4_096,
+});
 
 function finding(code, severity, message, path, options = {}) {
   return {
@@ -82,6 +100,92 @@ function firstHeading(body) {
 
 function valueIsString(data, key) {
   return typeof data[key] === "string" && data[key].trim() !== "";
+}
+
+function characterLength(value) {
+  return [...value].length;
+}
+
+function validBoundedIdentifier(value, maximumCharacters) {
+  return (
+    typeof value === "string" &&
+    characterLength(value) >= 1 &&
+    characterLength(value) <= maximumCharacters &&
+    IDENTIFIER_PATTERN.test(value)
+  );
+}
+
+function validDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1];
+}
+
+function addSchemaFinding(diagnostics, path, message, details = undefined) {
+  diagnostics.push(
+    finding("SCHEMA003", "error", message, path, {
+      ...(details === undefined ? {} : { details }),
+    }),
+  );
+}
+
+function validateRelationField(data, relationField, path, diagnostics) {
+  const value = data[relationField];
+  if (value === undefined) return true;
+  if (!Array.isArray(value)) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      `${relationField} must be a one-level list of strings.`,
+    );
+    return false;
+  }
+  if (value.length > NOTE_SCHEMA_SEMANTICS.maxRelationItems) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      `${relationField} exceeds the relation item limit.`,
+      {
+        items: value.length,
+        limit: NOTE_SCHEMA_SEMANTICS.maxRelationItems,
+      },
+    );
+    return false;
+  }
+
+  const seen = new Set();
+  for (const item of value) {
+    if (
+      typeof item !== "string" ||
+      item.trim() === "" ||
+      characterLength(item) > NOTE_SCHEMA_SEMANTICS.maxRelationCharacters ||
+      UNSAFE_SCALAR_PATTERN.test(item)
+    ) {
+      addSchemaFinding(
+        diagnostics,
+        path,
+        `${relationField} contains an invalid or excessive relation value.`,
+      );
+      return false;
+    }
+    const identity = item.normalize("NFC");
+    if (seen.has(identity)) {
+      addSchemaFinding(
+        diagnostics,
+        path,
+        `${relationField} contains a duplicate relation value.`,
+      );
+      return false;
+    }
+    seen.add(identity);
+  }
+  return true;
 }
 
 function classifySchema(frontmatter, path, diagnostics) {
@@ -153,22 +257,110 @@ function classifySchema(frontmatter, path, diagnostics) {
     return { status: "invalid", current: false };
   }
 
-  for (const relationField of ["supersedes", "superseded_by", "source_refs", "applies_to"]) {
-    const value = frontmatter.data[relationField];
-    if (value !== undefined && (!Array.isArray(value) || value.some((item) => typeof item !== "string"))) {
-      diagnostics.push(
-        finding(
-          "SCHEMA003",
-          "error",
-          `${relationField} must be a one-level list of strings.`,
-          path,
-        ),
+  for (const key of ["id", "scope"]) {
+    if (
+      !validBoundedIdentifier(
+        frontmatter.data[key],
+        NOTE_SCHEMA_SEMANTICS.maxIdentifierCharacters,
+      )
+    ) {
+      addSchemaFinding(
+        diagnostics,
+        path,
+        `${key} must be a bounded portable identifier.`,
       );
-      return { status: "invalid", current: false };
     }
   }
+  if (
+    !validBoundedIdentifier(
+      frontmatter.data.state,
+      NOTE_SCHEMA_SEMANTICS.maxStateCharacters,
+    )
+  ) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "state must be a bounded portable identifier.",
+    );
+  }
+  if (
+    characterLength(frontmatter.data.summary) >
+      NOTE_SCHEMA_SEMANTICS.maxSummaryCharacters ||
+    UNSAFE_SCALAR_PATTERN.test(frontmatter.data.summary)
+  ) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "summary contains unsafe characters or exceeds its character limit.",
+      { limit: NOTE_SCHEMA_SEMANTICS.maxSummaryCharacters },
+    );
+  }
+  if (!validDate(frontmatter.data.created) || !validDate(frontmatter.data.updated)) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "created and updated must be real YYYY-MM-DD calendar dates.",
+    );
+  } else if (frontmatter.data.created > frontmatter.data.updated) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "updated cannot be earlier than created.",
+    );
+  }
 
-  return { status: "current", current: true };
+  if (frontmatter.data.kind === "decision") {
+    if (
+      !validBoundedIdentifier(
+        frontmatter.data.decision_key,
+        NOTE_SCHEMA_SEMANTICS.maxIdentifierCharacters,
+      )
+    ) {
+      addSchemaFinding(
+        diagnostics,
+        path,
+        "decision_key must be a bounded portable identifier.",
+      );
+    }
+  } else if (frontmatter.data.decision_key !== undefined) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "decision_key is only valid on decision notes.",
+    );
+  }
+
+  let relationsValid = true;
+  for (const relationField of RELATION_FIELDS) {
+    relationsValid =
+      validateRelationField(
+        frontmatter.data,
+        relationField,
+        path,
+        diagnostics,
+      ) && relationsValid;
+  }
+  if (
+    frontmatter.data.kind !== "decision" &&
+    ["supersedes", "superseded_by"].some(
+      (key) => (frontmatter.data[key]?.length ?? 0) > 0,
+    )
+  ) {
+    addSchemaFinding(
+      diagnostics,
+      path,
+      "Only decision notes may declare supersession relations.",
+    );
+  }
+
+  return {
+    status: diagnostics.some((item) => item.code === "SCHEMA003")
+      ? "invalid"
+      : "current",
+    current:
+      relationsValid &&
+      !diagnostics.some((item) => item.code === "SCHEMA003"),
+  };
 }
 
 function countNuls(buffer) {
@@ -250,7 +442,13 @@ export async function parseNote(file, graphRoot, policy, options = {}) {
 
   let buffer;
   try {
-    buffer = await readFile(file.absolutePath);
+    if (
+      options.preloadedBuffer !== undefined &&
+      !Buffer.isBuffer(options.preloadedBuffer)
+    ) {
+      throw new TypeError("Preloaded note bytes must be a Buffer.");
+    }
+    buffer = options.preloadedBuffer ?? await readFile(file.absolutePath);
     const after = await lstat(file.absolutePath);
     if (
       after.size !== before.size ||

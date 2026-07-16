@@ -71,8 +71,15 @@ function isDirectChild(parent, child) {
   );
 }
 
-async function readAtMost(handle, maximumBytes) {
-  const target = Buffer.alloc(maximumBytes + 1);
+async function readAtMost(handle, maximumBytes, expectedBytes = maximumBytes) {
+  if (
+    !Number.isSafeInteger(expectedBytes) ||
+    expectedBytes < 0 ||
+    expectedBytes > maximumBytes
+  ) {
+    throw new TypeError("Bounded-reader expected size is invalid.");
+  }
+  const target = Buffer.alloc(expectedBytes + 1);
   let offset = 0;
   while (offset < target.length) {
     const { bytesRead } = await handle.read(
@@ -309,6 +316,7 @@ export async function readBoundedRegularFileIfPresent(
     isolatedReaderProgram = undefined,
     readTimeoutMs = WINDOWS_SAFE_READ_TIMEOUT_MS,
     beforeHandleOpen = undefined,
+    isolateOnWindows = true,
   },
 ) {
   if (
@@ -357,8 +365,10 @@ export async function readBoundedRegularFileIfPresent(
 
   let handle;
   try {
+    const useIsolatedWindowsReader =
+      process.platform === "win32" && isolateOnWindows;
     let resolvedDirectoryBefore = containmentRoot;
-    if (process.platform !== "win32") {
+    if (!useIsolatedWindowsReader) {
       resolvedDirectoryBefore = await realpath(containmentRoot);
       if (!samePath(resolvedDirectoryBefore, containmentRoot)) {
         throw new SyncoraError(
@@ -386,7 +396,7 @@ export async function readBoundedRegularFileIfPresent(
     ) {
       throw changedWhileReading(code, label, path);
     }
-    if (process.platform !== "win32") {
+    if (!useIsolatedWindowsReader) {
       const resolvedDirectoryBeforeOpen = await realpath(containmentRoot);
       const resolvedPathBeforeOpen = await realpath(path);
       if (
@@ -400,7 +410,7 @@ export async function readBoundedRegularFileIfPresent(
     let openedAfter = before;
     let buffer;
     if (beforeHandleOpen) await beforeHandleOpen();
-    if (process.platform === "win32") {
+    if (useIsolatedWindowsReader) {
       const isolated = await readWindowsFileIsolated(path, maximumBytes, {
         code,
         label,
@@ -422,7 +432,11 @@ export async function readBoundedRegularFileIfPresent(
       ) {
         throw changedWhileReading(code, label, path);
       }
-      buffer = await readAtMost(handle, maximumBytes);
+      buffer = await readAtMost(
+        handle,
+        maximumBytes,
+        Number(openedBefore.size),
+      );
       openedAfter = await handle.stat({ bigint: true });
     }
     if (afterRead) await afterRead();
@@ -445,7 +459,7 @@ export async function readBoundedRegularFileIfPresent(
     ) {
       throw changedWhileReading(code, label, path);
     }
-    if (process.platform !== "win32") {
+    if (!useIsolatedWindowsReader) {
       const resolvedDirectoryAfter = await realpath(containmentRoot);
       if (!samePath(resolvedDirectoryBefore, resolvedDirectoryAfter)) {
         throw changedWhileReading(code, label, path);

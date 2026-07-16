@@ -1,7 +1,14 @@
-# Initialize a workspace
+# Initialize a greenfield workspace
 
 Use initialization only after the user has authorized workspace mutation.
 Installing the skill itself must remain inert.
+
+`init` is not an import or upgrade path. It may be rerun idempotently in a
+workspace Syncora already initialized. If an uninitialized workspace already
+contains knowledge under `local/`, or an agent file contains a predecessor
+knowledge graph workflow, stop and use
+[legacy-adoption.md](legacy-adoption.md). The runtime fails this case with
+`MIGRATE015` rather than mixing old and new authority.
 
 ## Preflight
 
@@ -9,8 +16,8 @@ Installing the skill itself must remain inert.
 2. Run `doctor` first for an existing workspace.
 3. If `local/` resolves outside the workspace through a symlink or junction,
    stop unless the user explicitly allowlists its exact resolved path.
-4. Use `--dry-run` when adopting a workspace with existing graph or agent
-   instruction files.
+4. Run `init --dry-run` and review every planned file. A legacy-graph finding
+   means this is not a greenfield initialization; switch to `migrate`.
 
 ## Command
 

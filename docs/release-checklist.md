@@ -13,7 +13,16 @@
 - [ ] `npm run check` passes on Node 22 and 24 across Linux, Windows, and macOS.
 - [ ] `npm run smoke:install` installs through the pinned Skills CLI into a
       disposable workspace and validates initialization and unpatching.
-- [ ] Install remains inert until the user explicitly initializes a workspace.
+- [ ] `npm run smoke:adoption` exercises the installed-copy stage, shadow,
+      cutover, verify, retire, and post-retirement rollback lifecycle.
+- [ ] Install remains inert until the user explicitly initializes a greenfield
+      workspace or starts legacy adoption.
+- [ ] Greenfield initialization refuses existing knowledge and routes it to the
+      adoption workflow.
+- [ ] Adoption documentation and runtime help agree on every phase, required
+      artifact, dry-run rule, reviewed-attestation option, and rollback state.
+- [ ] Cutover and retirement retain legacy source notes, and recovery evidence
+      restores exact pre-cutover graph, runtime, and agent bytes.
 - [ ] README and skill text label missing capabilities honestly.
 - [ ] The release tag is annotated and the GitHub release is marked prerelease.
 - [ ] A public-repository install with telemetry enabled has seeded skills.sh.
@@ -23,7 +32,8 @@
 - [ ] Budgeted context compilation preserves mandatory truth or fails visibly.
 - [ ] Governed proposals and canonical writes enforce optimistic concurrency,
       provenance, and recovery.
-- [ ] Promotion-manifest review and application are implemented and tested.
+- [ ] Reviewed v2 promotion staging and application reject incomplete,
+      semantically conflicting, stale, and concurrently changed artifacts.
 - [ ] Drift detection produces source-grounded stale findings without directly
       rewriting canonical knowledge.
 - [ ] Duplicate hubs, accepted decisions, and supersession cycles fail

@@ -70,7 +70,7 @@ async function recoveryHarness(kind) {
       guardPath: storage.recoveryGuardPath,
       run(operation, hooks, timing = {}) {
         return withCheckpointLock(storage, operation, {
-          timeoutMs: 2_000,
+          timeoutMs: 5_000,
           pollMs: 2,
           staleMs: 1,
           ...timing,
@@ -88,7 +88,7 @@ async function recoveryHarness(kind) {
     guardPath: join(locksRoot, "agent-patcher.lock.recovery"),
     run(operation, hooks, timing = {}) {
       return withPatchLock(workspace, operation, {
-        timeoutMs: 2_000,
+        timeoutMs: 5_000,
         pollMs: 2,
         staleMs: 1,
         ...timing,

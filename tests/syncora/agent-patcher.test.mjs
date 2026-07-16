@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   AGENT_FILE_MAX_BYTES,
+  planAgentMigrationCutover,
   planAgentPatch,
   verifyAgentPatchPlans,
 } from "../../skills/syncora/scripts/lib/agent-patcher.mjs";
@@ -36,12 +37,27 @@ const cli = join(
   "scripts",
   "syncora.mjs",
 );
+const sharedHookPath = join(
+  testDirectory,
+  "..",
+  "..",
+  "skills",
+  "syncora",
+  "assets",
+  "agent-hooks",
+  "shared.md",
+);
 const bom = Buffer.from([0xef, 0xbb, 0xbf]);
 const legacyHook = `<!-- syncora-agent-hook:begin v1 -->
 ## Syncora
 
 When .syncora exists, use Syncora for project work.
 <!-- syncora-agent-hook:end v1 -->`;
+const predecessorWorkflow = `<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->
+## Knowledge Graph Workflow
+
+Always load every graph note before work.
+<!-- END KNOWLEDGE GRAPH WORKFLOW -->`;
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
@@ -267,6 +283,180 @@ test("unpatch preserves post-patch user edits when a target diverged", async () 
     );
   } finally {
     await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("migration cutover replaces the predecessor block byte-exactly and unpatch never restores it", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const claudePath = join(workspace, "CLAUDE.md");
+  const predecessorCrLf = predecessorWorkflow.replace(/\n/g, "\r\n");
+  const agentsText = `# Custom agents\r\n\r\n${predecessorCrLf}\r\n\r\nKeep Ω exactly.\r\n`;
+  const claudeText = `# Claude\r\n\r\n@AGENTS.md\r\n\r\n${predecessorCrLf}\r\n\r\nKeep Claude exact.\r\n`;
+  const agentsOriginal = Buffer.concat([bom, Buffer.from(agentsText, "utf8")]);
+  const claudeOriginal = Buffer.from(claudeText, "utf8");
+
+  try {
+    run([
+      "init",
+      "--workspace",
+      workspace,
+      "--no-patch-agents",
+      "--format",
+      "json",
+    ]);
+    await writeFile(agentsPath, agentsOriginal);
+    await writeFile(claudePath, claudeOriginal);
+
+    const hook = (await readFile(sharedHookPath, "utf8"))
+      .replace(/\r\n/g, "\n")
+      .trimEnd()
+      .replace(/\n/g, "\r\n");
+    const expectedPatchedAgents = Buffer.concat([
+      bom,
+      Buffer.from(agentsText.replace(predecessorCrLf, hook), "utf8"),
+    ]);
+    const expectedAgentsBaseline = Buffer.concat([
+      bom,
+      Buffer.from(agentsText.replace(predecessorCrLf, ""), "utf8"),
+    ]);
+    const expectedClaudeBaseline = Buffer.from(
+      claudeText.replace(predecessorCrLf, ""),
+      "utf8",
+    );
+
+    const planned = await planAgentMigrationCutover(workspace);
+    await verifyAgentPatchPlans(workspace, planned.plans);
+    assert.equal(
+      planned.plans.filter((item) => item.displayPath === "AGENTS.md").length,
+      1,
+    );
+    assert.equal(
+      planned.plans.filter((item) => item.displayPath === "CLAUDE.md").length,
+      1,
+    );
+    await applyFilePlans(planned.plans);
+
+    assert.deepEqual(await readFile(agentsPath), expectedPatchedAgents);
+    assert.deepEqual(await readFile(claudePath), expectedClaudeBaseline);
+    assert.doesNotMatch(
+      await readFile(claudePath, "utf8"),
+      /syncora-agent-hook:/,
+    );
+    assert.ok(
+      planned.warnings.filter(
+        (warning) => warning.code === "LEGACY_AGENT_WORKFLOW_CUTOVER",
+      ).length >= 2,
+    );
+
+    const state = JSON.parse(
+      await readFile(join(workspace, ".syncora", "state.json"), "utf8"),
+    );
+    const agentsRecord = state.agentPatches.targets.find(
+      (item) => item.path === "AGENTS.md",
+    );
+    assert.ok(agentsRecord);
+    const snapshot = join(
+      workspace,
+      ...agentsRecord.originalSnapshot.split("/"),
+    );
+    assert.deepEqual(await readFile(snapshot), expectedAgentsBaseline);
+
+    run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
+    assert.deepEqual(await readFile(agentsPath), expectedAgentsBaseline);
+    assert.deepEqual(await readFile(claudePath), expectedClaudeBaseline);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("migration cutover refreshes an exact tracked dual-workflow baseline without a false divergence warning", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const original = `# Existing agents\n\n${predecessorWorkflow}\n\nUser content.\n`;
+  const expectedBaseline = original.replace(predecessorWorkflow, "");
+  try {
+    run([
+      "init",
+      "--workspace",
+      workspace,
+      "--no-patch-agents",
+      "--format",
+      "json",
+    ]);
+    await writeFile(agentsPath, original, "utf8");
+    await mkdir(join(workspace, ".claude"), { recursive: true });
+    await writeFile(
+      join(workspace, ".claude", "CLAUDE.md"),
+      "@../AGENTS.md\n",
+      "utf8",
+    );
+    const initialPatch = await planAgentPatch(workspace);
+    await verifyAgentPatchPlans(workspace, initialPatch.plans);
+    await applyFilePlans(initialPatch.plans);
+    const dual = await readFile(agentsPath, "utf8");
+    assert.match(dual, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
+    assert.match(dual, /syncora-agent-hook:begin v2/);
+
+    const planned = await planAgentMigrationCutover(workspace);
+    await verifyAgentPatchPlans(workspace, planned.plans);
+    await applyFilePlans(planned.plans);
+
+    const cutover = await readFile(agentsPath, "utf8");
+    assert.doesNotMatch(cutover, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
+    assert.equal(
+      (cutover.match(/syncora-agent-hook:begin v2/g) ?? []).length,
+      1,
+    );
+    assert.equal(
+      planned.warnings.some((warning) => warning.code === "PATCH_DIVERGED"),
+      false,
+    );
+
+    run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
+    assert.equal(await readFile(agentsPath, "utf8"), expectedBaseline);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("migration cutover rejects malformed or duplicate predecessor markers before any write", async () => {
+  const malformedCases = [
+    `${predecessorWorkflow.split("<!-- END")[0]}`,
+    `<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->\nfirst\n<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->\nsecond\n<!-- END KNOWLEDGE GRAPH WORKFLOW -->`,
+  ];
+
+  for (const malformed of malformedCases) {
+    const workspace = await temporaryWorkspace();
+    const agentsPath = join(workspace, "AGENTS.md");
+    const claudePath = join(workspace, "CLAUDE.md");
+    const agentsOriginal = `# Agents\n\n${predecessorWorkflow}\n`;
+    const claudeOriginal = `# Claude\n\n${malformed}\n`;
+    try {
+      run([
+        "init",
+        "--workspace",
+        workspace,
+        "--no-patch-agents",
+        "--format",
+        "json",
+      ]);
+      await writeFile(agentsPath, agentsOriginal, "utf8");
+      await writeFile(claudePath, claudeOriginal, "utf8");
+
+      await assert.rejects(
+        planAgentMigrationCutover(workspace),
+        (error) =>
+          error?.code === "PATCH001" && /predecessor/i.test(error.message),
+      );
+      assert.equal(await readFile(agentsPath, "utf8"), agentsOriginal);
+      assert.equal(await readFile(claudePath, "utf8"), claudeOriginal);
+      await assert.rejects(
+        access(join(workspace, ".syncora", "state.json")),
+      );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
   }
 });
 

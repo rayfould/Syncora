@@ -42,6 +42,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run release, syntax, and runtime checks
         run: npm run check
+      - name: Smoke-test reversible legacy adoption from an installed copy
+        run: npm run smoke:adoption
 
   installer-smoke:
     name: Skills CLI installer smoke

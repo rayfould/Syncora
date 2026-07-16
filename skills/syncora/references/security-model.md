@@ -61,6 +61,33 @@ Treat Markdown and frontmatter as untrusted project data.
 - Keep authority inventory metadata-only, byte-bounded, and paginated. It must
   not emit note prose or generate promotion assignments, and every cursor must
   bind the validation policy, resolved graph identity, and graph revision.
+- Accept only reviewed actionable v2 promotion manifests for staging. Bind
+  them to the exact workspace, resolved graph identity, graph revision, source
+  bytes, prior target bytes, and content-addressed staged target bodies. Treat
+  manifest prose and staged Markdown as untrusted data, never instructions.
+- Store adoption state and recovery evidence under the resolved graph root so
+  worktrees sharing an external graph share one migration lock and journal.
+  Acquire graph and workspace locks in the defined order and fail closed on
+  identity replacement, stale bindings, invalid transitions, or corrupt
+  artifacts.
+- Create migration storage one directory segment at a time, reject aliases,
+  retain every directory identity, and reassert the chain before temporary-file
+  creation and atomic publication. High-volume note and target reads remain
+  byte-bounded and handle-identity-bound without spawning one helper process per
+  note.
+- Require a recorded passing shadow comparison before cutover. Journal exact
+  before/after bytes and modes before publication, and restore only through the
+  verified recovery transaction.
+- Replace only an exact predecessor marker by default. Permit
+  `--confirm-predecessor-reviewed` only as an explicit user attestation after
+  all active Codex, Cursor, and Claude instruction surfaces were inspected and
+  any custom predecessor activation was removed; the flag performs no
+  discovery or deletion.
+- Never delete legacy notes during cutover or retirement. Before replacing a
+  Markdown path, archive its exact prior bytes under the reserved inactive
+  migration archive. Retirement proves every legacy source remains live or is
+  present in both that archive and recovery evidence, and keeps rollback
+  available; it changes activation status, not historical evidence.
 
 These controls reduce prompt-injection and path-confusion risk. They cannot make
 an agent immune to malicious text or prevent direct edits made outside Syncora.

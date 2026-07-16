@@ -182,7 +182,7 @@ test("authority migration emits deterministic metadata-only inventory without mu
     assert.equal(report.planner.validationSpecification, "syncora-validation-v1");
     assert.equal(report.planner.sourceMutation, "none");
     assert.equal(report.planner.approvedManifest, false);
-    assert.equal(report.planner.manifestAcceptance, "unimplemented");
+    assert.equal(report.planner.manifestAcceptance, "reviewed-v2-stage-gated");
     assert.equal(report.planner.promotionOperations, 0);
     assert.deepEqual(
       {
@@ -290,17 +290,21 @@ test("authority inventory pagination has no gaps and rejects tampered or stale c
   }
 });
 
-test("migrate exposes only the explicit authority dry-run phase", async () => {
+test("migrate enforces phase-specific adoption arguments", async () => {
   const workspace = await temporaryWorkspace();
   try {
     await writeNote(workspace, "index.md", "# Legacy\n");
-    for (const args of [
-      ["migrate", "--workspace", workspace, "--format", "json"],
-      ["migrate", "--phase", "authority", "--workspace", workspace, "--format", "json"],
-      ["migrate", "--phase", "context", "--dry-run", "--workspace", workspace, "--format", "json"],
+    for (const [args, code] of [
+      [["migrate", "--workspace", workspace, "--format", "json"], "MIGRATE001"],
+      [["migrate", "--phase", "authority", "--workspace", workspace, "--format", "json"], "MIGRATE001"],
+      [["migrate", "--phase", "context", "--dry-run", "--workspace", workspace, "--format", "json"], "MIGRATE001"],
+      [["migrate", "--phase", "stage", "--workspace", workspace, "--format", "json"], "CLI002"],
+      [["migrate", "--phase", "cutover", "--workspace", workspace, "--format", "json"], "CLI002"],
+      [["migrate", "--phase", "status", "--migration-id", "legacy", "--dry-run", "--workspace", workspace, "--format", "json"], "CLI005"],
+      [["migrate", "--phase", "verify", "--migration-id", "legacy", "--confirm-predecessor-reviewed", "--workspace", workspace, "--format", "json"], "CLI005"],
     ]) {
       const rejected = run(args, 1);
-      assert.equal(JSON.parse(rejected.stderr).error.code, "MIGRATE001");
+      assert.equal(JSON.parse(rejected.stderr).error.code, code);
     }
   } finally {
     await rm(workspace, { recursive: true, force: true });
@@ -476,11 +480,19 @@ test("reviewed manifest schema fixes snapshot bindings and many-to-one operation
   const targetSuffix = new RegExp(
     schema.$defs.portableTargetMarkdownPath.allOf[1].pattern,
   );
+  const targetForbidden = new RegExp(
+    schema.$defs.portableTargetMarkdownPath.allOf[2].not.pattern,
+  );
   const sourcePath = (path) => pathBase.test(path) && sourceSuffix.test(path);
-  const targetPath = (path) => pathBase.test(path) && targetSuffix.test(path);
+  const targetPath = (path) =>
+    pathBase.test(path) &&
+    targetSuffix.test(path) &&
+    !targetForbidden.test(path);
   assert.equal(sourcePath("knowledge/decisions/example.MD"), true);
   assert.equal(targetPath("knowledge/decisions/example.MD"), false);
   assert.equal(targetPath("knowledge/decisions/example.md"), true);
+  assert.equal(sourcePath("archive/migrations/old/index.md"), true);
+  assert.equal(targetPath("archive/migrations/old/index.md"), false);
   for (const unsafe of [
     "/absolute.md",
     "C:/drive.md",

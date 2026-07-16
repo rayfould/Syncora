@@ -19,6 +19,15 @@ import {
 } from "./lib/cli.mjs";
 import { diagnoseWorkspace } from "./lib/doctor.mjs";
 import { initializeWorkspace } from "./lib/init.mjs";
+import {
+  cutoverMigration,
+  migrationStatus,
+  retireMigration,
+  rollbackMigration,
+  verifyMigration,
+} from "./lib/migration-adoption.mjs";
+import { shadowMigration } from "./lib/migration-shadow.mjs";
+import { stageMigration } from "./lib/migration-stage.mjs";
 import { withPatchLock } from "./lib/patch-lock.mjs";
 import { searchWorkspace } from "./lib/search.mjs";
 import { validateWorkspace } from "./lib/validate.mjs";
@@ -55,6 +64,17 @@ async function runAgentCommand(command, options) {
   };
 }
 
+async function runMigration(options) {
+  if (options.phase === "authority") return inventoryAuthority(options);
+  if (options.phase === "stage") return stageMigration(options);
+  if (options.phase === "shadow") return shadowMigration(options);
+  if (options.phase === "cutover") return cutoverMigration(options);
+  if (options.phase === "verify") return verifyMigration(options);
+  if (options.phase === "rollback") return rollbackMigration(options);
+  if (options.phase === "retire") return retireMigration(options);
+  return migrationStatus(options);
+}
+
 async function main() {
   const rawArguments = process.argv.slice(2);
   const formatIndex = rawArguments.indexOf("--format");
@@ -82,7 +102,7 @@ async function main() {
     } else if (parsed.command === "init") {
       result = await initializeWorkspace(parsed.options);
     } else if (parsed.command === "migrate") {
-      result = await inventoryAuthority(parsed.options);
+      result = await runMigration(parsed.options);
     } else if (parsed.command === "search") {
       result = await searchWorkspace(parsed.options);
     } else if (parsed.command === "validate") {

@@ -66,8 +66,10 @@ export async function writeBufferAtomic(
   content,
   mode = undefined,
   beforePublish = undefined,
+  prepareParent = undefined,
 ) {
-  await mkdir(dirname(path), { recursive: true });
+  if (prepareParent) await prepareParent();
+  else await mkdir(dirname(path), { recursive: true });
   if (beforePublish) await beforePublish();
   const temporaryPath = join(
     dirname(path),
@@ -151,23 +153,33 @@ export async function applyFilePlans(plans) {
 
   try {
     for (const plan of changed) {
+      if (plan.prepareStorage) await plan.prepareStorage();
+      if (plan.verifyStorage) await plan.verifyStorage();
       const original = {
         path: plan.path,
         content: plan.before,
         published: plan.after,
         mode: await modeFor(plan.path),
         readCurrent: plan.readCurrent,
+        prepareStorage: plan.prepareStorage,
+        verifyStorage: plan.verifyStorage,
+      };
+
+      const assertReady = async () => {
+        if (plan.verifyStorage) await plan.verifyStorage();
+        await assertPlanCurrent(plan, plan.before);
       };
 
       if (plan.after === null) {
-        await assertPlanCurrent(plan, plan.before);
+        await assertReady();
         await rm(plan.path, { force: true });
       } else {
         await writeBufferAtomic(
           plan.path,
           plan.after,
           original.mode,
-          () => assertPlanCurrent(plan, plan.before),
+          assertReady,
+          plan.prepareStorage,
         );
       }
 
@@ -180,8 +192,11 @@ export async function applyFilePlans(plans) {
         const rollbackPlan = {
           path: original.path,
           readCurrent: original.readCurrent,
+          prepareStorage: original.prepareStorage,
+          verifyStorage: original.verifyStorage,
         };
         const assertPublished = async () => {
+          if (original.verifyStorage) await original.verifyStorage();
           const current = await readPlanCurrent(rollbackPlan);
           if (!buffersEqual(current, original.published)) {
             throw new SyncoraError(
@@ -195,11 +210,13 @@ export async function applyFilePlans(plans) {
           await assertPublished();
           await rm(original.path, { force: true });
         } else {
+          if (original.prepareStorage) await original.prepareStorage();
           await writeBufferAtomic(
             original.path,
             original.content,
             original.mode,
             assertPublished,
+            original.prepareStorage,
           );
         }
       } catch (rollbackError) {

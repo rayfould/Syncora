@@ -15,6 +15,7 @@ const requiredPaths = [
   "RELEASING.md",
   "SECURITY.md",
   "docs/getting-started.md",
+  "docs/legacy-kg-adoption.md",
   "docs/release-checklist.md",
   "docs/release-status.md",
   "docs/upgrade-and-uninstall.md",
@@ -22,8 +23,11 @@ const requiredPaths = [
   "docs/skill/implementation-plan.md",
   "package.json",
   "package-lock.json",
+  "scripts/smoke-legacy-adoption.mjs",
   "skills/syncora/SKILL.md",
   "skills/syncora/agents/openai.yaml",
+  "skills/syncora/assets/schemas/authority-promotion-manifest-v2.schema.json",
+  "skills/syncora/references/legacy-adoption.md",
   "skills/syncora/scripts/syncora.mjs",
 ];
 

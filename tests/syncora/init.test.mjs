@@ -72,6 +72,90 @@ test("dry-run plans initialization without touching the workspace", async () => 
   }
 });
 
+test("normal init refuses a legacy graph and predecessor workflow without changing bytes", async () => {
+  const workspace = await temporaryWorkspace();
+  const legacyIndex = Buffer.from("# Legacy graph\n\nPreserve this authority.\n", "utf8");
+  const legacyAgents = Buffer.from([
+    "# Custom instructions",
+    "",
+    "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->",
+    "Load the predecessor graph on every request.",
+    "<!-- END KNOWLEDGE GRAPH WORKFLOW -->",
+    "",
+  ].join("\n"), "utf8");
+  try {
+    await mkdir(join(workspace, "local"));
+    await writeFile(join(workspace, "local", "index.md"), legacyIndex);
+    await writeFile(join(workspace, "AGENTS.md"), legacyAgents);
+
+    for (const dryRun of [true, false]) {
+      const result = run([
+        "init",
+        "--workspace",
+        workspace,
+        ...(dryRun ? ["--dry-run"] : []),
+        "--format",
+        "json",
+      ], 1);
+      const failure = JSON.parse(result.stderr);
+      assert.equal(failure.error.code, "MIGRATE015");
+      assert.match(failure.error.message, /reversible adoption workflow/);
+      assert.deepEqual(await readFile(join(workspace, "local", "index.md")), legacyIndex);
+      assert.deepEqual(await readFile(join(workspace, "AGENTS.md")), legacyAgents);
+      await assert.rejects(access(join(workspace, ".syncora")));
+      await assert.rejects(access(join(workspace, "local", "knowledge")));
+    }
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a precreated runtime config cannot disguise a legacy graph as initialized", async () => {
+  const workspace = await temporaryWorkspace();
+  const legacyIndex = Buffer.from("# Legacy graph behind stale config\n", "utf8");
+  try {
+    await mkdir(join(workspace, "local"));
+    await writeFile(join(workspace, "local", "index.md"), legacyIndex);
+    await mkdir(join(workspace, ".syncora"));
+    await writeFile(
+      join(workspace, ".syncora", "config.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        graphRoot: "local",
+        agentPatching: { enabled: false },
+        maintenance: {
+          mode: "hybrid",
+          fullValidationEveryActivations: 50,
+          fullValidationMaxAgeHours: 168,
+        },
+        context: {
+          defaultBudget: "standard",
+          characterBudgets: {
+            lean: 4800,
+            standard: 12000,
+            deep: 32000,
+          },
+        },
+      }, null, 2)}\n`,
+    );
+    const beforeConfig = await readFile(join(workspace, ".syncora", "config.json"));
+
+    const result = run([
+      "init",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ], 1);
+    assert.equal(JSON.parse(result.stderr).error.code, "MIGRATE015");
+    assert.deepEqual(await readFile(join(workspace, "local", "index.md")), legacyIndex);
+    assert.deepEqual(await readFile(join(workspace, ".syncora", "config.json")), beforeConfig);
+    await assert.rejects(access(join(workspace, "local", "knowledge")));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("default initialization is hub-first, patched, and byte-idempotent", async () => {
   const workspace = await temporaryWorkspace();
   const watched = [

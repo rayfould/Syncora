@@ -150,9 +150,10 @@ Deliverables:
 - read-only external-source export and Markdown reconciliation;
 - proposed scope hubs;
 - giant-note and duplicate-decision findings;
-- reversible `migrate --dry-run`;
-- comparison context packs;
-- accepted migration application;
+- reviewed v2 authority manifest and exact staged target bundles;
+- reversible `migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status`;
+- bounded comparison fixtures against a virtual staged graph;
+- journaled accepted migration application and exact rollback;
 - predecessor-system archive decision.
 
 Exit gate:
@@ -212,8 +213,8 @@ Status: Included in `0.1.0-preview.1`
 - [x] Run the official skill validator.
 
 The patcher is implemented and fixture-tested in this milestone, but it must not
-replace a predecessor knowledge workflow without an explicit migration. Live
-cutover waits for the shadow context and authority gates.
+replace a predecessor knowledge workflow through ordinary additive patching.
+The migration runtime now owns that explicit, gated cutover.
 
 ### Milestone 2: Authority-aware graph kernel
 
@@ -230,12 +231,12 @@ Status: In progress
       decision uniqueness, and basic supersession integrity.
 - [x] Add a bounded, revision-bound authority inventory and define the separate
       reviewed promotion-manifest schema without rewriting source notes.
-- [ ] Implement manifest acceptance and schema migration from the current
-      frontmatter.
+- [x] Implement actionable v2 manifest acceptance, snapshot bindings, and exact
+      staged target validation while retaining v1 as non-actionable review.
 - [x] Implement incremental cache rebuild.
 - [x] Add exact/alias link resolution, backlinks, and ambiguous-target findings.
-- [ ] Complete reciprocal supersession after the reverse relation is added to
-      the schema.
+- [x] Validate scoped reciprocal supersession and reject invalid authority
+      graphs before staging.
 - [x] Add the ten-thousand-note lexical performance corpus.
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
@@ -284,6 +285,10 @@ Status: Pending
 - [ ] Implement lean, standard, and deep budgets.
 - [ ] Prove mandatory overflow behavior.
 
+The migration shadow phase includes a bounded adoption-only compiler for exact
+required, evidence, and forbidden identities. It is not the general task
+context command and does not complete this milestone.
+
 ### Milestone 4: Governed write path
 
 Status: Pending
@@ -293,11 +298,21 @@ Status: Pending
 - [ ] Implement authority review gates.
 - [ ] Implement transaction recovery and conflict fixtures.
 
+Legacy cutover now has a dedicated exact-byte recovery transaction. General
+capture proposals and ordinary canonical writes remain pending.
+
 ### Milestone 5: Drift, migration, and stable release
 
-Status: Pending
+Status: In progress
 
 - [ ] Implement changed-file drift checks.
+- [x] Implement reviewed manifest staging, bounded shadow gates, graph-scoped
+      migration state, journaled cutover, verification, retirement, status,
+      and rollback.
+- [x] Preserve all legacy source notes through cutover and retirement, and
+      retain exact rollback evidence after retirement.
+- [x] Implement exact predecessor-marker replacement with a fail-closed,
+      explicitly reviewed attestation path for markerless legacy workspaces.
 - [ ] Reconcile external-source projections before deprecating predecessor
       systems.
 - [ ] Migrate a representative existing graph through preview and acceptance.
@@ -333,16 +348,16 @@ validate
 backlinks
 search
 checkpoint
-migrate --phase authority --dry-run
+migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
 patch-agents
 unpatch-agents
 ```
 
 The current development preview does not claim to provide context compilation,
-governed capture, drift, or migration-manifest acceptance/application. Its
-migration surface is a bounded zero-authority inventory only. The skill must
-report this capability boundary instead of presenting unimplemented commands as
-usable.
+governed capture, or drift. Its adoption-specific shadow compiler and
+transaction do not imply a general task context or canonical capture surface.
+The skill must report this capability boundary instead of presenting
+unimplemented commands as usable.
 
 ## 6. Predecessor component disposition
 
@@ -402,8 +417,9 @@ skill-runtime hub, and keep transition status explicit.
 
 ### Predecessor authority is falsely promoted
 
-Mitigation: import every predecessor note as evidence-only until a reviewed migration
-manifest assigns scope, authority, and decision identity.
+Mitigation: inventory grants zero authority; only an exact reviewed v2 manifest
+and staged target bundle may assign scope, authority, and decision identity,
+and cutover remains locked behind a passing shadow report.
 
 ### External-source state is lost
 
@@ -438,11 +454,16 @@ outside a local-skill boundary.
 
 - Skill bootstrap files can be removed without changing predecessor systems.
 - Agent hooks can be unpatched independently.
-- Derived `.syncora/` state can be deleted and rebuilt.
-- Graph migration preserves original notes until acceptance.
-- Authority migration begins in a read-only shadow runtime.
-- Agent-instruction cutover is separate from patcher implementation.
-- Predecessor systems are not retired until replacement contracts pass.
+- Ordinary derived workspace `.syncora/` state can be deleted and rebuilt only
+  outside an active operation; graph-local migration journals must remain while
+  adoption or rollback is active.
+- Graph migration preserves original notes through acceptance and retirement.
+- Authority migration stages content-addressed reviewed bytes before a
+  write-free shadow comparison.
+- Agent-instruction cutover is a journaled migration transaction, not ordinary
+  additive patching.
+- Retirement records predecessor deactivation only after verification and
+  retained-source proof; exact rollback remains available afterward.
 
 ## 10. Definition of done
 

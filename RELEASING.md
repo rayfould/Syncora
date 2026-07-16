@@ -10,11 +10,17 @@ Syncora uses semantic versions. Preview tags use the form
 2. Update `CHANGELOG.md` and `docs/release-status.md`.
 3. Run `npm ci` and `npm run check` on a clean tree.
 4. Run `npm run smoke:install` with network access.
-5. Confirm the package contains no symlinks, private paths, secrets, generated
+5. Run `npm run smoke:adoption` and retain its successful installed-copy output
+   with the release evidence.
+6. Confirm the package contains no symlinks, private paths, secrets, generated
    graph state, or files outside the documented surface.
-6. Commit the release, create an annotated tag, and push the branch and tag.
-7. Create a GitHub prerelease using the matching changelog entry.
-8. Install once from the public GitHub URL with telemetry enabled so skills.sh
+7. Confirm the README, release status, skill reference, and CLI help agree that
+   `init` is greenfield-only and adoption uses
+   `authority -> stage -> shadow -> cutover -> verify -> retire`, with `status`
+   and post-retirement `rollback` available.
+8. Commit the release, create an annotated tag, and push the branch and tag.
+9. Create a GitHub prerelease using the matching changelog entry.
+10. Install once from the public GitHub URL with telemetry enabled so skills.sh
    can index the skill.
 
 ## Stable release

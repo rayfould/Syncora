@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,7 @@ import {
 } from "./agent-patcher.mjs";
 import { SyncoraError } from "./cli.mjs";
 import { withPatchLock } from "./patch-lock.mjs";
+import { inspectWorkspace } from "./validate.mjs";
 import {
   readSyncoraConfigIfPresent,
   resolveGraphContext,
@@ -66,6 +67,92 @@ function safeWorkspaceName(workspacePath) {
   return basename(workspacePath).replace(/[\r\n\t]+/g, " ").trim() || "Workspace";
 }
 
+function sameDirectoryIdentity(left, right) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.mode === right.mode &&
+    left.nlink === right.nlink &&
+    left.ctimeNs === right.ctimeNs &&
+    left.mtimeNs === right.mtimeNs
+  );
+}
+
+async function inspectPreexistingGraph(graphRoot) {
+  let before;
+  try {
+    before = await lstat(graphRoot, { bigint: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw new SyncoraError(
+      "READ001",
+      `Unable to inspect the graph root before initialization: ${graphRoot}`,
+      { cause: error.message },
+    );
+  }
+  if (!before.isDirectory() || before.isSymbolicLink()) {
+    throw new SyncoraError(
+      "READ001",
+      `Graph root is not a stable regular directory: ${graphRoot}`,
+    );
+  }
+
+  let entries;
+  let after;
+  try {
+    entries = await readdir(graphRoot, { withFileTypes: true });
+    after = await lstat(graphRoot, { bigint: true });
+  } catch (error) {
+    throw new SyncoraError(
+      "READ001",
+      `Unable to enumerate the graph root before initialization: ${graphRoot}`,
+      { cause: error.message },
+    );
+  }
+  if (!sameDirectoryIdentity(before, after)) {
+    throw new SyncoraError(
+      "READ001",
+      "Graph root changed while initialization safety was being evaluated.",
+    );
+  }
+
+  return entries
+    .map((entry) => entry.name)
+    .filter((name) => ![".git", ".syncora"].includes(name.toLowerCase()))
+    .sort();
+}
+
+async function isRecognizedSyncoraGraph(workspace, graph, options) {
+  try {
+    const inspection = await inspectWorkspace({
+      workspace: workspace.realPath,
+      allowExternalGraphRoot: options.allowExternalGraphRoot,
+    });
+    const activeAtlases = inspection.notes.filter(
+      (note) =>
+        note.currentSchema &&
+        note.frontmatter.kind === "atlas" &&
+        note.frontmatter.state === "active" &&
+        note.authorityClass === "routing",
+    );
+    const activeProjectHubs = inspection.notes.filter(
+      (note) =>
+        note.currentSchema &&
+        note.frontmatter.kind === "project" &&
+        note.frontmatter.state === "active" &&
+        note.authorityClass === "canonical",
+    );
+    return (
+      inspection.report.ok &&
+      activeAtlases.length === 1 &&
+      activeProjectHubs.length >= 1 &&
+      inspection.graph.resolvedGraphPath === graph.resolvedGraphPath
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function initializeWorkspace(options) {
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
@@ -83,17 +170,33 @@ export async function initializeWorkspace(options) {
     });
   }
 
-  for (const hook of (await inspectAgentHooks(workspace.realPath)).filter(
+  const existingConfig = await readSyncoraConfigIfPresent(workspace.realPath);
+  const legacyHooks = (await inspectAgentHooks(workspace.realPath)).filter(
     (item) => item.legacyKnowledgeGraphWorkflow,
-  )) {
-    warnings.push({
-      code: "LEGACY_AGENT_WORKFLOW",
-      message: `${hook.path} contains a predecessor workflow that this bootstrap does not replace; use the later migration cutover before claiming bounded context.`,
-    });
+  );
+  const preexistingGraphEntries = await inspectPreexistingGraph(
+    graph.resolvedGraphPath,
+  );
+  const recognizedExistingGraph =
+    existingConfig && preexistingGraphEntries.length > 0
+      ? await isRecognizedSyncoraGraph(workspace, graph, options)
+      : false;
+  const graphRequiresAdoption =
+    preexistingGraphEntries.length > 0 && !recognizedExistingGraph;
+  if (legacyHooks.length > 0 || graphRequiresAdoption) {
+    throw new SyncoraError(
+      "MIGRATE015",
+      "Existing knowledge or predecessor agent instructions require the reversible adoption workflow; normal init will not modify this workspace.",
+      {
+        graphEntries: preexistingGraphEntries.slice(0, 16),
+        omittedGraphEntries: Math.max(0, preexistingGraphEntries.length - 16),
+        predecessorAgentFiles: legacyHooks.map((item) => item.path),
+        next: "Run syncora migrate --phase authority --dry-run, prepare a reviewed v2 manifest and staged target bundle, then continue with stage and shadow.",
+      },
+    );
   }
 
   const configPath = join(workspace.realPath, ".syncora", "config.json");
-  await readSyncoraConfigIfPresent(workspace.realPath);
   const config = JSON.parse(await template("config.json"));
   config.agentPatching.enabled = options.patchAgents;
   plans.push(

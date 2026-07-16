@@ -32,6 +32,10 @@ const VALUE_OPTIONS = new Set([
   "--cursor",
   "--profile",
   "--checkpoint-id",
+  "--migration-id",
+  "--manifest",
+  "--staged-content",
+  "--fixtures",
 ]);
 
 export function parseArgv(argv) {
@@ -61,6 +65,11 @@ export function parseArgv(argv) {
     cursor: undefined,
     profile: undefined,
     checkpointId: undefined,
+    migrationId: undefined,
+    manifest: undefined,
+    stagedContent: undefined,
+    fixtures: undefined,
+    confirmPredecessorReviewed: false,
     force: false,
     noCache: false,
     includeHistory: false,
@@ -98,6 +107,11 @@ export function parseArgv(argv) {
       continue;
     }
 
+    if (token === "--confirm-predecessor-reviewed") {
+      options.confirmPredecessorReviewed = true;
+      continue;
+    }
+
     if (VALUE_OPTIONS.has(token)) {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) {
@@ -116,6 +130,10 @@ export function parseArgv(argv) {
       if (token === "--cursor") options.cursor = value;
       if (token === "--profile") options.profile = value;
       if (token === "--checkpoint-id") options.checkpointId = value;
+      if (token === "--migration-id") options.migrationId = value;
+      if (token === "--manifest") options.manifest = value;
+      if (token === "--staged-content") options.stagedContent = value;
+      if (token === "--fixtures") options.fixtures = value;
       if (token === "--limit") {
         const limit = Number(value);
         if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
@@ -177,16 +195,102 @@ export function parseArgv(argv) {
       "--phase is only valid with migrate or checkpoint.",
     );
   }
-  if (command !== "migrate" && options.cursor !== undefined) {
-    throw new SyncoraError("CLI005", "--cursor is only valid with migrate.");
+  if (
+    command !== "migrate" &&
+    [
+      options.cursor,
+      options.migrationId,
+      options.manifest,
+      options.stagedContent,
+      options.fixtures,
+    ].some((value) => value !== undefined)
+  ) {
+    throw new SyncoraError(
+      "CLI005",
+      "--cursor, --migration-id, --manifest, --staged-content, and --fixtures are only valid with migrate.",
+    );
   }
   if (command === "migrate") {
-    if (options.phase !== "authority" || !options.dryRun) {
+    const phases = new Set([
+      "authority",
+      "stage",
+      "shadow",
+      "cutover",
+      "verify",
+      "rollback",
+      "retire",
+      "status",
+    ]);
+    if (!phases.has(options.phase)) {
       throw new SyncoraError(
         "MIGRATE001",
-        "The current migrate surface requires --phase authority --dry-run.",
+        "migrate requires --phase authority, stage, shadow, cutover, verify, rollback, retire, or status.",
       );
     }
+    if (options.phase === "authority") {
+      if (!options.dryRun) {
+        throw new SyncoraError("MIGRATE001", "Authority inventory requires --dry-run.");
+      }
+      if (
+        options.migrationId !== undefined ||
+        options.manifest !== undefined ||
+        options.stagedContent !== undefined ||
+        options.fixtures !== undefined
+      ) {
+        throw new SyncoraError("CLI005", "Authority inventory does not accept adoption artifact options.");
+      }
+    } else {
+      if (!options.migrationId) {
+        throw new SyncoraError("CLI002", `${options.phase} requires --migration-id <id>.`);
+      }
+      if (options.cursor !== undefined) {
+        throw new SyncoraError("CLI005", "--cursor is only valid with migrate --phase authority.");
+      }
+      if (options.phase === "stage") {
+        if (!options.manifest || !options.stagedContent) {
+          throw new SyncoraError(
+            "CLI002",
+            "stage requires --manifest <absolute-path> and --staged-content <absolute-directory>.",
+          );
+        }
+        if (options.fixtures !== undefined) {
+          throw new SyncoraError("CLI005", "--fixtures is only valid with migrate --phase shadow.");
+        }
+      } else if (options.phase === "shadow") {
+        if (!options.fixtures) {
+          throw new SyncoraError("CLI002", "shadow requires --fixtures <absolute-path>.");
+        }
+        if (options.manifest !== undefined || options.stagedContent !== undefined) {
+          throw new SyncoraError("CLI005", "--manifest and --staged-content are only valid with migrate --phase stage.");
+        }
+      } else if (
+        options.manifest !== undefined ||
+        options.stagedContent !== undefined ||
+        options.fixtures !== undefined
+      ) {
+        throw new SyncoraError(
+          "CLI005",
+          "Adoption artifact paths are only valid with their stage or shadow phase.",
+        );
+      }
+      if (options.phase === "status" && options.dryRun) {
+        throw new SyncoraError("CLI005", "migrate --phase status is already read-only.");
+      }
+    }
+    if (
+      options.confirmPredecessorReviewed &&
+      options.phase !== "cutover"
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        "--confirm-predecessor-reviewed is only valid with migrate --phase cutover.",
+      );
+    }
+  } else if (options.confirmPredecessorReviewed) {
+    throw new SyncoraError(
+      "CLI005",
+      "--confirm-predecessor-reviewed is only valid with migrate --phase cutover.",
+    );
   }
   if (command === "checkpoint") {
     if (options.dryRun) {
@@ -244,7 +348,7 @@ export function parseArgv(argv) {
     }
   } else if (command === "backlinks") {
     options.limit ??= 20;
-  } else if (command === "migrate") {
+  } else if (command === "migrate" && options.phase === "authority") {
     options.limit ??= 20;
   } else if (options.limit !== undefined) {
     throw new SyncoraError(
@@ -344,17 +448,27 @@ export function helpText(topic = undefined) {
 
   if (topic === "migrate") {
     return [
-      "Usage: syncora migrate --phase authority --dry-run --workspace <absolute-path> [options]",
+      "Usage:",
+      "  syncora migrate --phase authority --dry-run --workspace <absolute-path> [options]",
+      "  syncora migrate --phase stage --migration-id <id> --manifest <absolute-path> --staged-content <absolute-directory> --workspace <absolute-path> [--dry-run]",
+      "  syncora migrate --phase shadow --migration-id <id> --fixtures <absolute-path> --workspace <absolute-path> [--dry-run]",
+      "  syncora migrate --phase <cutover|verify|rollback|retire> --migration-id <id> --workspace <absolute-path> [--dry-run]",
+      "  syncora migrate --phase status --migration-id <id> --workspace <absolute-path>",
       "",
       "--workspace <absolute-path>",
-      "--phase authority",
-      "--dry-run",
+      "--phase <authority|stage|shadow|cutover|verify|rollback|retire|status>",
+      "--migration-id <id>",
+      "--manifest <absolute-path>  (stage only)",
+      "--staged-content <absolute-directory>  (stage only)",
+      "--fixtures <absolute-path>  (shadow only)",
+      "--confirm-predecessor-reviewed  (cutover only; attest that active agent instructions contain no custom predecessor activation)",
+      "--dry-run  (all phases except status; required for authority)",
       "--limit <1-100>",
       "--cursor <opaque-token>",
       "--format <text|json>",
       "--allow-external-graph-root <absolute-path>",
       "",
-      "This phase emits a bounded zero-authority inventory. It does not approve or apply promotion.",
+      "Authority remains a bounded zero-authority inventory. Adoption phases are foreground, reviewed, journaled, and reversible.",
     ].join("\n");
   }
 
@@ -376,7 +490,7 @@ export function helpText(topic = undefined) {
     "  checkpoint      Run a foreground preflight or paired postflight",
     "  doctor          Inspect workspace readiness and safety",
     "  init            Create the bootstrap graph and patch agents",
-    "  migrate         Preview a bounded migration phase without applying it",
+    "  migrate         Inventory, stage, shadow-test, cut over, verify, retire, or roll back a legacy graph",
     "  search          Rank bounded authority-aware lexical matches",
     "  validate        Inspect graph safety and authority read-only",
     "  patch-agents    Add or refresh project-local agent hooks",
@@ -501,7 +615,7 @@ export function renderResult(result, format = "text") {
     lines.push(
       `Page: ${result.page.returned} returned, ${result.page.omittedBefore} before, ${result.page.omittedAfter} after`,
     );
-    lines.push("Promotion ready: false (manifest acceptance is not implemented)");
+    lines.push("Promotion ready: false (stage requires a reviewed v2 manifest and exact target bundle)");
     if (!result.summary.graphValid) {
       lines.push(
         `warning graph validation has ${result.summary.validationErrors} error(s)`,
@@ -518,6 +632,29 @@ export function renderResult(result, format = "text") {
     }
     if (result.page.nextCursor) {
       lines.push(`Next cursor: ${terminalSafe(result.page.nextCursor)}`);
+    }
+    return `${lines.join("\n")}\n`;
+  }
+
+  if (result.command === "migrate") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    if (result.migrationId) lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
+    if (result.status) lines.push(`State: ${terminalSafe(result.status)}`);
+    if (result.dryRun) lines.push("Mode: dry-run");
+    if (result.summary) {
+      for (const [key, value] of Object.entries(result.summary)) {
+        const rendered = value !== null && typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value);
+        lines.push(`${key}: ${terminalSafe(rendered)}`);
+      }
+    }
+    for (const change of result.changes ?? []) {
+      lines.push(`${change.action.padEnd(9)} ${terminalSafe(change.path)}`);
+    }
+    for (const warning of result.warnings ?? []) {
+      lines.push(`warning ${warning.code}: ${terminalSafe(warning.message)}`);
     }
     return `${lines.join("\n")}\n`;
   }

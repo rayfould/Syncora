@@ -16,6 +16,10 @@ import { readBoundedRegularFileIfPresent } from "./workspace.mjs";
 
 const BEGIN_PREFIX = "<!-- syncora-agent-hook:begin v";
 const END_PREFIX = "<!-- syncora-agent-hook:end v";
+const PREDECESSOR_WORKFLOW_BEGIN =
+  "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->";
+const PREDECESSOR_WORKFLOW_END =
+  "<!-- END KNOWLEDGE GRAPH WORKFLOW -->";
 export const CURRENT_AGENT_HOOK_VERSION = 2;
 const CURRENT_VERSION = CURRENT_AGENT_HOOK_VERSION;
 const STATE_SCHEMA_VERSION = 1;
@@ -81,6 +85,118 @@ export function inspectMarker(text, pathForError = "agent instruction file") {
     start: begin.index,
     end: end.index + end.length,
   };
+}
+
+function allExactMatches(text, marker) {
+  const matches = [];
+  let offset = 0;
+  while (offset <= text.length - marker.length) {
+    const index = text.indexOf(marker, offset);
+    if (index === -1) break;
+    matches.push({ index, length: marker.length });
+    offset = index + marker.length;
+  }
+  return matches;
+}
+
+function inspectPredecessorWorkflow(
+  text,
+  pathForError = "agent instruction file",
+) {
+  const begins = allExactMatches(text, PREDECESSOR_WORKFLOW_BEGIN);
+  const ends = allExactMatches(text, PREDECESSOR_WORKFLOW_END);
+
+  if (begins.length === 0 && ends.length === 0) {
+    return { status: "absent" };
+  }
+  if (begins.length !== 1 || ends.length !== 1) {
+    throw new SyncoraError(
+      "PATCH001",
+      `${pathForError} contains duplicate or unbalanced predecessor knowledge-graph workflow markers.`,
+    );
+  }
+
+  const begin = begins[0];
+  const end = ends[0];
+  if (begin.index >= end.index) {
+    throw new SyncoraError(
+      "PATCH001",
+      `${pathForError} contains reversed predecessor knowledge-graph workflow markers.`,
+    );
+  }
+
+  return {
+    status: "present",
+    start: begin.index,
+    end: end.index + end.length,
+  };
+}
+
+function rangesOverlap(left, right) {
+  return left.start < right.end && right.start < left.end;
+}
+
+function removeTextRanges(text, ranges) {
+  const sorted = [...ranges].sort((left, right) => left.start - right.start);
+  const parts = [];
+  let cursor = 0;
+  for (const range of sorted) {
+    if (range.start < cursor || range.start > range.end) {
+      throw new SyncoraError(
+        "PATCH001",
+        "Agent instruction marker ranges overlap or are malformed.",
+      );
+    }
+    parts.push(text.slice(cursor, range.start));
+    cursor = range.end;
+  }
+  parts.push(text.slice(cursor));
+  return parts.join("");
+}
+
+async function cutoverPredecessorWorkflow(
+  buffer,
+  pathForError,
+  { installHook },
+) {
+  if (buffer === null) return null;
+  const decoded = decodeUtf8File(buffer, pathForError);
+  const predecessor = inspectPredecessorWorkflow(decoded.text, pathForError);
+  if (predecessor.status === "absent") return null;
+
+  const marker = inspectMarker(decoded.text, pathForError);
+  const ownedRanges = [predecessor];
+  if (marker.status === "present") {
+    if (rangesOverlap(predecessor, marker)) {
+      throw new SyncoraError(
+        "PATCH001",
+        `${pathForError} contains overlapping Syncora and predecessor workflow markers.`,
+      );
+    }
+    ownedRanges.push(marker);
+  }
+
+  const removedBeforePredecessor = ownedRanges
+    .filter((range) => range.end <= predecessor.start)
+    .reduce((total, range) => total + (range.end - range.start), 0);
+  const insertionIndex = predecessor.start - removedBeforePredecessor;
+  const baselineText = removeTextRanges(decoded.text, ownedRanges);
+  const baseline = encodeUtf8File({ ...decoded, text: baselineText });
+  let after = baseline;
+
+  if (installHook) {
+    const hook = await loadHook(decoded.newline);
+    const text = `${baselineText.slice(0, insertionIndex)}${hook}${baselineText.slice(insertionIndex)}`;
+    after = encodeUtf8File({ ...decoded, text });
+    if (after.length > AGENT_FILE_MAX_BYTES) {
+      throw new SyncoraError(
+        "PATCH004",
+        `Patched agent instruction file exceeds ${AGENT_FILE_MAX_BYTES} bytes: ${pathForError}`,
+      );
+    }
+  }
+
+  return { after, baseline };
 }
 
 async function loadHook(newline) {
@@ -637,7 +753,7 @@ async function restoreTarget(
 }
 
 async function verifyRecordedSnapshot(workspacePath, relativePath, record) {
-  if (!record.originalExists) return;
+  if (!record.originalExists) return null;
   if (!record.originalSnapshot) {
     throw new SyncoraError(
       "PATCH003",
@@ -655,6 +771,7 @@ async function verifyRecordedSnapshot(workspacePath, relativePath, record) {
       `Original agent-file snapshot is missing or corrupted: ${snapshot}`,
     );
   }
+  return content;
 }
 
 async function removeRecordedSnapshot(workspacePath, record, plans) {
@@ -675,7 +792,10 @@ async function removeRecordedSnapshot(workspacePath, record, plans) {
   );
 }
 
-export async function planAgentPatch(workspacePath) {
+async function planAgentPatchInternal(
+  workspacePath,
+  { migrationCutover = false } = {},
+) {
   const { state, statePath, stateBuffer, stateObservation } =
     await readState(workspacePath);
   const previousTargets = new Map(
@@ -713,11 +833,42 @@ export async function planAgentPatch(workspacePath) {
     const relativePath = relativePortable(workspacePath, targetPath);
     const before = observedTargets.get(targetPath).buffer;
     let existingMarker = { status: "absent" };
+    let claudeImportsAgents = false;
 
     if (before !== null && relativePath.toLowerCase().endsWith("claude.md")) {
       const decoded = decodeUtf8File(before, targetPath);
       existingMarker = inspectMarker(decoded.text, targetPath);
-      if (importsAgents(decoded.text, targetPath)) {
+      claudeImportsAgents = importsAgents(decoded.text, targetPath);
+    } else if (before !== null) {
+      const decoded = decodeUtf8File(before, targetPath);
+      existingMarker = inspectMarker(decoded.text, targetPath);
+    }
+
+    const cutover = migrationCutover
+      ? await cutoverPredecessorWorkflow(before, targetPath, {
+          installHook: !claudeImportsAgents,
+        })
+      : null;
+
+    if (claudeImportsAgents) {
+      if (cutover !== null) {
+        const record = previousTargets.get(relativePath);
+        addTargetPlan(
+          targetPath,
+          before,
+          cutover.baseline,
+          relativePath,
+        );
+        await removeRecordedSnapshot(workspacePath, record, plans);
+        retiredTargets.add(relativePath);
+        warnings.push({
+          code: "LEGACY_AGENT_WORKFLOW_CUTOVER",
+          message: `${relativePath} predecessor workflow was removed; its AGENTS.md import remains the only activation path.`,
+        });
+        continue;
+      }
+
+      {
         const record = previousTargets.get(relativePath);
         const restored = await restoreTarget(
           workspacePath,
@@ -736,17 +887,15 @@ export async function planAgentPatch(workspacePath) {
         retiredTargets.add(relativePath);
         continue;
       }
-    } else if (before !== null) {
-      const decoded = decodeUtf8File(before, targetPath);
-      existingMarker = inspectMarker(decoded.text, targetPath);
     }
 
-    const after = await patchTextFile(before, targetPath);
+    const after = cutover?.after ?? await patchTextFile(before, targetPath);
     let record = previousTargets.get(relativePath);
     const trackedBytesAreExact =
       record !== undefined &&
       before !== null &&
       record.resultingHash === sha256(before);
+    let trackedSnapshot = null;
 
     if (trackedBytesAreExact) {
       if (
@@ -758,26 +907,40 @@ export async function planAgentPatch(workspacePath) {
           `Tracked marker metadata does not match ${relativePath}.`,
         );
       }
-      await verifyRecordedSnapshot(workspacePath, relativePath, record);
+      trackedSnapshot = await verifyRecordedSnapshot(
+        workspacePath,
+        relativePath,
+        record,
+      );
     }
 
-    if (!trackedBytesAreExact) {
-      if (existingMarker.status === "present" && record === undefined) {
-        warnings.push({
-          code: "PATCH_UNTRACKED",
-          message: `${relativePath} contained an untracked Syncora marker; refreshed the reversible baseline without that marker.`,
-        });
-      } else if (record !== undefined) {
-        warnings.push({
-          code: "PATCH_DIVERGED",
-          message: `${relativePath} changed after patching; refreshed the reversible baseline from current user-owned bytes.`,
-        });
+    if (!trackedBytesAreExact || cutover !== null) {
+      if (!trackedBytesAreExact) {
+        if (existingMarker.status === "present" && record === undefined) {
+          warnings.push({
+            code: "PATCH_UNTRACKED",
+            message: `${relativePath} contained an untracked Syncora marker; refreshed the reversible baseline without that marker.`,
+          });
+        } else if (record !== undefined) {
+          warnings.push({
+            code: "PATCH_DIVERGED",
+            message: `${relativePath} changed after patching; refreshed the reversible baseline from current user-owned bytes.`,
+          });
+        }
       }
       const previousSnapshot = record?.originalSnapshot ?? null;
-      const baseline =
+      const snapshotCutover = cutover !== null && trackedSnapshot !== null
+        ? await cutoverPredecessorWorkflow(
+            trackedSnapshot,
+            `${targetPath} restoration snapshot`,
+            { installHook: false },
+          )
+        : null;
+      const baseline = snapshotCutover?.baseline ?? cutover?.baseline ?? (
         before !== null && existingMarker.status === "present"
           ? removeMarker(before, targetPath)
-          : before;
+          : before
+      );
       record = await recordBaseline(
         workspacePath,
         relativePath,
@@ -809,6 +972,13 @@ export async function planAgentPatch(workspacePath) {
       }
     }
 
+    if (cutover !== null) {
+      warnings.push({
+        code: "LEGACY_AGENT_WORKFLOW_CUTOVER",
+        message: `${relativePath} predecessor workflow was atomically replaced by Syncora hook v${CURRENT_VERSION}.`,
+      });
+    }
+
     addTargetPlan(targetPath, before, after, relativePath);
     activeTargets.add(relativePath);
     nextTargets.push({
@@ -826,6 +996,25 @@ export async function planAgentPatch(workspacePath) {
 
     const before = observedTargets.get(targetPath).buffer;
     const record = previousTargets.get(relativePath);
+    const cutover = migrationCutover
+      ? await cutoverPredecessorWorkflow(before, targetPath, {
+          installHook: false,
+        })
+      : null;
+    if (cutover !== null) {
+      addTargetPlan(
+        targetPath,
+        before,
+        cutover.baseline,
+        relativePath,
+      );
+      await removeRecordedSnapshot(workspacePath, record, plans);
+      warnings.push({
+        code: "LEGACY_AGENT_WORKFLOW_CUTOVER",
+        message: `${relativePath} predecessor workflow was removed from an inactive agent instruction target.`,
+      });
+      continue;
+    }
     const restored = await restoreTarget(
       workspacePath,
       targetPath,
@@ -862,6 +1051,14 @@ export async function planAgentPatch(workspacePath) {
   );
 
   return { plans, warnings };
+}
+
+export async function planAgentPatch(workspacePath) {
+  return planAgentPatchInternal(workspacePath);
+}
+
+export async function planAgentMigrationCutover(workspacePath) {
+  return planAgentPatchInternal(workspacePath, { migrationCutover: true });
 }
 
 export async function verifyAgentPatchPlans(workspacePath, plans) {

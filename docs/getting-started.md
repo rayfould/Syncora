@@ -1,8 +1,8 @@
 # Getting started
 
-This guide initializes Syncora in one project and verifies the result. Syncora
-has no background service: every command runs synchronously during an agent
-turn or direct CLI invocation.
+This guide initializes Syncora in a greenfield project and verifies the result.
+Syncora has no background service: every command runs synchronously during an
+agent turn or direct CLI invocation.
 
 ## Requirements
 
@@ -21,7 +21,17 @@ npx skills add rayfould/Syncora --skill syncora --global --agent codex --agent c
 Remove agent flags you do not need. Use `--copy` if shared links are not
 available on the machine.
 
-## 2. Initialize a project
+## 2. Choose greenfield initialization or legacy adoption
+
+Use `init` for a new project with no pre-Syncora Markdown knowledge graph and no
+predecessor knowledge-graph workflow in its agent instructions. It may be
+rerun idempotently after Syncora has initialized the project. For a pre-existing
+graph or predecessor workflow, follow
+[legacy knowledge graph adoption](legacy-kg-adoption.md). Greenfield `init`
+deliberately fails that case with `MIGRATE015`; it will not merge competing
+authority or append a new hook beside a predecessor workflow.
+
+## 3. Initialize a greenfield project
 
 Open the target project in your agent and say:
 
@@ -43,7 +53,7 @@ node <installed-syncora-skill>/scripts/syncora.mjs init --workspace /absolute/pa
 
 Then rerun without `--dry-run` after reviewing the plan.
 
-## 3. Verify the workspace
+## 4. Verify the workspace
 
 ```bash
 node <installed-syncora-skill>/scripts/syncora.mjs doctor --workspace /absolute/path/to/project
@@ -51,10 +61,11 @@ node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolut
 ```
 
 The initialized graph routes through `local/index.md`. Canonical project facts,
-decisions, and concepts remain plain Markdown; generated `.syncora/` state is
-disposable and should not be treated as knowledge.
+decisions, and concepts remain plain Markdown. Ordinary generated `.syncora/`
+state is noncanonical and rebuildable outside active operations; it should not
+be treated as knowledge.
 
-## 4. Normal use
+## 5. Normal use
 
 The small project instruction hook tells the agent when Syncora is relevant.
 Trivial or unrelated requests can bypass it. Relevant work uses foreground
@@ -65,14 +76,14 @@ The development preview supports bounded search, backlinks, validation, and
 checkpoint policy. The complete task context compiler and governed write path
 are not implemented yet. See [release status](release-status.md).
 
-## 5. External graph roots
+## 6. External graph roots
 
 Syncora rejects a `local/` path that resolves outside the workspace unless the
 exact resolved root is explicitly allowlisted. This protects against unexpected
 symlink or junction mutation. Only allow an external root you control and have
 reviewed.
 
-## 6. Reversible agent patching
+## 7. Reversible agent patching
 
 Preview removal of Syncora-owned markers:
 

@@ -19,9 +19,11 @@
   "scripts": {
     "test": "npm run check",
     "test:skill": "node --test --test-concurrency=1 tests/syncora/*.test.mjs",
+    "test:adoption": "node --test --test-concurrency=1 tests/syncora/adoption.test.mjs",
     "check:release": "node scripts/check-release.mjs",
     "check:syntax": "node scripts/check-runtime-syntax.mjs",
     "check": "npm run check:release && npm run check:syntax && npm run test:skill",
-    "smoke:install": "node scripts/smoke-skills-install.mjs"
+    "smoke:install": "node scripts/smoke-skills-install.mjs",
+    "smoke:adoption": "node scripts/smoke-legacy-adoption.mjs"
   }
 }
