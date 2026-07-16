@@ -1,5 +1,8 @@
 # Syncora
 
+[![Syncora Skill CI](https://github.com/rayfould/Syncora/actions/workflows/syncora-skill.yml/badge.svg)](https://github.com/rayfould/Syncora/actions/workflows/syncora-skill.yml)
+[![skills.sh](https://skills.sh/b/rayfould/syncora)](https://skills.sh/rayfould/syncora)
+
 Syncora is a local-first Agent Skill for durable, bounded project context. It
 keeps plain Markdown as the source of truth while helping Codex, Cursor, and
 Claude load the right project knowledge without pulling an entire knowledge
