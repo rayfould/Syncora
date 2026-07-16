@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rename,
   rm,
   stat,
@@ -44,7 +45,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-search-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-search-")));
 }
 
 function currentNote({

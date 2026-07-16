@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rename,
   rm,
   symlink,
@@ -53,7 +54,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace(prefix = "syncora-checkpoint-") {
-  return mkdtemp(join(tmpdir(), prefix));
+  return realpath(await mkdtemp(join(tmpdir(), prefix)));
 }
 
 function delay(milliseconds) {

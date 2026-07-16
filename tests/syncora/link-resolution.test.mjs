@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -20,7 +20,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-links-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-links-")));
 }
 
 function currentNote({ id, kind = "concept", pathScope = "workspace", body = "", schema = 1 }) {

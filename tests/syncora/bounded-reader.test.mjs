@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -32,7 +33,9 @@ function identity(size, overrides = {}) {
 }
 
 async function temporaryWorkspace() {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-bounded-reader-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-bounded-reader-")),
+  );
   await mkdir(join(workspace, ".syncora"));
   return workspace;
 }

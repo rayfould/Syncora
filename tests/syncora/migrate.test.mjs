@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -38,7 +39,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-migrate-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-migrate-")));
 }
 
 async function writeNote(workspace, path, content) {

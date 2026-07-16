@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rename,
   rm,
   symlink,
@@ -122,7 +123,7 @@ function deferred() {
 }
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-patcher-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-patcher-")));
 }
 
 test("patch and unpatch exactly restore untouched BOM and CRLF files", async () => {

@@ -3,6 +3,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -38,7 +39,7 @@ const ACTIONS = [
 ];
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-atomic-file-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-atomic-file-")));
 }
 
 async function initialize(path, content) {

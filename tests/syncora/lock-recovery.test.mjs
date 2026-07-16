@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   utimes,
   writeFile,
@@ -32,7 +33,7 @@ function deferred() {
 }
 
 async function temporaryWorkspace(prefix) {
-  return mkdtemp(join(tmpdir(), prefix));
+  return realpath(await mkdtemp(join(tmpdir(), prefix)));
 }
 
 async function expectMissing(path) {

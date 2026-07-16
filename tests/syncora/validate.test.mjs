@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -41,7 +42,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace(prefix = "syncora-validate-") {
-  return mkdtemp(join(tmpdir(), prefix));
+  return realpath(await mkdtemp(join(tmpdir(), prefix)));
 }
 
 function currentNote({
@@ -337,12 +338,16 @@ test("nested graph links are never followed and unsafe wiki targets quarantine t
 
 test(
   "case and Unicode-normalization path collisions are explicit on portable filesystems",
-  { skip: process.platform === "win32" },
-  async () => {
+  async (context) => {
     const workspace = await temporaryWorkspace();
     try {
       await writeGraphNote(workspace, "knowledge/concepts/Alpha.md", "# Alpha\n");
       await writeGraphNote(workspace, "knowledge/concepts/alpha.md", "# alpha\n");
+      const entries = await readdir(join(workspace, "local", "knowledge", "concepts"));
+      if (!entries.includes("Alpha.md") || !entries.includes("alpha.md")) {
+        context.skip("filesystem does not preserve case-distinct file names");
+        return;
+      }
       const report = JSON.parse(
         run(["validate", "--workspace", workspace, "--format", "json"], 1).stdout,
       );

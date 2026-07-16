@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rename,
   rm,
   symlink,
@@ -46,7 +47,7 @@ function run(args, expectedStatus = 0) {
 }
 
 async function temporaryWorkspace() {
-  return mkdtemp(join(tmpdir(), "syncora-skill-"));
+  return realpath(await mkdtemp(join(tmpdir(), "syncora-skill-")));
 }
 
 test("dry-run plans initialization without touching the workspace", async () => {
