@@ -12,7 +12,11 @@ import {
 import { applyAuthorityValidation } from "./authority-validator.mjs";
 import { SyncoraError } from "./cli.mjs";
 import { buildLinkGraph } from "./link-resolver.mjs";
-import { withMigrationGraphLock } from "./migration-lock.mjs";
+import {
+  assertMigrationLockCapability,
+  readMigrationLockCapability,
+  withMigrationGraphLock,
+} from "./migration-lock.mjs";
 import {
   artifactReference,
   assertMigrationRoot,
@@ -44,6 +48,56 @@ export const MIGRATION_STAGE_POLICY = Object.freeze({
 
 function stageError(code, message, details = undefined) {
   return new SyncoraError(code, message, details);
+}
+
+function assertExpectedBundleBindings(options, validated, entries) {
+  if (
+    options.expectedManifestSha256 !== undefined &&
+    options.expectedManifestSha256 !== validated.manifestSha256
+  ) {
+    throw stageError(
+      "MIGRATE016",
+      "Reviewed manifest bytes do not match the adoption bundle binding.",
+    );
+  }
+  if (options.expectedTargets === undefined) return;
+  if (!Array.isArray(options.expectedTargets)) {
+    throw stageError("MIGRATE016", "Expected adoption target bindings must be an array.");
+  }
+  const expectedByPath = new Map();
+  for (const target of options.expectedTargets) {
+    if (
+      target === null ||
+      typeof target !== "object" ||
+      Array.isArray(target) ||
+      typeof target.path !== "string" ||
+      typeof target.contentSha256 !== "string" ||
+      !Number.isSafeInteger(target.byteLength) ||
+      expectedByPath.has(target.path)
+    ) {
+      throw stageError("MIGRATE016", "Expected adoption target bindings are invalid.");
+    }
+    expectedByPath.set(target.path, target);
+  }
+  if (expectedByPath.size !== entries.length) {
+    throw stageError(
+      "MIGRATE016",
+      "Staged targets do not match the adoption bundle inventory.",
+    );
+  }
+  for (const entry of entries) {
+    const expected = expectedByPath.get(entry.path);
+    if (
+      !expected ||
+      expected.contentSha256 !== entry.contentSha256 ||
+      expected.byteLength !== entry.byteLength
+    ) {
+      throw stageError(
+        "MIGRATE016",
+        `Staged target does not match the adoption bundle binding: ${entry.path}`,
+      );
+    }
+  }
 }
 
 function portableRelative(root, path) {
@@ -296,18 +350,31 @@ function stagedContentArtifact({ migrationId, validated, collected }) {
   };
 }
 
-export async function stageMigration(options) {
+export async function stageMigration(options, execution = {}) {
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
     allowExternalGraphRoot: options.allowExternalGraphRoot,
   });
   const paths = migrationPaths(graph.resolvedGraphPath, options.migrationId);
+  const lockCapability = readMigrationLockCapability(execution);
+  if (lockCapability !== undefined) {
+    assertMigrationLockCapability(lockCapability, {
+      workspacePath: workspace.realPath,
+      graphRoot: graph.resolvedGraphPath,
+    });
+  }
 
   const operation = async () => {
     await assertMigrationRoot(paths);
     const lockedGraph = await resolveGraphContext(workspace, {
       allowExternalGraphRoot: options.allowExternalGraphRoot,
     });
+    if (lockCapability !== undefined) {
+      assertMigrationLockCapability(lockCapability, {
+        workspacePath: workspace.realPath,
+        graphRoot: lockedGraph.resolvedGraphPath,
+      });
+    }
     if (!samePath(lockedGraph.resolvedGraphPath, graph.resolvedGraphPath)) {
       throw stageError(
         "MIGRATE007",
@@ -330,6 +397,7 @@ export async function stageMigration(options) {
     }
     const stagedRoot = await resolveStagedContentRoot(options.stagedContent);
     const collected = await collectStagedTargets(validated, stagedRoot, paths);
+    assertExpectedBundleBindings(options, validated, collected.entries);
     const targetPaths = new Set(validated.targets.map((target) => target.path));
     validateStagedAuthorityGraph(validated.inspection.notes, collected.notes, targetPaths);
 
@@ -441,7 +509,7 @@ export async function stageMigration(options) {
       changes: plans.map((plan) => describePlan(plan, workspace.realPath)),
     };
   };
-  return options.dryRun
+  return options.dryRun || lockCapability !== undefined
     ? operation()
     : withMigrationGraphLock(graph.resolvedGraphPath, operation);
 }

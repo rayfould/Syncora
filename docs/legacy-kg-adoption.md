@@ -1,19 +1,28 @@
 # Legacy knowledge graph adoption
 
-Use this runbook for a project that already has Markdown knowledge, an existing
-knowledge-graph instruction block, or both. Greenfield `init` intentionally
-refuses these workspaces with `MIGRATE015`: it cannot know which existing note
-is authoritative or safely replace a predecessor workflow.
+Use this runbook for a project that already has a Markdown knowledge graph. If
+no graph exists and the exact supported predecessor marker is the only legacy
+state, use one ordinary `setup` command instead. If no graph exists but a
+custom or unmarked predecessor activation does, inspect every active Codex,
+Cursor, and Claude instruction file, remove that activation, then run one
+`setup --confirm-predecessor-reviewed` command. Adoption bundles require real
+graph sources and are not an empty-workflow workaround.
+Greenfield `setup`/`init` intentionally refuses existing graphs and unsupported
+predecessor workflows with `MIGRATE015`: it cannot know which existing note is
+authoritative or which custom instructions are safe to remove.
 
-Adoption is a foreground, reviewed state machine:
+Adoption is a foreground, reviewed state machine internally:
 
 ```text
 authority -> stage -> shadow -> cutover -> verify -> retire
                               \-> rollback <-/
 ```
 
-Nothing runs between agent messages. Every mutating phase is explicit,
-dry-runnable where supported, journaled, and bound to one migration ID. No
+Nothing runs between agent messages. After the semantic files are reviewed,
+the normal direct-runtime surface is two commands: `bundle` seals their exact
+bytes, then `adopt` applies that immutable descriptor. The individual phases
+remain available for expert inspection and recovery. Every workspace mutation
+is journaled and bound to one migration ID. No
 phase deletes legacy notes. Retirement means the predecessor activation and
 default authority have been retired, not that historical Markdown was erased.
 
@@ -29,8 +38,8 @@ default authority have been retired, not that historical Markdown was erased.
   Cutover refuses unmarked or customized broad instructions rather than
   guessing what to remove. A reviewed attestation path exists for workspaces
   where no exact marker remains; it is described at the cutover gate below.
-- Do not run `init`; successful cutover creates the required Syncora runtime
-  files and hook.
+- Do not run `setup` or `init` against an existing graph; successful cutover
+  creates the required Syncora runtime files and hook.
 
 In the commands below, replace `<runtime>` with:
 
@@ -38,7 +47,7 @@ In the commands below, replace `<runtime>` with:
 node <installed-syncora-skill>/scripts/syncora.mjs
 ```
 
-## 1. Inventory authority candidates
+## Prepare: inventory authority candidates
 
 ```text
 <runtime> migrate --phase authority --dry-run --workspace /absolute/project
@@ -52,7 +61,7 @@ inventory ends; restart from page one if the graph or policy changes.
 Remediate every blocked source before staging. Preserve unreadable, malformed,
 or oversized bytes as evidence; do not silently recode or discard them.
 
-## 2. Review the v2 manifest and staged targets
+## Review one bundle and adopt
 
 Create a human-reviewed `syncora.authority-promotion` manifest with
 `manifestSchemaVersion: 2` and `status: reviewed`. It must bind the inventory
@@ -74,6 +83,53 @@ body from legacy wording or recency.
 
 Schema v1 manifests remain review records but are not actionable.
 
+Place the three reviewed inputs together beneath one review directory:
+
+```text
+review/
+  adoption-bundle-v1.json
+  authority-promotion-manifest-v2.json
+  staged-content/
+  shadow-fixtures-v1.json
+```
+
+Seal those reviewed files with one command; no handwritten hash glue is
+required:
+
+```text
+<runtime> bundle --workspace /absolute/project --migration-id syncora-adoption-2026 --manifest /absolute/review/authority-promotion-manifest-v2.json --staged-content /absolute/review/staged-content --fixtures /absolute/review/shadow-fixtures-v1.json --output /absolute/review/adoption-bundle-v1.json
+```
+
+`bundle` revalidates the manifest against the current graph, validates every
+fixture and staged target, and atomically writes a no-clobber descriptor that
+binds every input by SHA-256. All inputs must be below the descriptor's parent
+directory. Rerunning it is byte-idempotent; changing reviewed bytes requires a
+new output path or migration ID rather than overwriting the sealed descriptor.
+
+After reviewing the returned descriptor hash and summary, authorize one apply
+command:
+
+```text
+<runtime> adopt --workspace /absolute/project --bundle /absolute/review/adoption-bundle-v1.json
+```
+
+`adopt` runs stage, shadow, cutover, verify, and retire synchronously. A failed gate
+stops the command; rerun the exact command after correcting the reported issue
+to resume from durable state. One authorization covers this declared composite
+operation. An explicit rollback command remains available for operator-driven
+recovery.
+If a caught cutover or verification failure leaves a recoverable publication
+state, `adopt` first attempts the same exact rollback automatically. A
+concurrent user edit is never overwritten; the command instead reports
+`MIGRATE017` and retains recovery evidence for explicit repair.
+
+The phase commands below are the advanced inspection and recovery surface, not
+the default user workflow.
+
+## Advanced phase diagnostics (optional)
+
+### Stage
+
 Preview, then stage:
 
 ```text
@@ -88,7 +144,7 @@ content-addressed reviewed artifacts to
 `local/.syncora/migrations/syncora-adoption-2026/`; canonical notes and agent
 files remain unchanged.
 
-## 3. Prove bounded shadow behavior
+### Shadow
 
 Prepare 1 through 100 strict shadow cases. Each case identifies the scope and
 query, sets a character budget from 1,000 through 64,000, and lists exact
@@ -123,9 +179,9 @@ Cutover remains locked unless the recorded report has zero failed cases. Fix
 the manifest, staged targets, or fixtures deliberately; rerun `stage` and
 `shadow` rather than weakening mandatory truth to fit a budget.
 
-## 4. Cut over atomically
+### Cutover
 
-Review the dry run and explicitly authorize publication:
+For advanced phase-by-phase diagnosis, review the dry run before publication:
 
 ```text
 <runtime> migrate --phase cutover --migration-id syncora-adoption-2026 --workspace /absolute/project --dry-run
@@ -160,7 +216,7 @@ the same cutover commands with `--confirm-predecessor-reviewed`. This flag is a
 user attestation, not a discovery or deletion mechanism; never use it merely to
 bypass a marker error.
 
-## 5. Verify and retire predecessor activation
+### Verify and retire
 
 ```text
 <runtime> migrate --phase verify --migration-id syncora-adoption-2026 --workspace /absolute/project

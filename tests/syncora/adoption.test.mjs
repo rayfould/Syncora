@@ -6,12 +6,15 @@ import {
   mkdtemp,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { adoptWorkspace } from "../../skills/syncora/scripts/lib/adopt.mjs";
+import { SyncoraError } from "../../skills/syncora/scripts/lib/cli.mjs";
 import {
   cutoverMigration,
   migrationStatus,
@@ -23,6 +26,19 @@ import { inspectAuthoritySnapshot } from "../../skills/syncora/scripts/lib/autho
 import { shadowMigration } from "../../skills/syncora/scripts/lib/migration-shadow.mjs";
 import { stageMigration } from "../../skills/syncora/scripts/lib/migration-stage.mjs";
 import { inspectWorkspace } from "../../skills/syncora/scripts/lib/validate.mjs";
+
+function adoptionLifecycle(overrides = {}) {
+  return {
+    status: migrationStatus,
+    stage: stageMigration,
+    shadow: shadowMigration,
+    cutover: cutoverMigration,
+    verify: verifyMigration,
+    retire: retireMigration,
+    rollback: rollbackMigration,
+    ...overrides,
+  };
+}
 
 function taggedHash(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -89,12 +105,68 @@ function targetBase(values) {
   };
 }
 
-async function adoptionFixture({ predecessorWorkflow = true } = {}) {
+async function writeAdoptionDescriptor({
+  descriptorPath,
+  migrationId,
+  manifestPath,
+  fixturesPath,
+  targets,
+  bodies,
+}) {
+  const [manifestBytes, fixtureBytes] = await Promise.all([
+    readFile(manifestPath),
+    readFile(fixturesPath),
+  ]);
+  const targetBindings = targets
+    .map((target, index) => ({
+      path: target.path,
+      sha256: taggedHash(bodies[index]),
+      byteLength: bodies[index].length,
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const descriptor = {
+    schemaVersion: 1,
+    kind: "syncora-adoption-bundle-v1",
+    migrationId,
+    manifest: {
+      path: "authority-promotion-manifest-v2.json",
+      sha256: taggedHash(manifestBytes),
+    },
+    stagedContent: {
+      root: "staged-content",
+      targetCount: targetBindings.length,
+      totalBytes: targetBindings.reduce((sum, item) => sum + item.byteLength, 0),
+      targets: targetBindings,
+    },
+    fixtures: {
+      path: "shadow-fixtures-v1.json",
+      sha256: taggedHash(fixtureBytes),
+    },
+  };
+  await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`);
+}
+
+async function adoptionFixture({
+  predecessorWorkflow = true,
+  migrationId = "legacy-adoption",
+  externalGraph = false,
+} = {}) {
   const workspace = await mkdtemp(join(tmpdir(), "syncora-adoption-"));
-  const graph = join(workspace, "local");
-  const staged = join(workspace, "reviewed-targets");
-  const manifestPath = join(workspace, "authority-manifest.json");
-  const fixturesPath = join(workspace, "shadow-fixtures.json");
+  const graph = externalGraph
+    ? await mkdtemp(join(tmpdir(), "syncora-adoption-graph-"))
+    : join(workspace, "local");
+  if (externalGraph) {
+    await symlink(
+      graph,
+      join(workspace, "local"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  }
+  const pack = join(workspace, "review");
+  const staged = join(pack, "staged-content");
+  const manifestPath = join(pack, "authority-promotion-manifest-v2.json");
+  const fixturesPath = join(pack, "shadow-fixtures-v1.json");
+  const descriptorPath = join(pack, "adoption-bundle-v1.json");
   const legacyAtlas = Buffer.from("# Legacy atlas\n\nOld routing instructions.\n", "utf8");
   const legacyNote = Buffer.from("# Authentication notes\n\nUse short-lived tokens.\n", "utf8");
   const legacyAgents = Buffer.from(
@@ -124,7 +196,7 @@ async function adoptionFixture({ predecessorWorkflow = true } = {}) {
 
   const snapshot = await inspectAuthoritySnapshot({
     workspace,
-    allowExternalGraphRoot: undefined,
+    allowExternalGraphRoot: externalGraph ? graph : undefined,
   });
   const queue = new Map(snapshot.queue.map((entry) => [entry.source.path, entry]));
   const atlasSource = {
@@ -221,17 +293,402 @@ async function adoptionFixture({ predecessorWorkflow = true } = {}) {
       },
     ],
   }, null, 2)}\n`);
+  await writeAdoptionDescriptor({
+    descriptorPath,
+    migrationId,
+    manifestPath,
+    fixturesPath,
+    targets,
+    bodies,
+  });
   return {
     workspace,
     graph,
+    pack,
     staged,
     manifestPath,
     fixturesPath,
+    descriptorPath,
+    migrationId,
+    targets,
+    bodies,
     legacyAtlas,
     legacyNote,
     legacyAgents,
+    externalGraph,
   };
 }
+
+async function removeAdoptionFixture(fixture) {
+  if (fixture.externalGraph) {
+    await rm(join(fixture.workspace, "local"), { force: true }).catch(() => undefined);
+  }
+  await rm(fixture.workspace, { recursive: true, force: true });
+  if (fixture.externalGraph) {
+    await rm(fixture.graph, { recursive: true, force: true });
+  }
+}
+
+test("one adopt command runs the reviewed lifecycle and safely resumes as idempotent", async () => {
+  const fixture = await adoptionFixture({ migrationId: "one-command-adoption" });
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    const adopted = await adoptWorkspace(options);
+    assert.equal(adopted.ok, true);
+    assert.equal(adopted.status, "retired");
+    assert.deepEqual(adopted.summary.completedPhases, [
+      "stage",
+      "shadow",
+      "cutover",
+      "verify",
+      "retire",
+    ]);
+    assert.equal(adopted.summary.rollbackRetained, true);
+    assert.equal(
+      (await readFile(join(fixture.workspace, "AGENTS.md"), "utf8")).includes(
+        "syncora-agent-hook:begin v2",
+      ),
+      true,
+    );
+
+    const resumed = await adoptWorkspace(options);
+    assert.equal(resumed.status, "retired");
+    assert.equal(resumed.summary.idempotent, true);
+    assert.deepEqual(resumed.summary.completedPhases, []);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("external-graph adoption persists the exact allowlist used after retirement", async (t) => {
+  let fixture;
+  try {
+    fixture = await adoptionFixture({
+      migrationId: "external-graph-adoption",
+      externalGraph: true,
+    });
+  } catch (error) {
+    if (["EPERM", "EACCES"].includes(error?.code)) {
+      t.skip(`Directory links unavailable: ${error.message}`);
+      return;
+    }
+    throw error;
+  }
+  const staleRoot = await mkdtemp(join(tmpdir(), "syncora-stale-graph-root-"));
+  try {
+    await write(
+      join(fixture.workspace, ".syncora", "local.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        externalGraphRoots: [staleRoot],
+      }, null, 2)}\n`,
+    );
+
+    const adopted = await adoptWorkspace({
+      workspace: fixture.workspace,
+      bundle: fixture.descriptorPath,
+      allowExternalGraphRoot: fixture.graph,
+      confirmPredecessorReviewed: false,
+    });
+    assert.equal(adopted.status, "retired");
+    assert.deepEqual(
+      JSON.parse(
+        await readFile(join(fixture.workspace, ".syncora", "local.json"), "utf8"),
+      ).externalGraphRoots,
+      [fixture.graph],
+    );
+
+    const inspection = await inspectWorkspace({ workspace: fixture.workspace });
+    assert.equal(inspection.report.ok, true);
+    assert.equal(inspection.graph.resolvedGraphPath, fixture.graph);
+  } finally {
+    await removeAdoptionFixture(fixture);
+    await rm(staleRoot, { recursive: true, force: true });
+  }
+});
+
+test("one adopt command stops at a failed phase and resumes after the gate is fixed", async () => {
+  const fixture = await adoptionFixture({ migrationId: "resumable-adoption" });
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    const fixtures = JSON.parse(await readFile(fixture.fixturesPath, "utf8"));
+    fixtures.cases[0].requiredIds = ["missing-required-note"];
+    await writeFile(fixture.fixturesPath, `${JSON.stringify(fixtures, null, 2)}\n`);
+    await writeAdoptionDescriptor(fixture);
+
+    await assert.rejects(
+      adoptWorkspace(options),
+      (error) =>
+        error.code === "MIGRATE012" &&
+        error.message.includes("Adoption stopped during shadow") &&
+        error.details?.adoption?.phase === "shadow" &&
+        error.details?.adoption?.currentStatus === "staged" &&
+        JSON.stringify(error.details?.adoption?.completedPhases) ===
+          JSON.stringify(["stage"]),
+    );
+    assert.equal((await migrationStatus({
+      ...options,
+      migrationId: fixture.migrationId,
+    })).status, "staged");
+    assert.deepEqual(await readFile(join(fixture.graph, "index.md")), fixture.legacyAtlas);
+    assert.deepEqual(await readFile(join(fixture.workspace, "AGENTS.md")), fixture.legacyAgents);
+
+    fixtures.cases[0].requiredIds = ["decision-auth"];
+    await writeFile(fixture.fixturesPath, `${JSON.stringify(fixtures, null, 2)}\n`);
+    await writeAdoptionDescriptor(fixture);
+    const resumed = await adoptWorkspace(options);
+    assert.equal(resumed.status, "retired");
+    assert.deepEqual(resumed.summary.completedPhases, [
+      "stage",
+      "shadow",
+      "cutover",
+      "verify",
+      "retire",
+    ]);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("adopt resumes a reviewed migration from cutover-applied without replaying earlier phases", async () => {
+  const fixture = await adoptionFixture({ migrationId: "cutover-applied-resume" });
+  const common = {
+    workspace: fixture.workspace,
+    migrationId: fixture.migrationId,
+    allowExternalGraphRoot: undefined,
+  };
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    await stageMigration({
+      ...common,
+      phase: "stage",
+      manifest: fixture.manifestPath,
+      stagedContent: fixture.staged,
+      dryRun: false,
+    });
+    await shadowMigration({
+      ...common,
+      phase: "shadow",
+      fixtures: fixture.fixturesPath,
+      dryRun: false,
+    });
+    const cutover = await cutoverMigration({
+      ...common,
+      phase: "cutover",
+      dryRun: false,
+    });
+    assert.equal(cutover.status, "cutover-applied");
+
+    const resumed = await adoptWorkspace(options);
+    assert.equal(resumed.status, "retired");
+    assert.equal(resumed.summary.startedAt, "cutover-applied");
+    assert.deepEqual(resumed.summary.completedPhases, ["verify", "retire"]);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("adopt resumes after an unmarked predecessor is explicitly reviewed", async () => {
+  const fixture = await adoptionFixture({
+    predecessorWorkflow: false,
+    migrationId: "reviewed-unmarked-predecessor",
+  });
+  const unconfirmed = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    await assert.rejects(
+      adoptWorkspace(unconfirmed),
+      (error) =>
+        error.code === "MIGRATE013" &&
+        /confirm-predecessor-reviewed/.test(error.message) &&
+        error.details?.adoption?.currentStatus === "shadow-verified" &&
+        JSON.stringify(error.details?.adoption?.completedPhases) ===
+          JSON.stringify(["stage", "shadow"]),
+    );
+    assert.deepEqual(
+      await readFile(join(fixture.workspace, "AGENTS.md")),
+      fixture.legacyAgents,
+    );
+
+    const resumed = await adoptWorkspace({
+      ...unconfirmed,
+      confirmPredecessorReviewed: true,
+    });
+    assert.equal(resumed.status, "retired");
+    assert.equal(resumed.summary.startedAt, "shadow-verified");
+    assert.deepEqual(resumed.summary.completedPhases, [
+      "cutover",
+      "verify",
+      "retire",
+    ]);
+    const patchedAgents = await readFile(
+      join(fixture.workspace, "AGENTS.md"),
+      "utf8",
+    );
+    assert.match(patchedAgents, /Reviewed custom instructions/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v2/);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("adopt refuses residual custom activation outside an exact predecessor block", async () => {
+  const fixture = await adoptionFixture({
+    migrationId: "mixed-predecessor-activation",
+  });
+  const agentsPath = join(fixture.workspace, "AGENTS.md");
+  const mixedAgents = Buffer.concat([
+    fixture.legacyAgents,
+    Buffer.from("Always load local/index.md before every task.\n", "utf8"),
+  ]);
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: true,
+  };
+  try {
+    await writeFile(agentsPath, mixedAgents);
+    await assert.rejects(
+      adoptWorkspace(options),
+      (error) =>
+        error.code === "MIGRATE013" &&
+        /custom predecessor activation remains/.test(error.message) &&
+        JSON.stringify(error.details?.cause?.customPredecessorAgentFiles) ===
+          JSON.stringify(["AGENTS.md"]) &&
+        error.details?.adoption?.currentStatus === "shadow-verified",
+    );
+    assert.deepEqual(await readFile(agentsPath), mixedAgents);
+
+    await writeFile(agentsPath, fixture.legacyAgents);
+    const resumed = await adoptWorkspace(options);
+    assert.equal(resumed.status, "retired");
+    assert.equal(resumed.summary.startedAt, "shadow-verified");
+    const patched = await readFile(agentsPath, "utf8");
+    assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
+    assert.doesNotMatch(patched, /Always load local\/index\.md/);
+    assert.match(patched, /syncora-agent-hook:begin v2/);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("a caught verification failure automatically restores exact pre-cutover bytes", async () => {
+  const fixture = await adoptionFixture({ migrationId: "automatic-rollback" });
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    await assert.rejects(
+      adoptWorkspace(options, adoptionLifecycle({
+        verify: async () => {
+          throw new SyncoraError("MIGRATE013", "Injected verification failure.");
+        },
+      })),
+      (error) =>
+        error.code === "MIGRATE013" &&
+        error.details?.adoption?.automaticRollback?.status === "rolled-back",
+    );
+    assert.deepEqual(await readFile(join(fixture.graph, "index.md")), fixture.legacyAtlas);
+    assert.deepEqual(await readFile(join(fixture.graph, "notes.md")), fixture.legacyNote);
+    assert.deepEqual(await readFile(join(fixture.workspace, "AGENTS.md")), fixture.legacyAgents);
+    await assert.rejects(readFile(join(fixture.workspace, ".syncora", "config.json")));
+    assert.equal((await migrationStatus({
+      ...options,
+      migrationId: fixture.migrationId,
+    })).status, "rolled-back");
+    await assert.rejects(
+      adoptWorkspace(options),
+      (error) => error.code === "MIGRATE006" && /new migration ID/i.test(error.message),
+    );
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("automatic rollback preserves a concurrent user edit and reports recovery required", async () => {
+  const fixture = await adoptionFixture({ migrationId: "rollback-conflict" });
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  const concurrentEdit = Buffer.from("# Concurrent user edit\n", "utf8");
+  try {
+    await assert.rejects(
+      adoptWorkspace(options, adoptionLifecycle({
+        verify: async () => {
+          await writeFile(join(fixture.workspace, "AGENTS.md"), concurrentEdit);
+          throw new SyncoraError("MIGRATE013", "Injected verification conflict.");
+        },
+      })),
+      (error) =>
+        error.code === "MIGRATE017" &&
+        error.details?.adoption?.recoveryRequired === true,
+    );
+    assert.deepEqual(
+      await readFile(join(fixture.workspace, "AGENTS.md")),
+      concurrentEdit,
+    );
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("a retirement failure leaves verified state and the same command resumes retirement", async () => {
+  const fixture = await adoptionFixture({ migrationId: "retirement-resume" });
+  const options = {
+    workspace: fixture.workspace,
+    bundle: fixture.descriptorPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    await assert.rejects(
+      adoptWorkspace(options, adoptionLifecycle({
+        retire: async () => {
+          throw new SyncoraError("MIGRATE014", "Injected retirement failure.");
+        },
+      })),
+      (error) =>
+        error.code === "MIGRATE014" &&
+        error.details?.adoption?.currentStatus === "verified",
+    );
+    assert.equal((await migrationStatus({
+      ...options,
+      migrationId: fixture.migrationId,
+    })).status, "verified");
+
+    const resumed = await adoptWorkspace(options);
+    assert.equal(resumed.status, "retired");
+    assert.deepEqual(resumed.summary.completedPhases, ["retire"]);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
 
 test("legacy adoption stages, shadow-tests, atomically cuts over, verifies, retires, and rolls back", async () => {
   const fixture = await adoptionFixture();

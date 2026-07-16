@@ -72,6 +72,283 @@ test("dry-run plans initialization without touching the workspace", async () => 
   }
 });
 
+test("setup is the one-command greenfield initialization surface", async () => {
+  const workspace = await temporaryWorkspace();
+  try {
+    const first = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(first.command, "setup");
+    assert.equal(first.ok, true);
+    await access(join(workspace, ".syncora", "config.json"));
+    await access(join(workspace, "local", "index.md"));
+    await access(join(workspace, "AGENTS.md"));
+
+    const second = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(second.command, "setup");
+    assert.equal(
+      second.changes.every((change) => change.action === "unchanged"),
+      true,
+    );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("setup atomically replaces an exact predecessor workflow without losing unrelated AGENTS content", async () => {
+  const workspace = await temporaryWorkspace();
+  const predecessorAgents = [
+    "# Custom preface",
+    "",
+    "Preserve this project-specific instruction.",
+    "",
+    "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->",
+    "Load the predecessor graph on every request.",
+    "<!-- END KNOWLEDGE GRAPH WORKFLOW -->",
+    "",
+    "# Custom suffix",
+    "",
+    "Keep this instruction too.",
+    "",
+  ].join("\n");
+  try {
+    await writeFile(join(workspace, "AGENTS.md"), predecessorAgents, "utf8");
+
+    const output = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ]).stdout);
+
+    assert.equal(output.ok, true);
+    assert.equal(output.command, "setup");
+    await access(join(workspace, ".syncora", "config.json"));
+    await access(join(workspace, "local", "index.md"));
+    const patchedAgents = await readFile(join(workspace, "AGENTS.md"), "utf8");
+    assert.match(patchedAgents, /# Custom preface/);
+    assert.match(patchedAgents, /Preserve this project-specific instruction\./);
+    assert.match(patchedAgents, /# Custom suffix/);
+    assert.match(patchedAgents, /Keep this instruction too\./);
+    assert.doesNotMatch(patchedAgents, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
+    assert.doesNotMatch(patchedAgents, /END KNOWLEDGE GRAPH WORKFLOW/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v2/);
+    assert.equal(
+      (patchedAgents.match(/syncora-agent-hook:begin v2/g) ?? []).length,
+      1,
+    );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("setup refuses residual custom activation outside an exact predecessor block", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const residualActivation = "Always load local/index.md before every task.\n";
+  const predecessorAgents = [
+    "# Project instructions",
+    "",
+    "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->",
+    "Load the predecessor graph on every request.",
+    "<!-- END KNOWLEDGE GRAPH WORKFLOW -->",
+    "",
+    residualActivation.trimEnd(),
+    "",
+  ].join("\n");
+  try {
+    await writeFile(agentsPath, predecessorAgents, "utf8");
+
+    const refused = run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--confirm-predecessor-reviewed",
+      "--format",
+      "json",
+    ], 1);
+    const failure = JSON.parse(refused.stderr);
+    assert.equal(failure.error.code, "MIGRATE015");
+    assert.deepEqual(
+      failure.error.details.customPredecessorAgentFiles,
+      ["AGENTS.md"],
+    );
+    assert.equal(failure.error.details.predecessorReviewConfirmed, true);
+    assert.equal(await readFile(agentsPath, "utf8"), predecessorAgents);
+    await assert.rejects(access(join(workspace, ".syncora")));
+    await assert.rejects(access(join(workspace, "local")));
+
+    await writeFile(
+      agentsPath,
+      predecessorAgents.replace(residualActivation, ""),
+      "utf8",
+    );
+    const output = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--confirm-predecessor-reviewed",
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(output.ok, true);
+    const patched = await readFile(agentsPath, "utf8");
+    assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
+    assert.doesNotMatch(patched, /Always load local\/index\.md/);
+    assert.match(patched, /syncora-agent-hook:begin v2/);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("setup without agent patching refuses an exact predecessor workflow without partial initialization", async () => {
+  const workspace = await temporaryWorkspace();
+  const predecessorAgents = Buffer.from([
+    "# Preserve exactly",
+    "",
+    "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->",
+    "Load the predecessor graph on every request.",
+    "<!-- END KNOWLEDGE GRAPH WORKFLOW -->",
+    "",
+    "Keep this suffix.",
+    "",
+  ].join("\n"), "utf8");
+  try {
+    await writeFile(join(workspace, "AGENTS.md"), predecessorAgents);
+
+    const result = run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--no-patch-agents",
+      "--format",
+      "json",
+    ], 1);
+
+    const failure = JSON.parse(result.stderr);
+    assert.equal(failure.error.code, "MIGRATE015");
+    assert.match(failure.error.message, /patching is enabled/);
+    assert.deepEqual(
+      await readFile(join(workspace, "AGENTS.md")),
+      predecessorAgents,
+    );
+    await assert.rejects(access(join(workspace, ".syncora")));
+    await assert.rejects(access(join(workspace, "local")));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("setup requires review before replacing a possible custom predecessor-only workflow", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const predecessor = "# Project instructions\n\nAlways load local/index.md before every task.\n";
+  const reviewed = "# Project instructions\n\nKeep the project formatting conventions.\n";
+  try {
+    await writeFile(agentsPath, predecessor, "utf8");
+    const refused = run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ], 1);
+    const failure = JSON.parse(refused.stderr);
+    assert.equal(failure.error.code, "MIGRATE015");
+    assert.match(failure.error.message, /custom predecessor activation/);
+    assert.deepEqual(failure.error.details.customPredecessorAgentFiles, ["AGENTS.md"]);
+    assert.equal(await readFile(agentsPath, "utf8"), predecessor);
+    await assert.rejects(access(join(workspace, ".syncora")));
+    await assert.rejects(access(join(workspace, "local")));
+
+    await writeFile(agentsPath, reviewed, "utf8");
+    const output = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--confirm-predecessor-reviewed",
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(output.ok, true);
+    const patched = await readFile(agentsPath, "utf8");
+    assert.match(patched, /Keep the project formatting conventions\./);
+    assert.match(patched, /syncora-agent-hook:begin v2/);
+    assert.doesNotMatch(patched, /Always load local\/index\.md/);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("patch-agents cannot bypass predecessor review after setup opts out", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const predecessor = "# Project instructions\n\nAlways load local/index.md before every task.\n";
+  const reviewed = "# Project instructions\n\nKeep the project formatting conventions.\n";
+  try {
+    await writeFile(agentsPath, predecessor, "utf8");
+    const setup = JSON.parse(run([
+      "setup",
+      "--workspace",
+      workspace,
+      "--no-patch-agents",
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(setup.ok, true);
+    assert.doesNotMatch(await readFile(agentsPath, "utf8"), /syncora-agent-hook/);
+
+    const unreviewed = run([
+      "patch-agents",
+      "--workspace",
+      workspace,
+      "--format",
+      "json",
+    ], 1);
+    assert.equal(JSON.parse(unreviewed.stderr).error.code, "PATCH005");
+
+    const refused = run([
+      "patch-agents",
+      "--workspace",
+      workspace,
+      "--confirm-predecessor-reviewed",
+      "--format",
+      "json",
+    ], 1);
+    const failure = JSON.parse(refused.stderr);
+    assert.equal(failure.error.code, "PATCH005");
+    assert.match(failure.error.message, /predecessor activation remains/);
+    assert.equal(await readFile(agentsPath, "utf8"), predecessor);
+
+    await writeFile(agentsPath, reviewed, "utf8");
+    const patched = JSON.parse(run([
+      "patch-agents",
+      "--workspace",
+      workspace,
+      "--confirm-predecessor-reviewed",
+      "--format",
+      "json",
+    ]).stdout);
+    assert.equal(patched.ok, true);
+    const agents = await readFile(agentsPath, "utf8");
+    assert.match(agents, /Keep the project formatting conventions\./);
+    assert.match(agents, /syncora-agent-hook:begin v2/);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("normal init refuses a legacy graph and predecessor workflow without changing bytes", async () => {
   const workspace = await temporaryWorkspace();
   const legacyIndex = Buffer.from("# Legacy graph\n\nPreserve this authority.\n", "utf8");
@@ -371,6 +648,7 @@ test("doctor observes a missing lock directory without creating it", async () =>
       "--format",
       "json",
     ]);
+    await rm(locksPath, { recursive: true, force: true });
     await assert.rejects(access(locksPath));
     const doctor = JSON.parse(
       run(["doctor", "--workspace", workspace, "--format", "json"]).stdout,
@@ -458,6 +736,7 @@ test("doctor and both runtimes reject a non-directory lock root without mutation
       "--format",
       "json",
     ]);
+    await rm(locksPath, { recursive: true, force: true });
     await writeFile(locksPath, "preserve-me\n", "utf8");
 
     const doctor = JSON.parse(
@@ -488,7 +767,12 @@ test("doctor and both runtimes reject a non-directory lock root without mutation
       /LOCK001/,
     );
     assert.match(
-      run(["patch-agents", "--workspace", workspace], 1).stderr,
+      run([
+        "patch-agents",
+        "--workspace",
+        workspace,
+        "--confirm-predecessor-reviewed",
+      ], 1).stderr,
       /PATCH005/,
     );
     assert.equal(await readFile(locksPath, "utf8"), "preserve-me\n");
@@ -544,6 +828,7 @@ test("doctor and both runtimes reject a junction lock root without following it"
       "--format",
       "json",
     ]);
+    await rm(locksPath, { recursive: true, force: true });
     try {
       await symlink(
         target,
@@ -583,7 +868,12 @@ test("doctor and both runtimes reject a junction lock root without following it"
       /LOCK001/,
     );
     assert.match(
-      run(["patch-agents", "--workspace", workspace], 1).stderr,
+      run([
+        "patch-agents",
+        "--workspace",
+        workspace,
+        "--confirm-predecessor-reviewed",
+      ], 1).stderr,
       /PATCH005/,
     );
     await assert.rejects(access(join(target, "checkpoint.lock")));
@@ -803,7 +1093,8 @@ test("a lock released during diagnosis is treated as transient absence", async (
       "--format",
       "json",
     ]);
-    await mkdir(locksRoot);
+    await rm(locksRoot, { recursive: true, force: true });
+    await mkdir(locksRoot, { recursive: true });
     await writeFile(lockPath, '{"pid":123}\n', "utf8");
 
     const observation = await readBoundedRegularFileIfPresent(lockPath, {

@@ -50,7 +50,8 @@ Exit gate:
 Deliverables:
 
 - `doctor`;
-- `init --workspace ABS`;
+- one-command `setup --workspace ABS` with `init` retained as a compatibility
+  surface;
 - `--dry-run`, text output, and JSON output;
 - hub-first Markdown skeleton;
 - default patching for Codex, Cursor, and Claude;
@@ -67,6 +68,8 @@ Exit gate:
 
 - initialization is idempotent and rollback-safe across representative Windows,
   macOS, and Linux fixtures;
+- one explicit setup request completes greenfield initialization without a
+  mandatory dry-run-and-confirm loop;
 - self-contained requests stay inert while project work receives only the
   minimum applicable profile.
 
@@ -152,6 +155,8 @@ Deliverables:
 - giant-note and duplicate-decision findings;
 - reviewed v2 authority manifest and exact staged target bundles;
 - reversible `migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status`;
+- one installed `bundle` command that seals reviewed inputs without handwritten
+  hashing and one resumable `adopt` command over the reviewed lifecycle;
 - bounded comparison fixtures against a virtual staged graph;
 - journaled accepted migration application and exact rollback;
 - predecessor-system archive decision.
@@ -163,6 +168,8 @@ Exit gate:
 - no unique accepted state remains only in a predecessor system;
 - the broad predecessor AGENTS workflow has been explicitly replaced rather
   than merely supplemented.
+- normal adoption reaches retirement from one authorization without exposing
+  each internal phase as a separate approval step.
 
 ### Workstream H: Cross-agent evaluation and release
 
@@ -203,7 +210,7 @@ Status: Included in `0.1.0-preview.1`
 - [x] Create the skill package and progressive-disclosure references.
 - [x] Implement workspace resolution and containment.
 - [x] Implement `doctor`.
-- [x] Implement idempotent `init` and hub skeleton.
+- [x] Implement idempotent `setup`/`init` and hub skeleton.
 - [x] Implement patch, unpatch, dry-run, and rollback.
 - [x] Bound agent and snapshot reads, bind ancestor identities through atomic
       publication, and make rollback ownership-aware under concurrent edits.
@@ -342,16 +349,30 @@ tests/syncora/
 The current executable commands are:
 
 ```text
+setup
+bundle --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON
+adopt --bundle ABS_JSON
 doctor
-init
 validate
 backlinks
 search
 checkpoint
-migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
 patch-agents
 unpatch-agents
 ```
+
+The advanced compatibility, inspection, and recovery surface is:
+
+```text
+init
+migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
+```
+
+Normal greenfield or exact predecessor-marker-only setup is one `setup`
+command. Normal existing-graph adoption is two commands after semantic review:
+`bundle` seals the exact files and `adopt --bundle` applies them. The advanced phase surface remains
+independently executable for diagnostics and exact recovery, but it is not a
+multi-approval installation workflow.
 
 The current development preview does not claim to provide context compilation,
 governed capture, or drift. Its adoption-specific shadow compiler and

@@ -9,10 +9,15 @@ import {
 } from "./atomic-file.mjs";
 import {
   inspectAgentHooks,
+  planAgentMigrationCutover,
   planAgentPatch,
   verifyAgentPatchPlans,
 } from "./agent-patcher.mjs";
 import { SyncoraError } from "./cli.mjs";
+import {
+  assertMigrationLockRoots,
+  withMigrationLocks,
+} from "./migration-lock.mjs";
 import { withPatchLock } from "./patch-lock.mjs";
 import { inspectWorkspace } from "./validate.mjs";
 import {
@@ -153,11 +158,17 @@ async function isRecognizedSyncoraGraph(workspace, graph, options) {
   }
 }
 
-export async function initializeWorkspace(options) {
+async function initializeWorkspaceUnlocked(options, expectedLockRoots = undefined) {
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
     allowExternalGraphRoot: options.allowExternalGraphRoot,
   });
+  if (expectedLockRoots !== undefined) {
+    assertMigrationLockRoots(expectedLockRoots, {
+      workspacePath: workspace.realPath,
+      graphRoot: graph.resolvedGraphPath,
+    });
+  }
   const today = new Date().toISOString().slice(0, 10);
   const workspaceName = safeWorkspaceName(workspace.realPath);
   const plans = [];
@@ -171,8 +182,12 @@ export async function initializeWorkspace(options) {
   }
 
   const existingConfig = await readSyncoraConfigIfPresent(workspace.realPath);
-  const legacyHooks = (await inspectAgentHooks(workspace.realPath)).filter(
+  const inspectedHooks = await inspectAgentHooks(workspace.realPath);
+  const legacyHooks = inspectedHooks.filter(
     (item) => item.legacyKnowledgeGraphWorkflow,
+  );
+  const customPredecessorHooks = inspectedHooks.filter(
+    (item) => item.possibleCustomPredecessorActivation,
   );
   const preexistingGraphEntries = await inspectPreexistingGraph(
     graph.resolvedGraphPath,
@@ -183,18 +198,39 @@ export async function initializeWorkspace(options) {
       : false;
   const graphRequiresAdoption =
     preexistingGraphEntries.length > 0 && !recognizedExistingGraph;
-  if (legacyHooks.length > 0 || graphRequiresAdoption) {
+  if (
+    graphRequiresAdoption ||
+    (legacyHooks.length > 0 && !options.patchAgents) ||
+    (
+      customPredecessorHooks.length > 0 &&
+      options.patchAgents
+    )
+  ) {
+    const customPredecessorReviewRequired =
+      customPredecessorHooks.length > 0 &&
+      options.patchAgents;
     throw new SyncoraError(
       "MIGRATE015",
-      "Existing knowledge or predecessor agent instructions require the reversible adoption workflow; normal init will not modify this workspace.",
+      graphRequiresAdoption
+        ? "Existing knowledge requires the reversible adoption workflow; greenfield setup will not modify this workspace."
+        : customPredecessorReviewRequired
+          ? "Possible custom predecessor activation remains outside the exact predecessor block and must be removed before setup can add Syncora instructions."
+          : "A predecessor workflow can only be replaced when setup agent patching is enabled.",
       {
         graphEntries: preexistingGraphEntries.slice(0, 16),
         omittedGraphEntries: Math.max(0, preexistingGraphEntries.length - 16),
         predecessorAgentFiles: legacyHooks.map((item) => item.path),
-        next: "Run syncora migrate --phase authority --dry-run, prepare a reviewed v2 manifest and staged target bundle, then continue with stage and shadow.",
+        customPredecessorAgentFiles: customPredecessorHooks.map((item) => item.path),
+        predecessorReviewConfirmed: options.confirmPredecessorReviewed === true,
+        next: graphRequiresAdoption
+          ? "Prepare one reviewed, content-addressed adoption bundle, then apply it with syncora adopt --bundle <absolute-path>."
+          : customPredecessorReviewRequired
+            ? "Inspect every active agent instruction file, remove custom predecessor activation outside the exact predecessor block, then rerun syncora setup --confirm-predecessor-reviewed."
+            : "Rerun syncora setup without --no-patch-agents so the exact predecessor marker can be replaced atomically.",
       },
     );
   }
+  const replacePredecessorWorkflow = legacyHooks.length > 0;
 
   const configPath = join(workspace.realPath, ".syncora", "config.json");
   const config = JSON.parse(await template("config.json"));
@@ -270,7 +306,9 @@ export async function initializeWorkspace(options) {
   async function applyInitialization() {
     let patchPlans = [];
     if (options.patchAgents) {
-      const patch = await planAgentPatch(workspace.realPath);
+      const patch = replacePredecessorWorkflow
+        ? await planAgentMigrationCutover(workspace.realPath)
+        : await planAgentPatch(workspace.realPath);
       patchPlans = patch.plans;
       plans.push(...patchPlans);
       warnings.push(...patch.warnings);
@@ -286,11 +324,7 @@ export async function initializeWorkspace(options) {
     await applyFilePlans(plans);
   }
 
-  if (options.patchAgents && !options.dryRun) {
-    await withPatchLock(workspace.realPath, applyInitialization);
-  } else {
-    await applyInitialization();
-  }
+  await applyInitialization();
 
   return {
     ok: true,
@@ -302,4 +336,27 @@ export async function initializeWorkspace(options) {
     changes: plans.map((item) => describePlan(item, workspace.realPath)),
     warnings,
   };
+}
+
+export async function initializeWorkspace(options) {
+  if (options.dryRun) return initializeWorkspaceUnlocked(options);
+
+  // Refuse obvious legacy authority before lock acquisition creates any
+  // operational directories. The complete plan is rebuilt under lock below,
+  // so this preflight grants no write authority and cannot mask a race.
+  await initializeWorkspaceUnlocked({ ...options, dryRun: true });
+
+  const workspace = await resolveWorkspace(options.workspace);
+  const graph = await resolveGraphContext(workspace, {
+    allowExternalGraphRoot: options.allowExternalGraphRoot,
+  });
+  const lockRoots = Object.freeze({
+    workspacePath: workspace.realPath,
+    graphRoot: graph.resolvedGraphPath,
+  });
+  const operation = () => initializeWorkspaceUnlocked(options, lockRoots);
+
+  return graph.external
+    ? withMigrationLocks(lockRoots, operation)
+    : withPatchLock(workspace.realPath, operation);
 }

@@ -117,8 +117,22 @@ test("legacy adoption documentation and release gates stay bundled", async () =>
   await access(
     join(skillRoot, "assets", "schemas", "authority-promotion-manifest-v2.schema.json"),
   );
+  await access(
+    join(skillRoot, "assets", "schemas", "adoption-bundle-v1.schema.json"),
+  );
   await access(join(skillRoot, "references", "legacy-adoption.md"));
   await access(join(repositoryRoot, "scripts", "smoke-legacy-adoption.mjs"));
+
+  const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const adoption = await readFile(
+    join(skillRoot, "references", "legacy-adoption.md"),
+    "utf8",
+  );
+  assert.match(skill, /explicit request to set up Syncora/);
+  assert.match(skill, /one `adopt --bundle`/);
+  assert.match(adoption, /One explicit authorization/);
+  assert.match(adoption, /internal phases/);
+  assert.doesNotMatch(adoption, /approval before each non-dry-run/i);
 
   const packageJson = JSON.parse(
     await readFile(join(repositoryRoot, "package.json"), "utf8"),

@@ -59,10 +59,11 @@ unrelated self-contained clauses out of graph context. No route authorizes
 unrelated reads or writes.
 
 Direct maintenance commands with an equivalent lifecycle run directly. Do not
-precede `init`, `doctor`, explicit `validate`, patch/unpatch, or read-only
-migration inventory with a redundant checkpoint. Their operation-owned
-lifecycle satisfies the applicable pre/post gates. Use a maintenance checkpoint
-only for maintenance-oriented project work that lacks its own gate.
+precede `setup` (`init` compatibility), `bundle`, `adopt --bundle`, `doctor`, explicit
+`validate`, patch/unpatch, or read-only migration inventory with a redundant
+checkpoint. Their operation-owned lifecycle satisfies the applicable pre/post
+gates. Use a maintenance checkpoint only for maintenance-oriented project work
+that lacks its own gate.
 Operation-specific validation remains mandatory for authority-sensitive writes.
 
 ## Requests that stay `none`

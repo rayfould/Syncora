@@ -10,13 +10,16 @@ export class SyncoraError extends Error {
 }
 
 const COMMANDS = new Set([
+  "adopt",
   "backlinks",
+  "bundle",
   "checkpoint",
   "doctor",
   "init",
   "migrate",
   "patch-agents",
   "search",
+  "setup",
   "unpatch-agents",
   "validate",
 ]);
@@ -36,6 +39,8 @@ const VALUE_OPTIONS = new Set([
   "--manifest",
   "--staged-content",
   "--fixtures",
+  "--bundle",
+  "--output",
 ]);
 
 export function parseArgv(argv) {
@@ -69,6 +74,8 @@ export function parseArgv(argv) {
     manifest: undefined,
     stagedContent: undefined,
     fixtures: undefined,
+    bundle: undefined,
+    output: undefined,
     confirmPredecessorReviewed: false,
     force: false,
     noCache: false,
@@ -134,6 +141,8 @@ export function parseArgv(argv) {
       if (token === "--manifest") options.manifest = value;
       if (token === "--staged-content") options.stagedContent = value;
       if (token === "--fixtures") options.fixtures = value;
+      if (token === "--bundle") options.bundle = value;
+      if (token === "--output") options.output = value;
       if (token === "--limit") {
         const limit = Number(value);
         if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
@@ -161,10 +170,10 @@ export function parseArgv(argv) {
     );
   }
 
-  if (command !== "init" && options.patchAgents === false) {
+  if (!new Set(["init", "setup"]).has(command) && options.patchAgents === false) {
     throw new SyncoraError(
       "CLI005",
-      "--no-patch-agents is only valid with init.",
+      "--no-patch-agents is only valid with setup or init.",
     );
   }
 
@@ -195,20 +204,24 @@ export function parseArgv(argv) {
       "--phase is only valid with migrate or checkpoint.",
     );
   }
+  if (command !== "migrate" && options.cursor !== undefined) {
+    throw new SyncoraError("CLI005", "--cursor is only valid with migrate.");
+  }
   if (
-    command !== "migrate" &&
-    [
-      options.cursor,
-      options.migrationId,
-      options.manifest,
-      options.stagedContent,
-      options.fixtures,
-    ].some((value) => value !== undefined)
+    !new Set(["migrate", "bundle"]).has(command) &&
+    [options.migrationId, options.manifest, options.stagedContent, options.fixtures]
+      .some((value) => value !== undefined)
   ) {
     throw new SyncoraError(
       "CLI005",
-      "--cursor, --migration-id, --manifest, --staged-content, and --fixtures are only valid with migrate.",
+      "--migration-id, --manifest, --staged-content, and --fixtures are only valid with bundle or migrate.",
     );
+  }
+  if (command !== "adopt" && options.bundle !== undefined) {
+    throw new SyncoraError("CLI005", "--bundle is only valid with adopt.");
+  }
+  if (command !== "bundle" && options.output !== undefined) {
+    throw new SyncoraError("CLI005", "--output is only valid with bundle.");
   }
   if (command === "migrate") {
     const phases = new Set([
@@ -286,10 +299,46 @@ export function parseArgv(argv) {
         "--confirm-predecessor-reviewed is only valid with migrate --phase cutover.",
       );
     }
-  } else if (options.confirmPredecessorReviewed) {
+  } else if (command === "bundle") {
+    const missing = [
+      ["--migration-id", options.migrationId],
+      ["--manifest", options.manifest],
+      ["--staged-content", options.stagedContent],
+      ["--fixtures", options.fixtures],
+      ["--output", options.output],
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missing.length > 0) {
+      throw new SyncoraError(
+        "CLI002",
+        `bundle requires ${missing.join(", ")}.`,
+      );
+    }
+    if (options.confirmPredecessorReviewed) {
+      throw new SyncoraError(
+        "CLI005",
+        "--confirm-predecessor-reviewed is only valid with setup, patch-agents, adopt, or migrate --phase cutover.",
+      );
+    }
+  } else if (command === "adopt") {
+    if (options.dryRun) {
+      throw new SyncoraError(
+        "CLI005",
+        "adopt is the authorized end-to-end mutation command and does not support --dry-run; use the low-level migrate phases for previews.",
+      );
+    }
+    if (!options.bundle) {
+      throw new SyncoraError(
+        "CLI002",
+        "adopt requires --bundle <absolute-path>.",
+      );
+    }
+  } else if (
+    options.confirmPredecessorReviewed &&
+    !new Set(["setup", "patch-agents"]).has(command)
+  ) {
     throw new SyncoraError(
       "CLI005",
-      "--confirm-predecessor-reviewed is only valid with migrate --phase cutover.",
+      "--confirm-predecessor-reviewed is only valid with setup, patch-agents, adopt, or migrate --phase cutover.",
     );
   }
   if (command === "checkpoint") {
@@ -367,13 +416,48 @@ export function helpText(topic = undefined) {
     "--format <text|json>",
   ];
 
-  if (topic === "init") {
+  if (topic === "init" || topic === "setup") {
     return [
-      "Usage: syncora init --workspace <absolute-path> [options]",
+      `Usage: syncora ${topic} --workspace <absolute-path> [options]`,
       "",
       ...common,
       "--no-patch-agents",
+      ...(topic === "setup"
+        ? ["--confirm-predecessor-reviewed  (only after reviewing custom or unmarked predecessor instructions)"]
+        : []),
       "--allow-external-graph-root <absolute-path>",
+    ].join("\n");
+  }
+
+  if (topic === "adopt") {
+    return [
+      "Usage: syncora adopt --workspace <absolute-path> --bundle <absolute-path> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--bundle <absolute-path>  (content-addressed reviewed adoption descriptor)",
+      "--confirm-predecessor-reviewed  (only after reviewing custom or unmarked predecessor instructions)",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
+    ].join("\n");
+  }
+
+  if (topic === "bundle") {
+    return [
+      "Usage: syncora bundle --workspace <absolute-path> --migration-id <id> --manifest <absolute-path> --staged-content <absolute-directory> --fixtures <absolute-path> --output <absolute-path> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--migration-id <id>",
+      "--manifest <absolute-path>",
+      "--staged-content <absolute-directory>",
+      "--fixtures <absolute-path>",
+      "--output <absolute-path>",
+      "--dry-run",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Validates one reviewed legacy migration pack and writes the content-addressed descriptor consumed by syncora adopt.",
     ].join("\n");
   }
 
@@ -477,6 +561,9 @@ export function helpText(topic = undefined) {
       `Usage: syncora ${topic} --workspace <absolute-path> [options]`,
       "",
       ...common,
+      ...(topic === "patch-agents"
+        ? ["--confirm-predecessor-reviewed  (after removing custom predecessor activation)"]
+        : []),
     ].join("\n");
   }
 
@@ -486,11 +573,14 @@ export function helpText(topic = undefined) {
     "Usage: syncora <command> [options]",
     "",
     "Commands:",
+    "  setup           Initialize a greenfield workspace and patch agents",
+    "  bundle          Build one reviewed legacy-adoption bundle",
+    "  adopt           Apply one reviewed legacy-adoption bundle end to end",
     "  backlinks       Resolve one note and list bounded reverse links",
     "  checkpoint      Run a foreground preflight or paired postflight",
     "  doctor          Inspect workspace readiness and safety",
-    "  init            Create the bootstrap graph and patch agents",
-    "  migrate         Inventory, stage, shadow-test, cut over, verify, retire, or roll back a legacy graph",
+    "  init            Compatibility alias for setup",
+    "  migrate         Advanced recovery and legacy-adoption phase controls",
     "  search          Rank bounded authority-aware lexical matches",
     "  validate        Inspect graph safety and authority read-only",
     "  patch-agents    Add or refresh project-local agent hooks",
@@ -601,6 +691,39 @@ export function renderResult(result, format = "text") {
     for (const item of result.warnings) {
       lines.push(`warning ${item.code}: ${terminalSafe(item.message)}`);
     }
+    return `${lines.join("\n")}\n`;
+  }
+
+  if (result.command === "adopt") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
+    lines.push(`State: ${terminalSafe(result.status)}`);
+    lines.push(
+      `Phases: ${result.summary.completedPhases.length > 0 ? result.summary.completedPhases.join(" -> ") : "already complete"}`,
+    );
+    lines.push("Rollback retained: true");
+    for (const warning of result.warnings ?? []) {
+      lines.push(`warning ${warning.code}: ${terminalSafe(warning.message)}`);
+    }
+    return `${lines.join("\n")}\n`;
+  }
+
+  if (result.command === "bundle") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
+    lines.push(`Descriptor: ${terminalSafe(result.output)}`);
+    lines.push(`Descriptor hash: ${terminalSafe(result.descriptor.sha256)}`);
+    lines.push(
+      `Targets: ${result.stagedContent.targetCount} (${result.stagedContent.totalBytes} bytes)`,
+    );
+    lines.push(`Fixtures: ${result.fixtures.caseCount} case(s)`);
+    lines.push(
+      `Status: ${result.dryRun && result.changed ? "would create" : result.changed ? "created" : "already current"}`,
+    );
+    lines.push(
+      `Next: syncora adopt --workspace ${terminalSafe(result.workspace)} --bundle ${terminalSafe(result.output)}`,
+    );
     return `${lines.join("\n")}\n`;
   }
 

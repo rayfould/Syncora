@@ -17,9 +17,13 @@ workspace. Future schema migrations must remain explicit, previewable, and
 reversible; installing a newer skill must never silently rewrite canonical
 Markdown.
 
-Do not run `init` as an upgrade path for a workspace with existing knowledge.
-Use the [legacy adoption workflow](legacy-kg-adoption.md) when converting a
-predecessor graph or instruction block.
+Do not run `setup` or its `init` compatibility alias as an upgrade path for a
+workspace with existing knowledge. Use the
+[legacy adoption workflow](legacy-kg-adoption.md) when converting a predecessor
+graph. A marker-only workspace with no graph remains the documented `setup`
+case. A custom or unmarked predecessor with no graph must be removed after
+review, then followed by `setup --confirm-predecessor-reviewed`; do not create
+an empty adoption bundle.
 
 ## Unpatch a workspace
 

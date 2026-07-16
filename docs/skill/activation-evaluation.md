@@ -11,8 +11,10 @@ same installed skill and project hook.
 | Request shape | Pre route | Direct operation or context | Post |
 |---|---|---|---|
 | Ordinary project work in an uninitialized workspace | `none` | Normal host behavior; do not create Syncora state | Never |
-| Explicit greenfield initialization in an uninitialized workspace | Direct `maintenance` | Run the authorized `init` lifecycle; refuse existing knowledge or predecessor instructions | Operation-owned lifecycle |
-| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Run the reviewed `migrate` authority, stage, shadow, cutover, verify, and retire lifecycle; never run `init` first | Operation-owned lifecycle |
+| Explicit greenfield initialization in an uninitialized workspace | Direct `maintenance` | Run one authorized `setup`; refuse an existing Markdown graph | Operation-owned lifecycle |
+| Explicit setup where no graph exists and only the exact supported predecessor marker is present | Direct `maintenance` | Run one authorized `setup`; atomically replace the exact marker while preserving unrelated instructions | Operation-owned lifecycle |
+| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Prepare reviewed semantic files, seal them with `bundle`, then run one authorized `adopt --bundle`; never run `setup` or `init` first | Operation-owned lifecycle |
+| Explicit custom or unmarked predecessor cleanup with no graph | Direct `maintenance` | Inspect all active agent files, remove predecessor activation, then run one `setup --confirm-predecessor-reviewed` | Operation-owned lifecycle |
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
@@ -33,6 +35,9 @@ same installed skill and project hook.
 - Explicit adoption may run before that config exists. Successful cutover
   creates or enables it; inventory, stage, and shadow do not make implicit
   routes available.
+- `setup`, `bundle`, and `adopt --bundle` are the normal outcome-scoped commands. The
+  individual `init` and `migrate --phase ...` surfaces are compatibility,
+  inspection, and recovery tools, not additional approval steps.
 - Uncertainty selects `checkpoint`, never recursive graph loading.
 - One active request publishes at most one preflight and one activation-sequence
   increment.

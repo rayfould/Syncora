@@ -13,7 +13,11 @@ import {
   validateContextCase,
 } from "./context-compiler.mjs";
 import { SyncoraError } from "./cli.mjs";
-import { withMigrationGraphLock } from "./migration-lock.mjs";
+import {
+  assertMigrationLockCapability,
+  readMigrationLockCapability,
+  withMigrationGraphLock,
+} from "./migration-lock.mjs";
 import {
   parseStagedTarget,
   validateStagedAuthorityGraph,
@@ -217,17 +221,30 @@ export async function loadStagedNotes(paths, state, validated) {
   return { index, notes };
 }
 
-export async function shadowMigration(options) {
+export async function shadowMigration(options, execution = {}) {
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
     allowExternalGraphRoot: options.allowExternalGraphRoot,
   });
   const paths = migrationPaths(graph.resolvedGraphPath, options.migrationId);
+  const lockCapability = readMigrationLockCapability(execution);
+  if (lockCapability !== undefined) {
+    assertMigrationLockCapability(lockCapability, {
+      workspacePath: workspace.realPath,
+      graphRoot: graph.resolvedGraphPath,
+    });
+  }
   const operation = async () => {
     await assertMigrationRoot(paths);
     const lockedGraph = await resolveGraphContext(workspace, {
       allowExternalGraphRoot: options.allowExternalGraphRoot,
     });
+    if (lockCapability !== undefined) {
+      assertMigrationLockCapability(lockCapability, {
+        workspacePath: workspace.realPath,
+        graphRoot: lockedGraph.resolvedGraphPath,
+      });
+    }
     if (!samePath(lockedGraph.resolvedGraphPath, graph.resolvedGraphPath)) {
       throw shadowError(
         "MIGRATE007",
@@ -284,6 +301,16 @@ export async function shadowMigration(options) {
       MIGRATION_SHADOW_POLICY.maximumFixtureBytes,
       "Shadow fixtures",
     );
+    const fixtureSha256 = taggedSha256(fixturesFile.bytes);
+    if (
+      options.expectedFixturesSha256 !== undefined &&
+      options.expectedFixturesSha256 !== fixtureSha256
+    ) {
+      throw shadowError(
+        "MIGRATE016",
+        "Shadow fixture bytes do not match the adoption bundle binding.",
+      );
+    }
     const fixtures = validateFixtures(
       parseStrictJson(fixturesFile.bytes, "Shadow fixtures"),
     );
@@ -306,7 +333,7 @@ export async function shadowMigration(options) {
       migrationId: options.migrationId,
       manifestSha256: loadedState.value.baseline.manifestSha256,
       stagedContentSha256: loadedState.value.artifacts.stagedContent.sha256,
-      fixtureSha256: taggedSha256(fixturesFile.bytes),
+      fixtureSha256,
       compilerSpecification: CONTEXT_COMPILER_POLICY.specification,
       baselineGraphRevision: loadedState.value.baseline.graphRevision,
       virtualGraphRevision: virtualRevision,
@@ -385,7 +412,7 @@ export async function shadowMigration(options) {
       changes: plans.map((plan) => describePlan(plan, workspace.realPath)),
     };
   };
-  return options.dryRun
+  return options.dryRun || lockCapability !== undefined
     ? operation()
     : withMigrationGraphLock(graph.resolvedGraphPath, operation);
 }

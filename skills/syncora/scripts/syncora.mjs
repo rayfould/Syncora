@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { applyFilePlans, describePlan } from "./lib/atomic-file.mjs";
+import { adoptWorkspace } from "./lib/adopt.mjs";
+import { buildAdoptionBundle } from "./lib/adoption-bundle.mjs";
 import {
   planAgentPatch,
   planAgentUnpatch,
@@ -93,14 +95,19 @@ async function main() {
     }
 
     let result;
-    if (parsed.command === "doctor") {
+    if (parsed.command === "adopt") {
+      result = await adoptWorkspace(parsed.options);
+    } else if (parsed.command === "bundle") {
+      result = await buildAdoptionBundle(parsed.options);
+    } else if (parsed.command === "doctor") {
       result = await diagnoseWorkspace(parsed.options);
     } else if (parsed.command === "backlinks") {
       result = await readBacklinks(parsed.options);
     } else if (parsed.command === "checkpoint") {
       result = await checkpointWorkspace(parsed.options);
-    } else if (parsed.command === "init") {
+    } else if (parsed.command === "init" || parsed.command === "setup") {
       result = await initializeWorkspace(parsed.options);
+      if (parsed.command === "setup") result = { ...result, command: "setup" };
     } else if (parsed.command === "migrate") {
       result = await runMigration(parsed.options);
     } else if (parsed.command === "search") {

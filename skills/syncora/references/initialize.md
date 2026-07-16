@@ -1,28 +1,41 @@
 # Initialize a greenfield workspace
 
 Use initialization only after the user has authorized workspace mutation.
-Installing the skill itself must remain inert.
+An explicit request to set up Syncora in the current workspace is that
+authorization; do not add a mandatory dry-run or second approval. Installing
+the skill itself must remain inert.
 
-`init` is not an import or upgrade path. It may be rerun idempotently in a
+`setup` is not an import or upgrade path. It may be rerun idempotently in a
 workspace Syncora already initialized. If an uninitialized workspace already
-contains knowledge under `local/`, or an agent file contains a predecessor
-knowledge graph workflow, stop and use
+contains knowledge under `local/`, stop and use
 [legacy-adoption.md](legacy-adoption.md). The runtime fails this case with
-`MIGRATE015` rather than mixing old and new authority.
+`MIGRATE015` rather than mixing old and new authority. If no graph exists and
+an agent file contains the exact supported predecessor marker, `setup` replaces
+that marker atomically while preserving unrelated instructions; do not combine
+that transition with `--no-patch-agents`. `init` remains an expert alias for
+compatibility.
+
+If no graph exists but an instruction file appears to contain a custom or
+unmarked predecessor activation, `setup` fails with `MIGRATE015`. Inspect every
+active Codex, Cursor, and Claude instruction file, remove that activation, then
+run one `setup --confirm-predecessor-reviewed` command. The flag records the
+semantic review boundary; it does not find or delete custom instructions.
 
 ## Preflight
 
 1. Resolve the requested workspace as an absolute real path.
-2. Run `doctor` first for an existing workspace.
-3. If `local/` resolves outside the workspace through a symlink or junction,
+2. If `local/` resolves outside the workspace through a symlink or junction,
    stop unless the user explicitly allowlists its exact resolved path.
-4. Run `init --dry-run` and review every planned file. A legacy-graph finding
-   means this is not a greenfield initialization; switch to `migrate`.
+3. Run `setup` once after the user authorizes initialization. Use
+   `setup --dry-run` only when the user requests a preview or workspace risk
+   warrants one. A legacy-graph finding means this is not greenfield; prepare a
+   reviewed manifest, staged targets, and fixtures, seal them with `bundle`,
+   then switch to `adopt`.
 
 ## Command
 
 ```text
-node "<syncora-skill-root>/scripts/syncora.mjs" init --workspace <absolute-path>
+node "<syncora-skill-root>/scripts/syncora.mjs" setup --workspace <absolute-path>
 ```
 
 Options:
@@ -30,6 +43,8 @@ Options:
 - `--dry-run`: report planned changes without writing.
 - `--format json`: return structured output.
 - `--no-patch-agents`: initialize files without agent instruction hooks.
+- `--confirm-predecessor-reviewed`: use only after reviewing every active agent
+  instruction file and removing custom or unmarked predecessor activation.
 - `--allow-external-graph-root <absolute-path>`: allow exactly one resolved
   external graph root and record it in ignored machine-local state.
 
@@ -45,6 +60,9 @@ absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 The installed hook is relevance-gated v2. Initialization may safely upgrade a
 tracked v1 hook under the same workspace patch lock used by `patch-agents`;
 restoration snapshots are verified before any upgrade is published.
+If initialization opted out of hooks, a later `patch-agents` call still refuses
+to write while predecessor activation remains outside Syncora-owned markers;
+confirmation never overrides that gate.
 
 Run the same command again after initialization. A successful idempotency check
 reports no changes.

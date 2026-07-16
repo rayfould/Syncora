@@ -78,6 +78,13 @@ context reading, capture, maintenance, migration, and repair are internal
 workflows loaded progressively from references. They are not sibling skills
 with overlapping descriptions.
 
+The normal setup surface is also intentionally small: `setup` initializes a
+greenfield workspace, or replaces the exact supported predecessor marker when
+no legacy graph exists, in one command. `adopt` applies one reviewed,
+content-addressed existing-graph bundle in one resumable command. The migration
+state machine remains visible for expert diagnostics and exact recovery, but
+its phases are recovery boundaries rather than user workflow or approval steps.
+
 ### 5.2 Markdown owns truth
 
 Canonical knowledge lives under `local/`. Workspace runtime state lives under
@@ -532,7 +539,9 @@ boundary and implementation plan identify the executable subset.
 Normal commands:
 
 ```text
-syncora init
+syncora setup
+syncora bundle --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON
+syncora adopt --bundle ABS
 syncora checkpoint --phase pre|post
 syncora context
 syncora capture
@@ -551,6 +560,7 @@ syncora conflicts
 syncora propose
 syncora apply
 syncora migrate
+syncora init
 syncora repair
 syncora patch-agents
 syncora unpatch-agents
@@ -563,7 +573,13 @@ works non-interactively. Checkpoint mutates only bounded derived state and does
 not expose `--dry-run`. No command may infer a mutation target from the
 installed skill directory.
 
-The implemented existing-graph adoption command family is:
+The normal implemented existing-graph command is:
+
+```text
+syncora adopt --workspace ABS --bundle ABS_JSON [--confirm-predecessor-reviewed]
+```
+
+Its expert inspection and recovery family is:
 
 ```text
 syncora migrate --phase authority --dry-run
@@ -638,7 +654,9 @@ The runtime defines stable error codes, including:
 | `MIGRATE012` | A recorded passing shadow report exists before cutover |
 | `MIGRATE013` | Cutover graph, target bytes, runtime, and agent activation match their receipt |
 | `MIGRATE014` | Retirement retains every legacy source live or in recovery |
-| `MIGRATE015` | Greenfield init cannot modify existing knowledge or predecessor activation |
+| `MIGRATE015` | Setup/init cannot modify an existing legacy graph or unsupported predecessor activation |
+| `MIGRATE016` | A reviewed adoption bundle and all bound bytes remain exact, stable, and contained |
+| `MIGRATE017` | Automatic rollback could not be proven and explicit recovery is required |
 | `CONTEXT001` | Adoption shadow compilation preserves required identity, provenance, and budget invariants |
 | `MANIFEST001` | Reviewed promotion manifests satisfy their declared schema |
 | `MANIFEST002` | Manifest graph, source, and target concurrency bindings match |
@@ -765,8 +783,9 @@ The first stable release must prove:
 - patching and unpatching preserve unrelated bytes, BOM, and newline style;
 - malformed markers stop before any write;
 - external graph roots require an exact allowlist;
-- greenfield initialization refuses existing graph content or predecessor
-  activation and routes it to adoption;
+- setup refuses existing graph content and unsupported predecessor activation,
+  but atomically replaces the exact supported predecessor marker when no graph
+  exists;
 - only reviewed, snapshot-bound v2 manifests and exact staged target bytes can
   enter migration state;
 - stale sources, prior targets, artifacts, or graph/workspace identities stop

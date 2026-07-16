@@ -56,12 +56,21 @@ later unpatch cannot erase intervening edits.
 ## Legacy-workflow cutover
 
 `patch-agents` adds or upgrades Syncora-owned markers; it is not authority to
-remove an unrelated broad knowledge-graph workflow. Existing-graph adoption
-uses `migrate --phase cutover` after manifest staging and a passing shadow
-comparison. By default that phase requires the exact delimited predecessor
-workflow, replaces it with hook v2, and records a predecessor-free restoration
-baseline in the migration recovery journal. It preserves unrelated bytes, BOM,
-and newline style.
+remove an unrelated broad knowledge-graph workflow. Normal existing-graph
+adoption seals reviewed files with `bundle`, then applies them with one
+`adopt --bundle` command. Its internal cutover gate
+runs only after staging and a passing shadow comparison; the equivalent
+`migrate --phase cutover` command remains available for expert recovery. By
+default, cutover requires the exact delimited predecessor workflow, replaces it
+with hook v2, and records a predecessor-free restoration baseline in the
+migration recovery journal. It preserves unrelated bytes, BOM, and newline
+style.
+
+The patch planner fails closed if an exact predecessor block or possible custom
+predecessor activation remains outside Syncora-owned markers, including after
+`setup --no-patch-agents`. `--confirm-predecessor-reviewed` is accepted only
+after the old activation has actually been removed and never bypasses this
+gate.
 
 A custom, unmarked, malformed, or concurrently changed predecessor workflow
 fails the cutover gate by default. Inspect all active Codex, Cursor, and Claude

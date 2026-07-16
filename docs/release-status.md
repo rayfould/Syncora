@@ -11,7 +11,8 @@ in version-controlled workspaces.
 ## Implemented in current source
 
 - dependency-free Node runtime;
-- hub-first graph bootstrap;
+- one-command, idempotent `setup` for greenfield workspaces or workspaces with
+  only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
 - ownership-aware unpatch and rollback;
@@ -19,9 +20,13 @@ in version-controlled workspaces.
 - foreground checkpoint policy and state;
 - zero-authority, dry-run migration inventory;
 - reviewed v2 promotion-manifest validation and exact staged target bundles;
+- installed, atomic content-addressed `bundle` construction and one resumable
+  `adopt` command over the reviewed lifecycle;
 - bounded pre-cutover shadow fixtures;
 - graph-root-scoped migration state, locking, artifacts, and recovery journal;
 - gated cutover, verification, retirement, status, and exact rollback;
+- one outer graph/workspace lock across composite adoption plus automatic exact
+  rollback after caught cutover or verification failures;
 - legacy-note preservation: neither cutover nor retirement deletes Markdown,
   and replaced bytes are retained in an inactive, non-authoritative archive;
 - cross-platform Node 22 and 24 test suite.
@@ -48,7 +53,10 @@ passes.
 ## Preview safety expectations
 
 - Test in a Git repository or another recoverable workspace.
-- Review dry-run output before mutation.
+- An explicit setup request authorizes ordinary greenfield or exact
+  predecessor-marker-only setup. Legacy graph adoption requires one
+  consolidated review and authorization for the exact content-addressed
+  bundle.
 - Keep canonical `local/` Markdown under your own backup or version control.
 - Keep `local/.syncora/migrations/<migration-id>/` recovery evidence while a
   migration is active or rollback is still required.

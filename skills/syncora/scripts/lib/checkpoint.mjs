@@ -102,7 +102,7 @@ async function readStableConfig(workspacePath) {
   if (!loaded) {
     throw new SyncoraError(
       "CONFIG001",
-      "Workspace is not initialized. Run syncora init first.",
+      "Workspace is not initialized. Run syncora setup first.",
     );
   }
   return loaded;

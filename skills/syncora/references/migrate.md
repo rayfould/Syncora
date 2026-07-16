@@ -1,5 +1,12 @@
 # Authority inventory and promotion artifacts
 
+This reference defines the semantic inputs and the expert phase surface. After
+review, the normal path is one `bundle` command followed by one
+`adopt --bundle <absolute-json>` command, not a series of user-driven phase
+approvals. The content-addressed bundle uses
+`assets/schemas/adoption-bundle-v1.schema.json` and binds its migration ID,
+reviewed manifest, fixtures, and every staged target byte.
+
 Begin every existing-graph adoption with the read-only authority inventory:
 
 ```text
@@ -14,7 +21,7 @@ or change source Markdown.
 After review, the supported lifecycle is `stage`, `shadow`, `cutover`,
 `verify`, and `retire`, with `status` and `rollback` available as control
 operations. Follow [legacy-adoption.md](legacy-adoption.md); do not run `init`
-against a legacy graph.
+or `setup` against a legacy graph.
 
 ## Inventory is not approval
 

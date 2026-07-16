@@ -391,7 +391,9 @@ test("migration cutover refreshes an exact tracked dual-workflow baseline withou
       "@../AGENTS.md\n",
       "utf8",
     );
-    const initialPatch = await planAgentPatch(workspace);
+    const initialPatch = await planAgentPatch(workspace, {
+      allowPredecessorActivation: true,
+    });
     await verifyAgentPatchPlans(workspace, initialPatch.plans);
     await applyFilePlans(initialPatch.plans);
     const dual = await readFile(agentsPath, "utf8");
@@ -1232,6 +1234,7 @@ test("patch dry-run does not create lock state", async () => {
       "--format",
       "json",
     ]);
+    await rm(locksPath, { recursive: true, force: true });
     run([
       "patch-agents",
       "--workspace",

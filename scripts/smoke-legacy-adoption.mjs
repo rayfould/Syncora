@@ -26,6 +26,7 @@ const graph = path.join(workspace, "local");
 const stagedContent = path.join(sandbox, "reviewed-targets");
 const manifestPath = path.join(sandbox, "authority-manifest.json");
 const fixturesPath = path.join(sandbox, "shadow-fixtures.json");
+const bundlePath = path.join(sandbox, "adoption-bundle-v1.json");
 const migrationId = "installed-copy-adoption";
 
 function taggedHash(bytes) {
@@ -262,34 +263,45 @@ try {
       },
     ],
   }, null, 2)}\n`);
-
-  const staged = runRuntime(migrationArguments("stage", [
+  const bundled = runRuntime([
+    "bundle",
+    "--workspace",
+    workspace,
+    "--migration-id",
+    migrationId,
     "--manifest",
     manifestPath,
     "--staged-content",
     stagedContent,
-  ]));
-  assert.equal(staged.status, "staged");
-  assert.equal(staged.summary.targets, 3);
-  assert.deepEqual(await readFile(path.join(graph, "index.md")), legacyAtlas);
-  assert.deepEqual(await readFile(path.join(workspace, "AGENTS.md")), legacyAgents);
+    "--fixtures",
+    fixturesPath,
+    "--output",
+    bundlePath,
+  ]);
+  assert.equal(bundled.command, "bundle");
+  assert.equal(bundled.changed, true);
+  assert.equal(bundled.stagedContent.targetCount, targets.length);
 
-  const shadowed = runRuntime(migrationArguments("shadow", ["--fixtures", fixturesPath]));
-  assert.equal(shadowed.status, "shadow-verified");
-  assert.equal(shadowed.ok, true);
-
-  const cutover = runRuntime(migrationArguments("cutover"));
-  assert.equal(cutover.status, "cutover-applied");
+  const adopted = runRuntime([
+    "adopt",
+    "--workspace",
+    workspace,
+    "--bundle",
+    bundlePath,
+  ]);
+  assert.equal(adopted.status, "retired");
+  assert.deepEqual(adopted.summary.completedPhases, [
+    "stage",
+    "shadow",
+    "cutover",
+    "verify",
+    "retire",
+  ]);
+  assert.equal(adopted.summary.rollbackRetained, true);
   const patchedAgents = await readFile(path.join(workspace, "AGENTS.md"), "utf8");
   assert.equal(patchedAgents.includes("BEGIN KNOWLEDGE GRAPH WORKFLOW"), false);
   assert.equal(patchedAgents.includes("syncora-agent-hook:begin v2"), true);
   assert.equal(patchedAgents.includes("# Custom preface"), true);
-
-  const verified = runRuntime(migrationArguments("verify"));
-  assert.equal(verified.status, "verified");
-  const retired = runRuntime(migrationArguments("retire"));
-  assert.equal(retired.status, "retired");
-  assert.equal(retired.summary.rollbackRetained, true);
 
   const rolledBack = runRuntime(migrationArguments("rollback"));
   assert.equal(rolledBack.status, "rolled-back");

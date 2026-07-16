@@ -27,6 +27,8 @@ const STATE_MAX_BYTES = 262_144;
 export const AGENT_FILE_MAX_BYTES = 1_048_576;
 const AGENT_SNAPSHOT_MAX_BYTES = AGENT_FILE_MAX_BYTES;
 const HASH_PATTERN = /^[0-9a-f]{64}$/;
+const POSSIBLE_CUSTOM_PREDECESSOR_PATTERN =
+  /(?:knowledge[ -]graph|local[\\/]index\.md|local[\\/]scripts[\\/]kg\.py|\bkg workflow\b|always\s+(?:load|read)[\s\S]{0,120}(?:graph|local[\\/]))/iu;
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const HOOK_PATH = join(
   MODULE_DIRECTORY,
@@ -152,6 +154,21 @@ function removeTextRanges(text, ranges) {
   }
   parts.push(text.slice(cursor));
   return parts.join("");
+}
+
+function inspectInstructionActivation(text, pathForError) {
+  const marker = inspectMarker(text, pathForError);
+  const predecessor = inspectPredecessorWorkflow(text, pathForError);
+  const ownedRanges = [marker, predecessor]
+    .filter((item) => item.status === "present")
+    .map((item) => ({ start: item.start, end: item.end }));
+  const userOwnedText = removeTextRanges(text, ownedRanges);
+  return {
+    marker,
+    predecessor,
+    possibleCustomPredecessorActivation:
+      POSSIBLE_CUSTOM_PREDECESSOR_PATTERN.test(userOwnedText),
+  };
 }
 
 async function cutoverPredecessorWorkflow(
@@ -794,7 +811,10 @@ async function removeRecordedSnapshot(workspacePath, record, plans) {
 
 async function planAgentPatchInternal(
   workspacePath,
-  { migrationCutover = false } = {},
+  {
+    migrationCutover = false,
+    allowPredecessorActivation = false,
+  } = {},
 ) {
   const { state, statePath, stateBuffer, stateObservation } =
     await readState(workspacePath);
@@ -833,15 +853,39 @@ async function planAgentPatchInternal(
     const relativePath = relativePortable(workspacePath, targetPath);
     const before = observedTargets.get(targetPath).buffer;
     let existingMarker = { status: "absent" };
+    let predecessor = { status: "absent" };
+    let possibleCustomPredecessorActivation = false;
     let claudeImportsAgents = false;
 
     if (before !== null && relativePath.toLowerCase().endsWith("claude.md")) {
       const decoded = decodeUtf8File(before, targetPath);
-      existingMarker = inspectMarker(decoded.text, targetPath);
+      const activation = inspectInstructionActivation(decoded.text, targetPath);
+      existingMarker = activation.marker;
+      predecessor = activation.predecessor;
+      possibleCustomPredecessorActivation =
+        activation.possibleCustomPredecessorActivation;
       claudeImportsAgents = importsAgents(decoded.text, targetPath);
     } else if (before !== null) {
       const decoded = decodeUtf8File(before, targetPath);
-      existingMarker = inspectMarker(decoded.text, targetPath);
+      const activation = inspectInstructionActivation(decoded.text, targetPath);
+      existingMarker = activation.marker;
+      predecessor = activation.predecessor;
+      possibleCustomPredecessorActivation =
+        activation.possibleCustomPredecessorActivation;
+    }
+
+    if (
+      possibleCustomPredecessorActivation ||
+      (
+        predecessor.status === "present" &&
+        !migrationCutover &&
+        !allowPredecessorActivation
+      )
+    ) {
+      throw new SyncoraError(
+        "PATCH005",
+        `Refusing to patch ${relativePath} while possible predecessor activation remains outside Syncora-owned instructions. Remove or retire the predecessor activation first.`,
+      );
     }
 
     const cutover = migrationCutover
@@ -1053,8 +1097,8 @@ async function planAgentPatchInternal(
   return { plans, warnings };
 }
 
-export async function planAgentPatch(workspacePath) {
-  return planAgentPatchInternal(workspacePath);
+export async function planAgentPatch(workspacePath, options = {}) {
+  return planAgentPatchInternal(workspacePath, options);
 }
 
 export async function planAgentMigrationCutover(workspacePath) {
@@ -1172,14 +1216,15 @@ export async function inspectAgentHooks(workspacePath) {
     const buffer = (await targetObservation(workspacePath, targetPath)).buffer;
     if (buffer === null) continue;
     const decoded = decodeUtf8File(buffer, targetPath);
-    const marker = inspectMarker(decoded.text, targetPath);
+    const activation = inspectInstructionActivation(decoded.text, targetPath);
     results.push({
       path: relativePortable(workspacePath, targetPath),
-      marker: marker.status,
-      version: marker.version,
-      legacyKnowledgeGraphWorkflow: decoded.text.includes(
-        "<!-- BEGIN KNOWLEDGE GRAPH WORKFLOW -->",
-      ),
+      marker: activation.marker.status,
+      version: activation.marker.version,
+      legacyKnowledgeGraphWorkflow:
+        activation.predecessor.status === "present",
+      possibleCustomPredecessorActivation:
+        activation.possibleCustomPredecessorActivation,
     });
   }
   return results;

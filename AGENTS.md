@@ -16,8 +16,11 @@ This is the canonical public repository for the portable Syncora Agent Skill.
   writes.
 - Preserve bounded I/O, fail-closed containment, marker ownership, and
   reversible agent patching.
-- Do not claim context compilation, governed capture, manifest application, or
-  drift detection until those capabilities and their acceptance tests exist.
+- Treat setup and reviewed bundle/adoption as outcome-scoped operations. Keep
+  migration phases as internal recovery boundaries; do not turn them into
+  separate user approval prompts.
+- Do not claim general context compilation, governed capture, or drift
+  detection until those capabilities and their acceptance tests exist.
 - Keep human-facing repository documentation outside the installed skill.
 
 ## Validation
@@ -35,6 +38,8 @@ metadata, or installation documentation:
 ```text
 npm run smoke:install
 ```
+
+Run `npm run smoke:adoption` when changing the installed bundle/adoption path.
 
 Use only disposable temporary workspaces in tests. Never initialize or mutate a
 real user workspace as a fixture.

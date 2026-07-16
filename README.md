@@ -42,6 +42,11 @@ Install globally for all three supported agents:
 npx skills add rayfould/Syncora --skill syncora --global --agent codex --agent cursor --agent claude-code --yes
 ```
 
+The Skills CLI keeps the canonical global skill at
+`~/.agents/skills/syncora`. Codex and Cursor discover that shared standard
+location directly; Claude Code receives the agent-specific link at
+`~/.claude/skills/syncora`.
+
 Or omit `--global` to install into the current project. If your environment
 cannot create shared links, add `--copy`.
 
@@ -49,23 +54,31 @@ Installation is inert: it only installs the skill. For a new workspace without
 an existing knowledge graph or predecessor agent workflow, ask your agent:
 
 ```text
-Use $syncora to initialize this workspace.
+Use $syncora to set up this workspace.
 ```
 
-Syncora previews its plan, asks before project mutation, and patches supported
-project-level agent instruction files by default. Agent patching is reversible
-and can be disabled during initialization.
+That explicit request authorizes the normal greenfield setup. Syncora runs one
+`setup` command and patches supported project-level agent instruction files by
+default; it does not add a mandatory preview-and-confirm cycle. Agent patching
+is reversible and can be disabled during initialization.
 
-For a workspace that already has Markdown knowledge or a predecessor workflow,
-do **not** initialize over it. Ask:
+For a workspace with existing Markdown knowledge that needs semantic authority
+migration, do **not** initialize over it. Ask:
 
 ```text
 Use $syncora to adopt this existing knowledge graph with the reversible migration workflow.
 ```
 
-Adoption inventories authority, stages exact reviewed v2 targets, shadow-tests
-bounded fixtures, then gates cutover, verification, retirement, and rollback.
+The skill prepares reviewed semantic files, seals them with one `bundle`
+command, then applies the exact descriptor with one authorized `adopt` command.
+No handwritten hashing script is required. Adoption stages exact v2 targets,
+shadow-tests bounded fixtures, cuts over, verifies, and retires the predecessor
+workflow. It resumes safely after interruption and retains rollback.
 See [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
+
+If there is no existing graph and only the exact supported predecessor marker
+is present, ordinary `setup` replaces that marker atomically; no empty
+migration bundle is required.
 
 ## What current source can do
 
@@ -96,7 +109,9 @@ advanced users can call it directly from the installed skill root:
 ```bash
 node <installed-syncora-skill>/scripts/syncora.mjs --help
 node <installed-syncora-skill>/scripts/syncora.mjs doctor --workspace /absolute/path/to/project
-node <installed-syncora-skill>/scripts/syncora.mjs init --workspace /absolute/path/to/project --dry-run
+node <installed-syncora-skill>/scripts/syncora.mjs setup --workspace /absolute/path/to/project
+node <installed-syncora-skill>/scripts/syncora.mjs bundle --help
+node <installed-syncora-skill>/scripts/syncora.mjs adopt --workspace /absolute/path/to/project --bundle /absolute/path/to/review/adoption-bundle-v1.json
 node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
 node <installed-syncora-skill>/scripts/syncora.mjs migrate --help
 ```

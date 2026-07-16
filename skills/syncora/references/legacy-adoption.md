@@ -1,31 +1,50 @@
 # Legacy knowledge graph adoption
 
-Use this workflow when a workspace already has Markdown knowledge, a broad
-predecessor agent workflow, or both. Do not run `init` first. Adoption runs
-entirely in foreground commands and remains resumable and reversible; it never
-depends on a timer, daemon, or background worker.
+Use this workflow when a workspace already has a Markdown knowledge graph. If
+no graph exists and only the exact supported predecessor marker is present, use
+one ordinary `setup` command instead. For a custom or unmarked predecessor with
+no graph, inspect all active agent files, remove the predecessor activation,
+then use one `setup --confirm-predecessor-reviewed` command; do not invent an
+empty adoption bundle. Do not run `setup` or `init` before existing-graph
+adoption. Adoption remains foreground, resumable, and reversible.
 
-## Required sequence
+## Default two-command application
 
 Use one stable lowercase migration ID for the whole operation. Resolve the
 workspace and any external graph root to exact absolute paths.
 
 ```text
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase authority --dry-run --workspace <absolute-path>
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase stage --migration-id <id> --manifest <absolute-v2-manifest> --staged-content <absolute-directory> --workspace <absolute-path> --dry-run
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase stage --migration-id <id> --manifest <absolute-v2-manifest> --staged-content <absolute-directory> --workspace <absolute-path>
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase shadow --migration-id <id> --fixtures <absolute-fixtures-json> --workspace <absolute-path> --dry-run
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase shadow --migration-id <id> --fixtures <absolute-fixtures-json> --workspace <absolute-path>
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase cutover --migration-id <id> --workspace <absolute-path> [--confirm-predecessor-reviewed] --dry-run
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase cutover --migration-id <id> --workspace <absolute-path> [--confirm-predecessor-reviewed]
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase verify --migration-id <id> --workspace <absolute-path>
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase retire --migration-id <id> --workspace <absolute-path> --dry-run
-node "<syncora-skill-root>/scripts/syncora.mjs" migrate --phase retire --migration-id <id> --workspace <absolute-path>
+node "<syncora-skill-root>/scripts/syncora.mjs" bundle --workspace <absolute-path> --migration-id <id> --manifest <absolute-review-manifest> --staged-content <absolute-staged-directory> --fixtures <absolute-shadow-fixtures> --output <absolute-bundle-json>
+node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path> --bundle <absolute-bundle-json>
 ```
 
-Ask for explicit user approval before each non-dry-run mutation. Pass
-`--allow-external-graph-root <exact-absolute-path>` on every phase when the
-resolved graph root is external.
+The first command validates and seals one migration ID, reviewed v2 manifest,
+shadow fixture set, and every staged target by exact path, byte count, and
+SHA-256. All inputs must be contained below the descriptor's directory; the
+builder is atomic, no-clobber, and byte-idempotent. The second command applies
+that exact descriptor. One explicit authorization for `adopt` covers stage,
+shadow, cutover, verify, and retire. Each gate
+still fails closed, the command writes no canonical bytes before cutover,
+rollback evidence remains available, and rerunning the same command resumes
+from the recorded state. Pass
+`--allow-external-graph-root <exact-absolute-path>` when the resolved graph root
+is external.
+
+A caught cutover or verification failure automatically attempts exact rollback
+inside the same graph/workspace lock. If concurrent bytes prevent restoration,
+Syncora preserves them, reports `MIGRATE017`, and leaves the journal available
+for explicit recovery. A retirement failure leaves verified state and resumes
+retirement on the next identical command.
+
+If no exact predecessor marker exists, inspect all active agent files and
+remove any custom predecessor activation. Then rerun the same command with
+`--confirm-predecessor-reviewed`. This attests review; it does not delete
+custom instructions.
+
+Use `migrate --phase authority --dry-run` while preparing the reviewed bundle.
+Use the individual `migrate --phase ...` commands only for expert inspection,
+targeted previews, recovery, or rollback. Do not turn those internal phases
+into separate user approval prompts during normal adoption.
 
 ## Phase gates
 

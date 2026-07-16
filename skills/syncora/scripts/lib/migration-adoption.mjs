@@ -14,7 +14,12 @@ import {
 import { loadAndValidateAuthorityManifest } from "./authority-manifest.mjs";
 import { authorityRootIdentity } from "./authority-inventory.mjs";
 import { SyncoraError } from "./cli.mjs";
-import { withMigrationLocks } from "./migration-lock.mjs";
+import {
+  assertMigrationLockCapability,
+  readMigrationLockCapability,
+  resolveMigrationLockRoots,
+  withMigrationLocks,
+} from "./migration-lock.mjs";
 import { loadStagedNotes } from "./migration-shadow.mjs";
 import {
   artifactReference,
@@ -46,7 +51,6 @@ import {
   readSyncoraLocalConfigIfPresent,
   resolveGraphContext,
   resolveWorkspace,
-  samePath,
 } from "./workspace.mjs";
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -122,28 +126,12 @@ async function loadEnvironment(options) {
   return { workspace, graph, paths, rootIdentity, loadedState };
 }
 
-async function resolveMigrationLockRoots(options) {
-  const workspace = await resolveWorkspace(options.workspace);
-  const graph = await resolveGraphContext(workspace, {
-    allowExternalGraphRoot: options.allowExternalGraphRoot,
+function assertEnvironmentMatchesLocks(environment, lockCapability) {
+  if (lockCapability === undefined) return;
+  assertMigrationLockCapability(lockCapability, {
+    workspacePath: environment.workspace.realPath,
+    graphRoot: environment.graph.resolvedGraphPath,
   });
-  return {
-    workspacePath: workspace.realPath,
-    graphRoot: graph.resolvedGraphPath,
-  };
-}
-
-function assertEnvironmentMatchesLocks(environment, lockRoots) {
-  if (!lockRoots) return;
-  if (
-    !samePath(environment.workspace.realPath, lockRoots.workspacePath) ||
-    !samePath(environment.graph.resolvedGraphPath, lockRoots.graphRoot)
-  ) {
-    throw adoptionError(
-      "MIGRATE007",
-      "Workspace or graph root changed after migration locks were selected.",
-    );
-  }
 }
 
 function recoveryBindings(environment) {
@@ -373,13 +361,15 @@ async function runtimeRecords(environment) {
     const localPath = join(workspace.realPath, ".syncora", "local.json");
     const localInfo = await readSyncoraLocalConfigIfPresent(workspace.realPath);
     const localBefore = localInfo?.buffer ?? null;
-    const localAfter = localBefore ?? Buffer.from(
-      `${JSON.stringify({
-        schemaVersion: 1,
-        externalGraphRoots: [graph.resolvedGraphPath],
-      }, null, 2)}\n`,
-      "utf8",
-    );
+    const localAfter = graph.nextLocalConfig
+      ? Buffer.from(`${JSON.stringify(graph.nextLocalConfig, null, 2)}\n`, "utf8")
+      : localBefore ?? Buffer.from(
+          `${JSON.stringify({
+            schemaVersion: 1,
+            externalGraphRoots: [graph.resolvedGraphPath],
+          }, null, 2)}\n`,
+          "utf8",
+        );
     records.push({
       root: "workspace",
       path: ".syncora/local.json",
@@ -485,15 +475,44 @@ async function graphTargetRecords(environment, reviewed) {
 }
 
 async function agentRecords(environment, options) {
+  const inspected = await inspectAgentHooks(environment.workspace.realPath);
+  const customPredecessorHooks = inspected.filter(
+    (item) => item.possibleCustomPredecessorActivation,
+  );
+  if (customPredecessorHooks.length > 0) {
+    throw adoptionError(
+      "MIGRATE013",
+      "Possible custom predecessor activation remains outside an exact predecessor block. Remove it from every active agent-instruction file before cutover.",
+      {
+        customPredecessorAgentFiles: customPredecessorHooks.map(
+          (item) => item.path,
+        ),
+        predecessorReviewConfirmed:
+          options.confirmPredecessorReviewed === true,
+      },
+    );
+  }
+  const inspectedExactPredecessor = inspected.some(
+    (item) => item.legacyKnowledgeGraphWorkflow,
+  );
+  if (
+    !inspectedExactPredecessor &&
+    options.confirmPredecessorReviewed !== true
+  ) {
+    throw adoptionError(
+      "MIGRATE013",
+      "No exact predecessor workflow block was found. Inspect every active agent-instruction file, remove any custom predecessor activation, then rerun cutover with --confirm-predecessor-reviewed.",
+    );
+  }
   const planned = await planAgentMigrationCutover(environment.workspace.realPath);
   await verifyAgentPatchPlans(environment.workspace.realPath, planned.plans);
   const exactPredecessor = planned.warnings.some(
     (item) => item.code === "LEGACY_AGENT_WORKFLOW_CUTOVER",
   );
-  if (!exactPredecessor && options.confirmPredecessorReviewed !== true) {
+  if (exactPredecessor !== inspectedExactPredecessor) {
     throw adoptionError(
       "MIGRATE013",
-      "No exact predecessor workflow block was found. Inspect every active agent-instruction file, remove any custom predecessor activation, then rerun cutover with --confirm-predecessor-reviewed.",
+      "Agent predecessor activation changed while cutover was being planned.",
     );
   }
   if (!exactPredecessor) {
@@ -559,6 +578,7 @@ async function finalizeCutover(environment, recoveryResult, shadow) {
   const hooks = await inspectAgentHooks(environment.workspace.realPath);
   if (
     hooks.some((hook) => hook.legacyKnowledgeGraphWorkflow) ||
+    hooks.some((hook) => hook.possibleCustomPredecessorActivation) ||
     !hooks.some((hook) => hook.marker === "present" && hook.version === 2)
   ) {
     throw adoptionError("MIGRATE013", "Agent-instruction cutover did not replace predecessor activation.");
@@ -616,11 +636,11 @@ async function finalizeCutover(environment, recoveryResult, shadow) {
   return { receipt, receiptBytes, nextState, stateBytes, inspection, hooks };
 }
 
-export async function cutoverMigration(options) {
-  let lockRoots = null;
+export async function cutoverMigration(options, execution = {}) {
+  let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
     const environment = await loadEnvironment(options);
-    assertEnvironmentMatchesLocks(environment, lockRoots);
+    assertEnvironmentMatchesLocks(environment, lockCapability);
     if (environment.loadedState.value.status === "cutover-applied") {
       const verified = await verifyActiveMigration(environment, options);
       const recovery = await readEnvironmentRecovery(environment, { required: true });
@@ -761,11 +781,14 @@ export async function cutoverMigration(options) {
       warnings,
     };
   };
-  if (options.dryRun) return operation();
-  lockRoots = await resolveMigrationLockRoots(options);
+  if (options.dryRun || lockCapability !== undefined) return operation();
+  const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
-    operation,
+    (activeCapability) => {
+      lockCapability = activeCapability;
+      return operation();
+    },
   );
 }
 
@@ -856,6 +879,7 @@ async function verifyActiveMigration(environment, options) {
   const hooks = await inspectAgentHooks(environment.workspace.realPath);
   if (
     hooks.some((item) => item.legacyKnowledgeGraphWorkflow) ||
+    hooks.some((item) => item.possibleCustomPredecessorActivation) ||
     !hooks.some((item) => item.marker === "present" && item.version === 2)
   ) {
     throw adoptionError("MIGRATE013", "Agent activation no longer matches the cutover receipt.");
@@ -863,11 +887,11 @@ async function verifyActiveMigration(environment, options) {
   return { receipt, reviewed, inspection, hooks };
 }
 
-export async function verifyMigration(options) {
-  let lockRoots = null;
+export async function verifyMigration(options, execution = {}) {
+  let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
     const environment = await loadEnvironment(options);
-    assertEnvironmentMatchesLocks(environment, lockRoots);
+    assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["cutover-applied", "verified"]).has(environment.loadedState.value.status)) {
       throw adoptionError("MIGRATE006", "Verification requires an applied cutover.");
     }
@@ -959,19 +983,22 @@ export async function verifyMigration(options) {
       changes: plans.map((plan) => describePlan(plan, environment.workspace.realPath)),
     };
   };
-  if (options.dryRun) return operation();
-  lockRoots = await resolveMigrationLockRoots(options);
+  if (options.dryRun || lockCapability !== undefined) return operation();
+  const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
-    operation,
+    (activeCapability) => {
+      lockCapability = activeCapability;
+      return operation();
+    },
   );
 }
 
-export async function rollbackMigration(options) {
-  let lockRoots = null;
+export async function rollbackMigration(options, execution = {}) {
+  let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
     const environment = await loadEnvironment(options);
-    assertEnvironmentMatchesLocks(environment, lockRoots);
+    assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["cutover-prepared", "cutover-applied", "verified", "retired", "rolled-back"]).has(environment.loadedState.value.status)) {
       throw adoptionError(
         "MIGRATE006",
@@ -1108,19 +1135,22 @@ export async function rollbackMigration(options) {
       })),
     };
   };
-  if (options.dryRun) return operation();
-  lockRoots = await resolveMigrationLockRoots(options);
+  if (options.dryRun || lockCapability !== undefined) return operation();
+  const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
-    operation,
+    (activeCapability) => {
+      lockCapability = activeCapability;
+      return operation();
+    },
   );
 }
 
-export async function retireMigration(options) {
-  let lockRoots = null;
+export async function retireMigration(options, execution = {}) {
+  let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
     const environment = await loadEnvironment(options);
-    assertEnvironmentMatchesLocks(environment, lockRoots);
+    assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["verified", "retired"]).has(environment.loadedState.value.status)) {
       throw adoptionError("MIGRATE006", "Retirement requires a verified cutover.");
     }
@@ -1299,16 +1329,23 @@ export async function retireMigration(options) {
       changes: plans.map((plan) => describePlan(plan, environment.workspace.realPath)),
     };
   };
-  if (options.dryRun) return operation();
-  lockRoots = await resolveMigrationLockRoots(options);
+  if (options.dryRun || lockCapability !== undefined) return operation();
+  const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
-    operation,
+    (activeCapability) => {
+      lockCapability = activeCapability;
+      return operation();
+    },
   );
 }
 
-export async function migrationStatus(options) {
+export async function migrationStatus(options, execution = {}) {
   const environment = await loadEnvironment(options);
+  assertEnvironmentMatchesLocks(
+    environment,
+    readMigrationLockCapability(execution),
+  );
   const inspection = await inspectWorkspace({
     workspace: environment.workspace.realPath,
     allowExternalGraphRoot: environment.graph.external
@@ -1332,6 +1369,11 @@ export async function migrationStatus(options) {
       sources: environment.loadedState.value.baseline.sourceCount,
       targets: environment.loadedState.value.baseline.targetCount,
       baselineGraphRevision: environment.loadedState.value.baseline.graphRevision,
+      manifestSha256: environment.loadedState.value.baseline.manifestSha256,
+      stagedContentSha256:
+        environment.loadedState.value.artifacts.stagedContent.sha256,
+      fixtureSha256:
+        environment.loadedState.value.artifacts.fixtures?.sha256 ?? null,
       graphValid: inspection.report.ok,
       recovery: recovery?.value.status ?? null,
       artifacts: Object.fromEntries(

@@ -52,6 +52,9 @@ a missing capability when the user's requested outcome depends on it.
 
 ## Current executable workflow
 
+- Treat an explicit request to set up Syncora in a workspace as authorization
+  for the normal `setup` mutation. Run it once; do not require a mandatory
+  dry-run or a second confirmation.
 - Resolve the workspace to an absolute real path before a command.
 - Run `doctor` only for diagnostics, initialization preflight, or an explicit
   health request.
@@ -62,23 +65,46 @@ a missing capability when the user's requested outcome depends on it.
   count never grants authority.
 - Use `search --query <text>` for bounded lexical candidates. Ranking never
   resolves identity or grants authority.
-- Use `init` for greenfield bootstrap or an idempotent rerun in a workspace it
-  already initialized. If pre-Syncora knowledge or a predecessor workflow
+- Use `setup` for greenfield bootstrap or an idempotent rerun in a workspace it
+  already initialized. An exact predecessor marker without an existing graph
+  is also a setup case and is atomically replaced. If pre-Syncora knowledge
   exists, use the reviewed, reversible migration lifecycle in
-  [legacy-adoption.md](references/legacy-adoption.md); greenfield `init` refuses
+  [legacy-adoption.md](references/legacy-adoption.md); greenfield setup refuses
   that case.
+- For existing knowledge, prepare one exact reviewed manifest, staged-content
+  directory, and fixture file beneath one review directory. Run one `bundle`
+  command to validate and seal those bytes; never make the user hand-author
+  descriptor hashes. Then
+  present one consolidated approval covering canonical targets, source
+  dispositions, agent-instruction replacement, retained history, and rollback
+  evidence. After approval, use one `adopt --bundle`
+  command. It runs stage, shadow, cutover, verify, and retire synchronously,
+  stops at any failed gate, retains rollback evidence, and safely resumes when
+  the same command is rerun.
 - Use `migrate --phase authority --dry-run` for the zero-authority legacy
-  inventory, then `stage`, `shadow`, `cutover`, `verify`, and `retire` only
-  against reviewed artifacts. Use `status` to inspect the lifecycle and
-  `rollback` to restore the exact pre-cutover graph, runtime, and agent bytes.
-- Run `init`, `patch-agents`, or `unpatch-agents` only with user authorization.
+  inventory. Keep the individual phase commands as the expert inspection,
+  recovery, and rollback surface rather than the default setup flow.
+- When a custom or unmarked predecessor activation exists without a graph,
+  inspect every active agent instruction file, remove that activation, and run
+  one `setup --confirm-predecessor-reviewed`; never manufacture an empty
+  adoption bundle.
+- Never treat an exact predecessor block as proof that no residual custom
+  activation exists outside it. `patch-agents` must fail while either form
+  remains, including after `setup --no-patch-agents`; confirmation never
+  overrides the active-instruction gate.
+- Run `setup`, `init`, `bundle`, `adopt`, `patch-agents`, or `unpatch-agents` only with
+  user authorization. One authorization for `adopt` covers its declared
+  end-to-end lifecycle; do not ask for another approval between internal gates.
+  Surface an internal phase only when it fails, an approved binding changed, or
+  the user explicitly requests diagnostics.
 
 Require an absolute `--workspace` for every mutation. Never initialize, patch,
 unpatch, delete knowledge, commit, or push merely because the skill triggered.
 
 ## Preview capability boundary
 
-This development preview implements bootstrap diagnostics, strict read-only
+This development preview implements one-command greenfield setup and a
+two-command seal-then-adopt path for existing graphs, bootstrap diagnostics, strict read-only
 graph validation, deterministic link resolution and backlinks, greenfield
 initialization, rebuildable lexical search, foreground checkpoint
 orchestration, reversible agent patching, and a full reviewed legacy-adoption
