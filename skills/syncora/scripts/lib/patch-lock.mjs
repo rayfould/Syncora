@@ -385,6 +385,43 @@ async function acquirePatchLock(workspacePath, options) {
   const startedAt = performance.now();
 
   while (performance.now() - startedAt <= timeoutMs) {
+    // A stable optimistic read is enough to wait on a live owner. Only a
+    // missing or stale-looking lock needs the recovery guard and its guarded
+    // double-check. This prevents any number of waiters from starving the
+    // owner when it needs that same guard to release its lock.
+    let optimisticObservation;
+    try {
+      optimisticObservation = await inspectExistingLock(paths);
+    } catch (error) {
+      // The owner can remove or replace the lock between this advisory read's
+      // identity checks. Retry only that explicit race; unsafe observations
+      // and all guarded-read failures remain fatal.
+      if (
+        error instanceof SyncoraError &&
+        error.code === "PATCH005" &&
+        error.details?.reason === "changed"
+      ) {
+        if (performance.now() - startedAt >= timeoutMs) {
+          throw lockError(
+            `Timed out waiting for the workspace patch lock: ${path}`,
+          );
+        }
+        await wait(pollMs);
+        continue;
+      }
+      throw error;
+    }
+    if (
+      optimisticObservation !== null &&
+      !staleLock(optimisticObservation, Date.now(), staleMs)
+    ) {
+      if (hooks.afterLiveOwnerObserved) {
+        await hooks.afterLiveOwnerObserved(optimisticObservation);
+      }
+      await wait(pollMs);
+      continue;
+    }
+
     const guard = await acquirePatchRecoveryGuard(
       workspacePath,
       paths,

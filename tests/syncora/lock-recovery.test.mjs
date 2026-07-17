@@ -202,6 +202,62 @@ for (const kind of ["checkpoint", "patch"]) {
     },
   );
 
+  test(
+    `${kind} live-owner waiters poll read-only without recovery-guard churn`,
+    { timeout: 30_000 },
+    async () => {
+      const harness = await recoveryHarness(kind);
+      const ownerEntered = deferred();
+      const allowOwnerExit = deferred();
+      let owner;
+      let waiters = [];
+      try {
+        owner = harness.run(
+          async () => {
+            ownerEntered.resolve();
+            await allowOwnerExit.promise;
+          },
+          {},
+          { timeoutMs: 15_000 },
+        );
+        await ownerEntered.promise;
+
+        let guardAcquisitions = 0;
+        const liveOwnerObserved = Array.from({ length: 4 }, () => deferred());
+        waiters = liveOwnerObserved.map((observed) =>
+          harness.run(
+            async () => undefined,
+            {
+              afterLiveOwnerObserved() {
+                observed.resolve();
+              },
+              afterRecoveryGuardAcquired() {
+                guardAcquisitions += 1;
+              },
+            },
+            { timeoutMs: 15_000 },
+          ),
+        );
+
+        await Promise.all(liveOwnerObserved.map(({ promise }) => promise));
+        assert.equal(
+          guardAcquisitions,
+          0,
+          "waiters that observe a live owner must not contend for its recovery guard",
+        );
+
+        allowOwnerExit.resolve();
+        await Promise.all([owner, ...waiters]);
+        await expectMissing(harness.lockPath);
+        await expectMissing(harness.guardPath);
+      } finally {
+        allowOwnerExit.resolve();
+        await Promise.allSettled([owner, ...waiters].filter(Boolean));
+        await rm(harness.workspace, { recursive: true, force: true });
+      }
+    },
+  );
+
   test(`${kind} orphaned recovery guard fails closed with an actionable diagnostic`, async () => {
     const harness = await recoveryHarness(kind);
     let actionEntered = false;

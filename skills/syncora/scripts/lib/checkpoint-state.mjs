@@ -799,6 +799,44 @@ async function acquireLock(storage, overrides = {}) {
   }
   const started = performance.now();
   while (true) {
+    // A stable optimistic read is enough to wait on a live owner. Only a
+    // missing or stale-looking lock needs the recovery guard and its guarded
+    // double-check. This prevents any number of waiters from starving the
+    // owner when it needs that same guard to release its lock.
+    let optimisticObservation;
+    try {
+      optimisticObservation = await inspectCheckpointLock(storage);
+    } catch (error) {
+      // The owner can remove or replace the lock between this advisory read's
+      // identity checks. Retry only that explicit race; unsafe observations
+      // and all guarded-read failures remain fatal.
+      if (
+        error instanceof SyncoraError &&
+        error.code === "LOCK001" &&
+        error.details?.reason === "changed"
+      ) {
+        if (performance.now() - started >= policy.timeoutMs) {
+          throw checkpointLockTimeout(policy, storage, "checkpoint-lock");
+        }
+        await delay(policy.pollMs);
+        continue;
+      }
+      throw error;
+    }
+    if (
+      optimisticObservation !== null &&
+      !(await staleCheckpointLock(optimisticObservation, policy))
+    ) {
+      if (hooks.afterLiveOwnerObserved) {
+        await hooks.afterLiveOwnerObserved(optimisticObservation);
+      }
+      if (performance.now() - started >= policy.timeoutMs) {
+        throw checkpointLockTimeout(policy, storage, "checkpoint-lock");
+      }
+      await delay(policy.pollMs);
+      continue;
+    }
+
     const guard = await acquireCheckpointRecoveryGuard(
       storage,
       policy,
