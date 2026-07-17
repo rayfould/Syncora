@@ -18,8 +18,8 @@ same installed skill and project hook.
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
-| Explain an accepted project decision | `context` | Bounded context compiler; report unavailable in the current runtime | Only if canonical knowledge later changes |
-| Change architecture using existing constraints | `context` plus capture intent | Bounded context, then governed capture; report unavailable capabilities honestly | After canonical capture actually succeeds |
+| Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
+| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, and report governed capture as unavailable | Only after a separately authorized canonical change actually succeeds |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
 | Explicit graph validation | Direct `maintenance` | Run `validate`; no redundant checkpoint | Operation-owned lifecycle |
 | Validate, then review using accepted decisions | Direct `validate`, then `context` for the review clause | Preserve both clauses; maintenance does not erase context | Only after a separate canonical change |
@@ -57,8 +57,9 @@ same installed skill and project hook.
   exact predecessor markers fail closed unless the user has inspected all
   active agent instruction surfaces, removed custom predecessor activation,
   and explicitly passes `--confirm-predecessor-reviewed`.
-- Missing `context` or governed `capture` remains an explicit capability gap in
-  this development preview.
+- General canonical-Markdown-read-only `context` is executable in current
+  source; default discovery may update a disposable lexical cache. Governed
+  `capture` and changed-file drift detection remain explicit capability gaps.
 
 ## Host coverage
 

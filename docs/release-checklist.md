@@ -14,7 +14,8 @@
 - [ ] `npm run smoke:install` installs globally through the pinned Skills CLI
       into an isolated home, proves the shared canonical target for Codex and
       Cursor, verifies the Claude Code destination, and validates one-command
-      setup and unpatching.
+      setup, context-profile preflight, bounded context compilation, and
+      unpatching.
 - [ ] `npm run smoke:adoption` exercises one installed-copy `adopt` command,
       internal stage through retirement, and post-retirement rollback.
 - [ ] Install remains inert until the user explicitly runs setup (including the

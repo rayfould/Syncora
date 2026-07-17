@@ -6,6 +6,8 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { buildLinkGraph } from "../../skills/syncora/scripts/lib/link-resolver.mjs";
+
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const cli = join(testDirectory, "..", "..", "skills", "syncora", "scripts", "syncora.mjs");
 
@@ -51,6 +53,60 @@ async function writeNote(workspace, path, content) {
 function diagnostic(report, code) {
   return report.diagnostics.find((item) => item.code === code);
 }
+
+function graphNote(path, id, targets = []) {
+  return {
+    path,
+    authorityClass: "canonical",
+    frontmatter: { id },
+    diagnostics: [],
+    linkReferences: targets.map((target) => ({
+      target,
+      unsafe: false,
+      occurrences: 1,
+    })),
+  };
+}
+
+test("link graph construction fails before reference or edge amplification", () => {
+  const notes = [
+    graphNote("a.md", "a", ["b", "c"]),
+    graphNote("b.md", "b"),
+    graphNote("c.md", "c"),
+  ];
+  assert.throws(
+    () => buildLinkGraph(notes, {
+      maxUniqueLinkReferences: 1,
+      maxResolvedLinkEdges: 10,
+    }),
+    (error) => error?.code === "LINK005" && error.details?.limit === 1,
+  );
+  assert.throws(
+    () => buildLinkGraph(notes, {
+      maxUniqueLinkReferences: 10,
+      maxResolvedLinkEdges: 1,
+    }),
+    (error) => error?.code === "LINK005" && error.details?.limit === 1,
+  );
+});
+
+test("ambiguous alias candidates are sorted once and diagnostics stay bounded", () => {
+  const notes = Array.from({ length: 256 }, (_, index) =>
+    graphNote(
+      `knowledge/group-${String(index).padStart(3, "0")}/shared.md`,
+      `shared-${index}`,
+      ["shared"],
+    ));
+  const graph = buildLinkGraph(notes, {
+    maxUniqueLinkReferences: 1_000,
+    maxResolvedLinkEdges: 1_000,
+  });
+
+  assert.equal(graph.summary.ambiguousReferences, 256);
+  assert.ok(notes.every((note) => note.diagnostics[0].details.candidateCount === 256));
+  assert.ok(notes.every((note) => note.diagnostics[0].details.candidates.length === 10));
+  assert.ok(notes.every((note) => note.diagnostics[0].details.omittedCandidates === 246));
+});
 
 test("exact paths beat aliases while unique IDs resolve and referential defects do not quarantine", async () => {
   const workspace = await temporaryWorkspace();

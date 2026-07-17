@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview safely sets up or adopts a bounded Markdown knowledge graph and supports decision and constraint recall, search, validation, and project agent patching. Use for setup, graph migration, context management or recovery, handoffs, diagnostics, checkpointing, validation, patching or unpatching, and relevant initialized-project work. Do not activate merely because `.syncora/config.json` exists, for self-contained requests, or for ordinary work in uninitialized projects.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview safely sets up or adopts a bounded Markdown knowledge graph and compiles task-specific context with provenance. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for task context, handoffs, recovery, checkpointing, validation, or agent patching. Do not activate merely because `.syncora/config.json` exists or for self-contained requests.
 ---
 
 # Syncora
@@ -45,11 +45,13 @@ are not, by themselves, a reason to use adoption.
   reversible workflow.
 - Validates and searches project knowledge without treating the first match as
   truth.
+- Compiles bounded task-specific context with mandatory, working, and evidence
+  lanes plus a source map.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
 - Runs only during an active agent request; it has no background worker.
 
-Automatic task-specific context packs, controlled note updates, and
-changed-file drift detection are still under development.
+Governed note capture and changed-file drift detection are still under
+development.
 
 ## Agent instructions
 
@@ -82,16 +84,22 @@ external-root allowlist.
    Direct maintenance commands own their equivalent lifecycle and do not need a
    redundant checkpoint. Read [checkpoint.md](references/checkpoint.md) for the
    full contract.
-5. Load only the reference needed for the task. Never recursively load
+5. When the selected mode is `context`, read
+   [context.md](references/context.md), then run the canonical-Markdown-read-only
+   `context` command with the task intent, suitable mode, and any known scope or
+   typed targets. It may update a disposable lexical cache unless `--no-cache`
+   is used. Consume only its bounded pack; never recursively load `local/`.
+6. Load only the other reference needed for the task. Never recursively load
    `local/`.
-6. Run the paired post-work checkpoint only after canonical knowledge or
+7. Run the paired post-work checkpoint only after canonical knowledge or
    authority actually changed. Reuse the pre-work checkpoint ID. Nothing runs
    in the background or after the final response.
 
-Checkpoint profiles record routing intent; they do not yet implement general
-context compilation or governed capture. Do not imitate missing capabilities
-with recursive graph loading, direct note writes, unconditional `doctor`, or
-unconditional full-graph validation.
+The `context` checkpoint profile records routing intent; the separate
+`context` command performs compilation. Governed capture remains unavailable.
+Do not imitate it with direct note writes, and do not replace bounded context
+with recursive graph loading, unconditional `doctor`, or unconditional
+full-graph validation.
 
 ### Use the smallest command surface
 
@@ -121,6 +129,7 @@ unconditional full-graph validation.
 - Existing-graph adoption and rollback: [legacy-adoption.md](references/legacy-adoption.md)
 - Activation routing: [activation-policy.md](references/activation-policy.md)
 - Foreground checkpoint lifecycle: [checkpoint.md](references/checkpoint.md)
+- Task context compilation: [context.md](references/context.md)
 - Graph inventory or validation: [validate.md](references/validate.md)
 - Link resolution or backlinks: [backlinks.md](references/backlinks.md)
 - Lexical search or cache behavior: [search.md](references/search.md)

@@ -2,7 +2,7 @@
 
 Latest public version: **0.1.0-preview.1**
 
-Current source status: **development preview with unreleased adoption work**
+Current source status: **development preview with unreleased adoption and context work**
 
 The public preview establishes the portable and safety-critical foundation. It
 is intended for collaborators who are comfortable testing pre-stable software
@@ -18,6 +18,11 @@ in version-controlled workspaces.
 - ownership-aware unpatch and rollback;
 - bounded doctor, validate, search, and backlinks commands;
 - foreground checkpoint policy and state;
+- canonical-Markdown-read-only task-context compilation with explicit intent,
+  deterministic scope resolution, task modes, hard character budgets,
+  mandatory/working/evidence lanes, and a provenance-bearing source map;
+  the default path may update a disposable derived lexical cache, while
+  `--no-cache` prevents that cache write;
 - zero-authority, dry-run migration inventory;
 - reviewed v2 promotion-manifest validation and exact staged target bundles;
 - installed, atomic content-addressed `bundle` construction and one resumable
@@ -33,12 +38,12 @@ in version-controlled workspaces.
 
 The full legacy-adoption lifecycle above is implemented in current source and
 recorded under `[Unreleased]`; it is not part of the existing
-`v0.1.0-preview.1` tag. See the
+`v0.1.0-preview.1` tag. The task-context compiler is likewise current-source,
+unreleased work. See the
 [adoption runbook](legacy-kg-adoption.md).
 
 ## Not implemented
 
-- general budgeted task context compilation beyond adoption shadow fixtures;
 - governed capture and proposal lifecycle;
 - changed-file and symbol drift detection;
 - clean-room activation proof across current agent releases;

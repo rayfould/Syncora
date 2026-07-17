@@ -561,7 +561,7 @@ export async function parseNote(file, graphRoot, policy, options = {}) {
     rawSha256,
     encoding: { utf8: true, bom: hasBom, ...newline },
     title,
-    characterLength: text.length,
+    characterLength: characterLength(text),
     frontmatter: frontmatter.data,
     schemaStatus: schema.status,
     currentSchema: schema.current,

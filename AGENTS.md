@@ -19,8 +19,10 @@ This is the canonical public repository for the portable Syncora Agent Skill.
 - Treat setup and reviewed bundle/adoption as outcome-scoped operations. Keep
   migration phases as internal recovery boundaries; do not turn them into
   separate user approval prompts.
-- Do not claim general context compilation, governed capture, or drift
-  detection until those capabilities and their acceptance tests exist.
+- Keep context-compilation claims aligned with its canonical-Markdown-read-only
+  tested contract and disclose its optional disposable cache write. Do not claim
+  governed capture or drift detection until those capabilities and their
+  acceptance tests exist.
 - Keep human-facing repository documentation outside the installed skill.
 
 ## Validation

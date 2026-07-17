@@ -139,6 +139,7 @@ checkpoint phase/profile/ID/sequence, validation status and reuse mode,
 findings digest, and state condition. Text output is one `SYNCORA_OK` or
 `SYNCORA_DEGRADED` line.
 
-Checkpoint orchestration does not implement context compilation or governed
-capture. Those profiles remain routing boundaries until their commands land;
+Checkpoint orchestration does not itself compile context. After a successful
+preflight with profile `context`, run the separate bounded `context` command as
+described in [context.md](context.md). Governed capture is still unavailable;
 do not silently substitute chat memory or direct note writes.

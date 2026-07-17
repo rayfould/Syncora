@@ -5,6 +5,13 @@ export const AUTHORITY_SEMANTICS = Object.freeze({
   reciprocalSupersession: true,
 });
 
+const AUTHORITY_DIAGNOSTIC_POLICY = Object.freeze({
+  maximumPathExamples: 16,
+  maximumPathCharacters: 256,
+});
+
+const detailFingerprints = new WeakMap();
+
 function normalizedIdentity(value) {
   return value.normalize("NFC").toLowerCase();
 }
@@ -13,12 +20,82 @@ function normalizedScope(note) {
   return normalizedIdentity(note.frontmatter.scope);
 }
 
+function serializedDetails(details) {
+  if (details === undefined) return "null";
+  if (details !== null && typeof details === "object") {
+    const cached = detailFingerprints.get(details);
+    if (cached !== undefined) return cached;
+    const serialized = JSON.stringify(details);
+    detailFingerprints.set(details, serialized);
+    return serialized;
+  }
+  return JSON.stringify(details);
+}
+
+function findingFingerprint(code, message, details) {
+  return `${code}\0${message}\0${serializedDetails(details)}`;
+}
+
+function portableCompare(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function boundedPath(path) {
+  const characters = Array.from(path);
+  if (characters.length <= AUTHORITY_DIAGNOSTIC_POLICY.maximumPathCharacters) {
+    return { value: path, truncated: false };
+  }
+  const marker = "…";
+  const remaining = AUTHORITY_DIAGNOSTIC_POLICY.maximumPathCharacters - 1;
+  const prefixLength = Math.ceil(remaining / 2);
+  const suffixLength = Math.floor(remaining / 2);
+  return {
+    value: `${characters.slice(0, prefixLength).join("")}${marker}${characters.slice(-suffixLength).join("")}`,
+    truncated: true,
+  };
+}
+
+function boundedPathDetails(items, extras = {}) {
+  const examples = [];
+  let total = 0;
+  let truncatedValues = 0;
+  for (const item of items) {
+    const path = typeof item === "string" ? item : item.path;
+    total += 1;
+    const bounded = boundedPath(path);
+    truncatedValues += Number(bounded.truncated);
+    const entry = { sortKey: path, value: bounded.value };
+    let insertion = examples.findIndex(
+      (example) => portableCompare(entry.sortKey, example.sortKey) < 0,
+    );
+    if (insertion === -1) insertion = examples.length;
+    if (insertion < AUTHORITY_DIAGNOSTIC_POLICY.maximumPathExamples) {
+      examples.splice(insertion, 0, entry);
+      if (examples.length > AUTHORITY_DIAGNOSTIC_POLICY.maximumPathExamples) {
+        examples.pop();
+      }
+    }
+  }
+  const paths = examples.map((item) => item.value);
+  if (total === paths.length && truncatedValues === 0) {
+    return Object.freeze({ ...extras, paths: Object.freeze(paths) });
+  }
+  return Object.freeze({
+    ...extras,
+    paths: Object.freeze(paths),
+    pathsTotal: total,
+    pathsTruncated: true,
+    pathsOmitted: Math.max(0, total - paths.length),
+    pathValuesTruncated: truncatedValues,
+    pathsLimit: AUTHORITY_DIAGNOSTIC_POLICY.maximumPathExamples,
+    pathCharactersLimit: AUTHORITY_DIAGNOSTIC_POLICY.maximumPathCharacters,
+  });
+}
+
 function addFinding(note, code, message, details = undefined) {
-  const fingerprint = `${code}\0${message}\0${JSON.stringify(details ?? null)}`;
+  const fingerprint = findingFingerprint(code, message, details);
   const duplicate = note.diagnostics.some(
-    (item) =>
-      `${item.code}\0${item.message}\0${JSON.stringify(item.details ?? null)}` ===
-      fingerprint,
+    (item) => findingFingerprint(item.code, item.message, item.details) === fingerprint,
   );
   if (!duplicate) {
     note.diagnostics.push({
@@ -61,9 +138,9 @@ function applyDuplicateIdentityChecks(notes) {
   }
   for (const matches of byId.values()) {
     if (matches.length < 2) continue;
-    const paths = matches.map((item) => item.path).sort();
+    const details = boundedPathDetails(matches);
     for (const note of matches) {
-      addFinding(note, "ID001", "Current-schema note ID is not unique.", { paths });
+      addFinding(note, "ID001", "Current-schema note ID is not unique.", details);
     }
   }
 }
@@ -92,12 +169,9 @@ function applyHubChecks(notes, policy) {
   }
   for (const [scope, matches] of hubsByScope) {
     if (matches.length < 2) continue;
-    const paths = matches.map((item) => item.path).sort();
+    const details = boundedPathDetails(matches, { scope });
     for (const note of matches) {
-      addFinding(note, "HUB001", "More than one active canonical hub exists for a scope.", {
-        scope,
-        paths,
-      });
+      addFinding(note, "HUB001", "More than one active canonical hub exists for a scope.", details);
     }
   }
 }
@@ -129,10 +203,8 @@ function buildDecisionIdentity(decisions) {
 }
 
 function resolveDecisionReference(note, reference, identity, relation) {
-  const matches = [
-    ...(identity.get(scopedAlias(normalizedScope(note), reference)) ?? []),
-  ].sort((left, right) => left.path.localeCompare(right.path));
-  if (matches.length === 0) {
+  const matches = identity.get(scopedAlias(normalizedScope(note), reference)) ?? new Set();
+  if (matches.size === 0) {
     addFinding(
       note,
       "AUTH003",
@@ -141,20 +213,22 @@ function resolveDecisionReference(note, reference, identity, relation) {
     );
     return null;
   }
-  if (matches.length > 1) {
+  if (matches.size > 1) {
+    const details = boundedPathDetails(matches, { target: reference });
     addFinding(
       note,
       "AUTH003",
       `${relation} is ambiguous within the decision scope.`,
-      { target: reference, paths: matches.map((item) => item.path) },
+      details,
     );
     return null;
   }
-  if (matches[0] === note) {
+  const target = matches.values().next().value;
+  if (target === note) {
     addFinding(note, "AUTH003", "A decision cannot supersede itself.");
     return null;
   }
-  return matches[0];
+  return target;
 }
 
 function relationReferencesDecision(references, target) {
@@ -180,13 +254,13 @@ function applyDecisionChecks(notes) {
   }
   for (const matches of acceptedByKey.values()) {
     if (matches.length < 2) continue;
-    const paths = matches.map((item) => item.path).sort();
+    const first = matches[0];
+    const details = boundedPathDetails(matches, {
+      scope: first.frontmatter.scope,
+      decisionKey: first.frontmatter.decision_key,
+    });
     for (const note of matches) {
-      addFinding(note, "AUTH002", "Multiple accepted decisions share one scope and decision key.", {
-        scope: note.frontmatter.scope,
-        decisionKey: note.frontmatter.decision_key,
-        paths,
-      });
+      addFinding(note, "AUTH002", "Multiple accepted decisions share one scope and decision key.", details);
     }
   }
 
@@ -235,28 +309,44 @@ function applyDecisionChecks(notes) {
     }
   }
 
-  const visiting = new Set();
-  const visited = new Set();
-  const stack = [];
-  function visit(note) {
-    if (visiting.has(note)) {
-      const start = stack.indexOf(note);
-      const cycle = stack.slice(start).concat(note);
-      const paths = cycle.map((item) => item.path);
-      for (const item of new Set(cycle)) {
-        addFinding(item, "AUTH003", "Decision supersession contains a cycle.", { paths });
+  const state = new Map();
+  const active = [];
+  const activeIndex = new Map();
+  for (const root of decisions) {
+    if ((state.get(root) ?? 0) !== 0) continue;
+    state.set(root, 1);
+    activeIndex.set(root, active.length);
+    active.push(root);
+    const frames = [{ note: root, targets: edges.get(root) ?? [], cursor: 0 }];
+    while (frames.length > 0) {
+      const frame = frames[frames.length - 1];
+      if (frame.cursor >= frame.targets.length) {
+        frames.pop();
+        state.set(frame.note, 2);
+        activeIndex.delete(frame.note);
+        active.pop();
+        continue;
       }
-      return;
+      const target = frame.targets[frame.cursor];
+      frame.cursor += 1;
+      const targetState = state.get(target) ?? 0;
+      if (targetState === 0) {
+        state.set(target, 1);
+        activeIndex.set(target, active.length);
+        active.push(target);
+        frames.push({ note: target, targets: edges.get(target) ?? [], cursor: 0 });
+        continue;
+      }
+      if (targetState === 1) {
+        const start = activeIndex.get(target);
+        const cycle = active.slice(start).concat(target);
+        const details = boundedPathDetails(cycle);
+        for (const item of new Set(cycle)) {
+          addFinding(item, "AUTH003", "Decision supersession contains a cycle.", details);
+        }
+      }
     }
-    if (visited.has(note)) return;
-    visiting.add(note);
-    stack.push(note);
-    for (const target of edges.get(note) ?? []) visit(target);
-    stack.pop();
-    visiting.delete(note);
-    visited.add(note);
   }
-  for (const note of decisions) visit(note);
 }
 
 export function applyAuthorityValidation(notes, policy) {

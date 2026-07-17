@@ -28,9 +28,12 @@ const requiredPaths = [
   "skills/syncora/agents/openai.yaml",
   "skills/syncora/assets/schemas/adoption-bundle-v1.schema.json",
   "skills/syncora/assets/schemas/authority-promotion-manifest-v2.schema.json",
+  "skills/syncora/references/context.md",
   "skills/syncora/references/legacy-adoption.md",
   "skills/syncora/scripts/lib/adoption-bundle.mjs",
   "skills/syncora/scripts/lib/adopt.mjs",
+  "skills/syncora/scripts/lib/target-bindings.mjs",
+  "skills/syncora/scripts/lib/task-context.mjs",
   "skills/syncora/scripts/syncora.mjs",
 ];
 

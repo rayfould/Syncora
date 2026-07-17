@@ -84,7 +84,7 @@ async function verifyStableGraph(options, inspection) {
   }
 }
 
-export async function searchWorkspace(options, hooks = {}) {
+export async function searchWorkspace(options, hooks = {}, settings = {}) {
   const workspace = await resolveWorkspace(options.workspace);
   await requireInitializedWorkspace(workspace.realPath);
   validateSearchQuery(options.query);
@@ -172,7 +172,7 @@ export async function searchWorkspace(options, hooks = {}) {
     inspection.report.graph.revision,
     options.noCache || cacheContext === null || publicationFailed,
   );
-  return {
+  const report = {
     reportSchemaVersion: 1,
     ok: true,
     command: "search",
@@ -210,4 +210,8 @@ export async function searchWorkspace(options, hooks = {}) {
     results: searched.results,
     warnings,
   };
+  if (settings.withValidatedSnapshot === true) {
+    return { report, inspection };
+  }
+  return report;
 }

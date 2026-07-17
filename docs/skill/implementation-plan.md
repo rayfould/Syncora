@@ -1,7 +1,7 @@
 # Syncora Skill Implementation Plan
 
 Status: Active toward stable release
-Plan version: 3
+Plan version: 4
 Started: 2026-07-15
 
 ## 1. Objective
@@ -102,7 +102,7 @@ Deliverables:
 - bounded lexical and graph retrieval;
 - deduplication and supersession filtering;
 - expansion handles;
-- explicit budget overflow.
+- explicit rendered-context and total serialized-output overflow.
 
 Exit gate:
 
@@ -278,23 +278,40 @@ The semantic acceptance matrix is maintained in
 [`activation-evaluation.md`](activation-evaluation.md). Static and delegated
 evaluations do not replace the installed Codex, Cursor, and Claude release gate.
 
-This milestone establishes foreground orchestration before context compilation.
-It does not make `context` or governed `capture` executable; those remain
-Milestones 3 and 4.
+This milestone established foreground orchestration. Milestone 3 now supplies
+the separate `context` command; governed `capture` remains Milestone 4.
 
 ### Milestone 3: Budgeted context compiler
 
-Status: Pending
+Status: Complete in current source after `0.1.0-preview.1`
 
-- [ ] Implement target binding and scope resolution.
-- [ ] Implement retrieval tiers and bounded traversal.
-- [ ] Implement context lanes and source map.
-- [ ] Implement lean, standard, and deep budgets.
-- [ ] Prove mandatory overflow behavior.
+- [x] Implement typed target binding and deterministic scope resolution.
+- [x] Preserve normalized target case and enforce case-sensitive code
+      identities.
+- [x] Enforce a non-regex bounded glob grammar, portable path identities, and
+      pair-plus-character matching work ceilings.
+- [x] Implement authority-aware retrieval tiers, bounded lexical discovery,
+      and graph traversal capped after eligibility filtering.
+- [x] Bound graph-wide unique link references and resolved edges, and traverse
+      task neighbors through adjacency indexes rather than full edge scans.
+- [x] Implement mandatory, working, and evidence lanes plus inclusion,
+      omission, conflict, hash, provenance, and expansion metadata.
+- [x] Bound source-reference and target-match metadata with explicit totals and
+      truncation signals.
+- [x] Implement `orient`, `implement`, `review`, `handoff`, and `history` modes.
+- [x] Implement lean, standard, and deep budgets plus an explicit 1,000-64,000
+      character ceiling.
+- [x] Prove mandatory and required-hub overflow behavior without truncation.
+- [x] Fail closed on unresolved-conflict overflow and total serialized-report
+      overflow.
+- [x] Bound error envelopes, exclude ineligible bindings from routing, and
+      represent mode-filtered hub sections instead of dropping them silently.
+- [x] Re-verify selected note bytes, graph revision, configuration, and graph
+      root before publication.
 
-The migration shadow phase includes a bounded adoption-only compiler for exact
-required, evidence, and forbidden identities. It is not the general task
-context command and does not complete this milestone.
+The migration shadow compiler remains an adoption-specific gate for exact
+required, evidence, and forbidden identities. It is deliberately separate from
+the general canonical-Markdown-read-only task-context command.
 
 ### Milestone 4: Governed write path
 
@@ -357,6 +374,7 @@ validate
 backlinks
 search
 checkpoint
+context --intent TEXT [--scope SCOPE] [--target KIND:REF]... [--mode MODE] [--budget PRESET]
 patch-agents
 unpatch-agents
 ```
@@ -370,14 +388,15 @@ migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
 
 Normal greenfield or exact predecessor-marker-only setup is one `setup`
 command. Normal existing-graph adoption is two commands after semantic review:
-`bundle` seals the exact files and `adopt --bundle` applies them. The advanced phase surface remains
-independently executable for diagnostics and exact recovery, but it is not a
-multi-approval installation workflow.
+`bundle` seals the exact files and `adopt --bundle` applies them. The advanced
+phase surface remains independently executable for diagnostics and exact
+recovery, but it is not a multi-approval installation workflow.
 
-The current development preview does not claim to provide context compilation,
-governed capture, or drift. Its adoption-specific shadow compiler and
-transaction do not imply a general task context or canonical capture surface.
-The skill must report this capability boundary instead of presenting
+Current source provides general canonical-Markdown-read-only context
+compilation; default discovery may update a disposable lexical cache. It does
+not claim governed capture or changed-file drift detection. Neither the context
+pack nor the adoption-specific transaction implies a general canonical-write
+surface. The skill must report this capability boundary instead of presenting
 unimplemented commands as usable.
 
 ## 6. Predecessor component disposition
@@ -387,7 +406,7 @@ unimplemented commands as usable.
 | Markdown parsing, checksums, wiki links | Port semantics into standalone ESM |
 | KG operation envelope | Port contract and validation semantics |
 | Proposal lifecycle and provenance | Port after the read path |
-| Decision bindings | Port path/glob first; symbols later |
+| Decision bindings | Ported for exact path, bounded glob, component, and symbol bindings |
 | Drift signals and refresh proposals | Port after transactions |
 | Existing context-pack selector | Replace with budgeted compiler |
 | Hosted controllers and service modules | Excluded from the skill |

@@ -20,6 +20,11 @@ All notable changes to Syncora are documented here.
   fixtures, and every staged target byte.
 - Atomic, no-clobber bundle construction with full semantic, fixture, target,
   containment, and hash validation; no handwritten descriptor glue is needed.
+- General canonical-Markdown-read-only `context` compilation with typed task
+  targets, deterministic scope resolution, five task modes, configurable hard
+  character budgets, mandatory/working/evidence lanes, and a
+  provenance-bearing source map. Default discovery may update a disposable
+  derived lexical cache; `--no-cache` prevents that cache write.
 
 ### Changed
 
@@ -37,6 +42,19 @@ All notable changes to Syncora are documented here.
   are no longer separate normal-workflow approval steps.
 
 ### Safety
+
+- Task-context target matching uses a strict non-regex glob grammar, portable
+  case-preserving identities, eligible-note-only scope routing, and bounded
+  pair and character work.
+- Validation caps graph-wide link references and resolved edges; context uses
+  bounded adjacency traversal instead of rescanning the full graph edge set.
+- Context reports and all CLI error envelopes have independent hard output
+  ceilings; conflict overflow and metadata pressure fail visibly.
+- Mode-filtered known hub sections remain explicit source-map omissions, while
+  unfamiliar adopted-hub sections remain eligible working context.
+- Checkpoint and agent-patch lock waiters use optimistic live-owner polling and
+  guarded double-checks, so recovery remains serialized without starving an
+  owner that needs the same guard to release its lock.
 
 - Cutover and retirement preserve legacy notes; overwritten Markdown is copied
   to an inactive migration archive, and retirement records predecessor

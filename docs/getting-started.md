@@ -101,9 +101,26 @@ Trivial or unrelated requests can bypass it. Relevant work uses foreground
 checkpoint decisions and bounded retrieval; no timer or worker runs between
 messages.
 
-The development preview supports bounded search, backlinks, validation, and
-checkpoint policy. The complete task context compiler and governed write path
-are not implemented yet. See [release status](release-status.md).
+When a task depends on project decisions, constraints, status, or history, the
+agent runs one `context` checkpoint, then compiles a task-specific pack. For
+direct use:
+
+```bash
+node <installed-syncora-skill>/scripts/syncora.mjs checkpoint --phase pre --profile context --workspace /absolute/path/to/project
+node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute/path/to/project --intent "review session expiry" --mode review --target file:src/auth/session.ts --budget standard --format json
+```
+
+The built-in `lean`, `standard`, and `deep` ceilings are 4,800, 12,000, and
+32,000 characters. Mandatory truth fails visibly if it cannot fit; optional
+material is omitted whole and reported in the source map. Governed note capture
+and changed-file drift detection are not implemented yet. See
+[release status](release-status.md).
+
+Use JSON when an agent needs the complete lanes and a bounded structured source
+map with totals and truncation signals. The default text form prints the
+bounded context plus a compact human-readable summary. Context compilation
+never changes canonical Markdown; unless `--no-cache` is used, it may update a
+disposable derived lexical cache.
 
 ## 6. External graph roots
 

@@ -11,8 +11,9 @@ graph into every conversation.
 > **Development preview.** The latest public tag is `v0.1.0-preview.1`; current
 > source adds a reviewed, reversible legacy-adoption lifecycle for the next
 > preview. Bootstrap, validation, search, checkpoint, and reversible
-> agent-patching are also usable. General context compilation remains under
-> development. Governed capture and drift detection are too.
+> agent-patching are also usable, and general task-specific context compilation
+> is now implemented in current source. Governed capture
+> and changed-file drift detection remain under development.
 
 ## Why Syncora
 
@@ -24,9 +25,10 @@ Long-running agent work usually fails in one of two directions:
   conflicts, and required constraints disappear.
 
 Syncora's architecture uses one authoritative hub per scope, explicit note
-authority, bounded retrieval, and provenance-bearing changes to balance those
-failure modes. The preview already establishes the safe local foundation; the
-full context-control loop remains the stable-release target.
+authority, bounded retrieval, and visible provenance to balance those failure
+modes. Current source implements the safe canonical read path; it may maintain
+a disposable lexical cache. Governed writes, drift detection, and the remaining
+stable-release acceptance work are still pending.
 
 ## Requirements
 
@@ -89,17 +91,20 @@ migration bundle is required.
 - search with bounded deterministic output;
 - inspect backlinks without granting authority;
 - run foreground checkpoint decisions and maintain bounded local state;
+- compile task-specific context with typed targets, explicit modes, hard
+  character budgets, mandatory/working/evidence lanes, and a source map;
 - inventory legacy Markdown in a dry-run, zero-authority migration phase;
 - stage a reviewed v2 promotion manifest and exact target Markdown;
 - shadow-test the proposed authority graph before canonical mutation;
 - cut over, verify, retire predecessor activation, or restore exact
   pre-cutover bytes through a journaled migration lifecycle.
 
-It does **not** yet compile general task context packs, provide governed capture,
-or perform changed-file drift detection. The adoption-only
-shadow compiler and migration transaction do not imply those general
-capabilities. The [release status](docs/release-status.md) tracks this boundary
-explicitly.
+It does **not** yet provide governed capture or perform changed-file drift
+detection. The task-context compiler is read-only with respect to canonical
+Markdown and authority; compiling a pack never authorizes a note write. Its
+default discovery path may update a disposable derived lexical cache, and
+`--no-cache` prevents that cache write. The
+[release status](docs/release-status.md) tracks this boundary explicitly.
 
 ## Direct runtime use
 
@@ -113,6 +118,7 @@ node <installed-syncora-skill>/scripts/syncora.mjs setup --workspace /absolute/p
 node <installed-syncora-skill>/scripts/syncora.mjs bundle --help
 node <installed-syncora-skill>/scripts/syncora.mjs adopt --workspace /absolute/path/to/project --bundle /absolute/path/to/review/adoption-bundle-v1.json
 node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
+node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute/path/to/project --intent "implement session expiry" --mode implement --target file:src/auth/session.ts --budget standard --format json
 node <installed-syncora-skill>/scripts/syncora.mjs migrate --help
 ```
 

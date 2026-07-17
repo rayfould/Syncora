@@ -188,6 +188,42 @@ try {
   run(process.execPath, [canonical.runtime, "validate", "--workspace", workspace], {
     env: installEnvironment,
   });
+  const preflight = JSON.parse(run(process.execPath, [
+    canonical.runtime,
+    "checkpoint",
+    "--phase",
+    "pre",
+    "--profile",
+    "context",
+    "--workspace",
+    workspace,
+    "--format",
+    "json",
+  ], { env: installEnvironment }));
+  if (preflight.checkpoint.profile !== "context") {
+    throw new Error("Installed-copy context preflight did not preserve its profile");
+  }
+  const compiled = JSON.parse(run(process.execPath, [
+    canonical.runtime,
+    "context",
+    "--workspace",
+    workspace,
+    "--intent",
+    "Orient to the installed workspace",
+    "--mode",
+    "orient",
+    "--format",
+    "json",
+  ], { env: installEnvironment }));
+  if (
+    compiled.command !== "context" ||
+    compiled.ok !== true ||
+    compiled.request.scope !== "workspace" ||
+    compiled.budget.usedCharacters > compiled.budget.maximumCharacters ||
+    typeof compiled.renderedContext !== "string"
+  ) {
+    throw new Error("Installed-copy context compilation did not return a bounded workspace pack");
+  }
 
   const config = JSON.parse(await readFile(path.join(workspace, ".syncora", "config.json"), "utf8"));
   if (config.schemaVersion !== 1) {

@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 
+import { SyncoraError } from "./cli.mjs";
 import { isUnsafeWikiTarget } from "./wiki-links.mjs";
 
 const AUTHORITATIVE_SOURCES = new Set(["canonical", "routing"]);
@@ -47,8 +48,14 @@ function sortedCandidates(candidates) {
   );
 }
 
+function sortedIndex(index) {
+  return new Map(
+    [...index.entries()].map(([key, candidates]) => [key, sortedCandidates(candidates)]),
+  );
+}
+
 function resolutionDiagnostic(note, code, message, target, normalizedTarget, phase, candidates = []) {
-  const paths = candidates.map((candidate) => candidate.path);
+  const candidateCount = candidates.length;
   note.diagnostics.push({
     code,
     severity: sourceSeverity(note),
@@ -59,9 +66,9 @@ function resolutionDiagnostic(note, code, message, target, normalizedTarget, pha
       target,
       normalizedTarget,
       phase,
-      candidateCount: paths.length,
-      candidates: paths.slice(0, 10),
-      omittedCandidates: Math.max(0, paths.length - 10),
+      candidateCount,
+      candidates: candidates.slice(0, 10).map((candidate) => candidate.path),
+      omittedCandidates: Math.max(0, candidateCount - 10),
     },
   });
 }
@@ -77,7 +84,7 @@ function buildIndexes(notes) {
     }
   }
 
-  return { exact, aliases };
+  return { exact: sortedIndex(exact), aliases: sortedIndex(aliases) };
 }
 
 function createResolver(indexes) {
@@ -87,7 +94,7 @@ function createResolver(indexes) {
     }
 
     const normalizedTarget = normalizeLinkIdentity(target);
-    const exactCandidates = sortedCandidates(indexes.exact.get(normalizedTarget) ?? new Map());
+    const exactCandidates = indexes.exact.get(normalizedTarget) ?? [];
     if (exactCandidates.length === 1) {
       return {
         status: "resolved",
@@ -108,7 +115,7 @@ function createResolver(indexes) {
       };
     }
 
-    const aliasCandidates = sortedCandidates(indexes.aliases.get(normalizedTarget) ?? new Map());
+    const aliasCandidates = indexes.aliases.get(normalizedTarget) ?? [];
     if (aliasCandidates.length === 1) {
       return {
         status: "resolved",
@@ -163,7 +170,9 @@ function uniqueReferences(note) {
   );
 }
 
-export function buildLinkGraph(notes) {
+export function buildLinkGraph(notes, policy = {}) {
+  const maximumUniqueReferences = policy.maxUniqueLinkReferences ?? 250_000;
+  const maximumResolvedEdges = policy.maxResolvedLinkEdges ?? 250_000;
   const indexes = buildIndexes(notes);
   const resolveReference = createResolver(indexes);
   const edgesByPair = new Map();
@@ -176,6 +185,13 @@ export function buildLinkGraph(notes) {
   for (const source of notes) {
     for (const reference of uniqueReferences(source)) {
       uniqueReferenceCount += 1;
+      if (uniqueReferenceCount > maximumUniqueReferences) {
+        throw new SyncoraError(
+          "LINK005",
+          "Graph unique wiki-link reference limit exceeded.",
+          { references: uniqueReferenceCount, limit: maximumUniqueReferences },
+        );
+      }
       const resolution = resolveReference(reference.target);
       if (resolution.status === "unresolved") {
         unresolvedReferenceCount += 1;
@@ -215,6 +231,13 @@ export function buildLinkGraph(notes) {
         existing.references += 1;
         existing.occurrences += reference.occurrences;
       } else {
+        if (edgesByPair.size >= maximumResolvedEdges) {
+          throw new SyncoraError(
+            "LINK005",
+            "Graph resolved wiki-link edge limit exceeded.",
+            { edgesAtLeast: edgesByPair.size + 1, limit: maximumResolvedEdges },
+          );
+        }
         edgesByPair.set(edgeKey, {
           sourcePath: source.path,
           sourceAuthority: source.authorityClass,
@@ -233,19 +256,24 @@ export function buildLinkGraph(notes) {
     portableCompare(left.sourcePath, right.sourcePath),
   );
   const backlinks = new Map();
+  const outgoing = new Map();
   for (const edge of edges) {
     const entries = backlinks.get(edge.targetPath) ?? [];
     entries.push(edge);
     backlinks.set(edge.targetPath, entries);
+    const outgoingEntries = outgoing.get(edge.sourcePath) ?? [];
+    outgoingEntries.push(edge);
+    outgoing.set(edge.sourcePath, outgoingEntries);
   }
 
   const ambiguousAliases = [...indexes.aliases.values()].filter(
-    (candidates) => candidates.size > 1,
+    (candidates) => candidates.length > 1,
   ).length;
 
   return {
     edges,
     backlinks,
+    outgoing,
     resolveReference,
     aliases: {
       keys: indexes.aliases.size,

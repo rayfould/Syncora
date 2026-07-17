@@ -39,7 +39,7 @@ surface the conflict instead of overriding the opt-out.
 |---|---|---|
 | `none` | The request is self-contained and independent of workspace state. | Do not activate Syncora, inspect its state, increment its cadence, or load graph notes. |
 | `checkpoint` | The task concerns the project but does not need durable context, or relevance is uncertain. | Perform only the supported cheap pre-work checkpoint. Do not compile context or capture knowledge by default. |
-| `context` | Correct work depends on project decisions, constraints, status, history, or provenance. | Perform the pre-work checkpoint, then compile only bounded task-scoped context when that capability exists. |
+| `context` | Correct work depends on project decisions, constraints, status, history, or provenance. | Perform the pre-work checkpoint, then run the bounded task-context compiler with the current intent, suitable mode, and any known typed targets. |
 | `capture` | The task may establish or change durable knowledge without needing context retrieval. | Use checkpoint-level pre-work with planned capture intent. Before the final response, run post only if canonical Syncora Markdown changed or an authority-changing operation completed. |
 | `maintenance` | The user requests initialization, diagnostics, validation, migration, repair, conflict review, upgrade, patching, or unpatching. | Run only the requested supported maintenance operation and its required safety gates. |
 
@@ -85,6 +85,10 @@ Project-local code-only tasks, such as reading an exact version from a manifest
 or making an isolated mechanical edit, normally select `checkpoint`, not
 `context`, unless a project decision or constraint is actually needed.
 
+When `context` is selected, follow [context.md](context.md). The checkpoint and
+compiler are separate foreground commands: run preflight once, then compile
+one bounded pack. Do not run `context` for clauses that remain self-contained.
+
 ## Escalation and de-escalation
 
 - Escalate `none` to `checkpoint` only if project dependency appears during the
@@ -96,8 +100,8 @@ or making an isolated mechanical edit, normally select `checkpoint`, not
   post disposition with that same checkpoint ID only when the change actually
   occurs.
 - If a proposed durable change does not occur, omit the post-work capture path.
-- Never substitute chat memory for a required but unavailable context or
-  capture capability.
+- Never substitute chat memory for a required context pack, and never replace
+  unavailable governed capture with an unreviewed direct note write.
 
 Profile selection grants no mutation authority. Initialization, canonical
 writes, patching, unpatching, committing, and pushing retain their independent

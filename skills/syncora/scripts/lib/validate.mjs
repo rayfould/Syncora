@@ -16,6 +16,8 @@ export const VALIDATION_POLICY = Object.freeze({
   noteSchemaVersion: 1,
   maxNoteBytes: 262_144,
   maxLinksPerNote: 256,
+  maxUniqueLinkReferences: 250_000,
+  maxResolvedLinkEdges: 250_000,
   maxFrontmatterBytes: 65_536,
   maxHubCharacters: 12_000,
   maxHubLinks: 64,
@@ -155,7 +157,7 @@ export async function inspectWorkspace(options, settings = {}) {
   }
 
   applyAuthorityValidation(notes, VALIDATION_POLICY);
-  const linkGraph = buildLinkGraph(notes);
+  const linkGraph = buildLinkGraph(notes, VALIDATION_POLICY);
   const rawFindings = sortFindings([
     ...scan.findings,
     ...notes.flatMap((note) => note.diagnostics),

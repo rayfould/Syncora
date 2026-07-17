@@ -228,7 +228,7 @@ export function validateStagedAuthorityGraph(originalNotes, stagedNotes, targetP
     ...stagedNotes.map(cloneNote),
   ];
   applyAuthorityValidation(combined, VALIDATION_POLICY);
-  buildLinkGraph(combined);
+  buildLinkGraph(combined, VALIDATION_POLICY);
   const errors = combined.flatMap((note) =>
     note.diagnostics
       .filter((item) => item.severity === "error")

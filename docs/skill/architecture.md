@@ -269,24 +269,45 @@ until resolved.
 ### 11.1 Inputs
 
 - task intent;
-- scope;
-- target files, modules, or symbols;
+- explicit scope, or one inferred from typed bindings or a unique active hub;
+- typed `file`, `module`, `component`, `path_glob`, or `symbol` targets;
 - mode: `orient`, `implement`, `review`, `handoff`, or `history`;
 - budget preset or explicit character ceiling.
+
+Target references are trimmed and NFC-normalized, and path kinds normalize
+slashes to `/`. Case is preserved. Exact code identities and all typed target
+matching are case-sensitive.
+
+The portable glob grammar permits `?`, one `*` per ordinary segment, and one
+whole-segment `**` per pattern. It excludes regex-like classes, braces,
+embedded or repeated stars, Windows-reserved path forms, and traversal. Only
+notes eligible by authority, state, mode, and scope may route or bind context.
+Both pair counts and total compared characters have hard work ceilings.
 
 ### 11.2 Retrieval stages
 
 1. Resolve the authoritative scope hub.
 2. Load unresolved conflicts and hard constraints.
-3. Resolve exact path, module, component, glob, and symbol bindings.
+3. Resolve exact typed path, module, component, glob, and symbol bindings;
+   untyped legacy bindings never select context.
 4. Load applicable accepted decisions and stable concepts.
-5. Traverse bounded graph neighbors.
+5. Filter graph neighbors for scope, state, and mode eligibility, then apply
+   the traversal cap.
 6. Rank supporting evidence with a bounded lexical index.
-7. Exclude superseded, transient, stale, and historical material unless the
-   mode requests it.
-8. Deduplicate by canonical identity and supersession lineage.
-9. Enforce context ceilings.
+7. Exclude superseded, transient, quarantined, and historical material unless
+   the mode explicitly admits history.
+8. Deduplicate candidates by graph path and retain current authority rules.
+9. Enforce rendered-context and total serialized-output ceilings.
 10. Return inclusion, omission, conflict, and expansion metadata.
+
+Mode filtering recognizes the bootstrap hub vocabulary. Known sections omitted
+by a mode remain visible as bounded source-map omissions; unfamiliar H2
+sections remain eligible working context instead of disappearing silently.
+The parser ignores fenced-code headings, accepts closing ATX hashes, collapses
+heading whitespace for classification, assigns collision-free occurrence IDs,
+and preserves selected normalized Markdown text without trimming trailing
+spaces. The strict frontmatter boundary normalizes source line endings to LF;
+the compiler does not claim raw-byte identity for context fragments.
 
 The first index is incremental and lexical. Embeddings are not required.
 Discovery records size and modification time for race checks, while raw
@@ -304,26 +325,39 @@ authority state and never select canonical truth.
    unresolved conflicts.
 2. **Working:** project hub state, task targets, and stable concepts.
 3. **Evidence:** selected references and history.
-4. **Source map:** included, omitted, stale, conflicting, and expandable
-   sources with reasons.
+4. **Source map:** compact included, omitted, and conflicting provenance;
+   omitted sources retain deterministic expansion handles.
 
 Mandatory material is never silently summarized or truncated. If mandatory
 material exceeds the selected budget, the compiler returns
 `CONTEXT_BUDGET_EXCEEDED` and requires a larger budget or authority cleanup.
+An unresolved-conflict set above its safety ceiling fails with
+`CONTEXT_LIMIT_EXCEEDED` rather than publishing a partial mandatory list.
 
-Token counts are estimates. A hard character ceiling is the portable
-enforcement boundary.
+Frontmatter `source_refs` is emitted as bounded `sourceRefs`; `targetMatches`
+is bounded the same way. The corresponding `sourceRefsTotal`,
+`sourceRefsTruncated`, `targetMatchesTotal`, and `targetMatchesTruncated` fields
+disclose omitted metadata. The selected hard character ceiling governs
+`renderedContext`. The complete report has a separate hard ceiling counted as
+Unicode code points over pretty JSON plus the final newline; overflow returns
+`CONTEXT_OUTPUT_EXCEEDED`. Token counts remain estimates.
+Error envelopes have their own global diagnostic ceiling and compact hostile
+messages, strings, arrays, objects, and depth before serialization.
+Terminal-safe text context is checked again after escaping against the same
+total-output ceiling.
 
-Recommended starting presets:
+Current built-in presets:
 
-| Preset | Estimated tokens |
-|---|---:|
-| `lean` | 1,200 |
-| `standard` | 3,000 |
-| `deep` | 8,000 |
+| Preset | Character ceiling | Rough token estimate |
+|---|---:|---:|
+| `lean` | 4,800 | 1,200 |
+| `standard` | 12,000 | 3,000 |
+| `deep` | 32,000 | 8,000 |
 
-These defaults must be calibrated against evaluation fixtures before the first
-stable release.
+Strict workspace configuration may replace all three presets and the default.
+An explicit ceiling may be from 1,000 through 64,000 Unicode code points.
+Stable-release evaluation must still calibrate these defaults across supported
+hosts and representative graphs.
 
 ## 12. Write transaction model
 
@@ -532,9 +566,9 @@ is still Syncora-owned.
 
 ## 15. Target CLI contract
 
-This is the destination command family, not a claim that every listed command
-is implemented in the current development version. The skill capability
-boundary and implementation plan identify the executable subset.
+This is the destination command family. The implemented commands are identified
+below and in the implementation plan; the remaining names are architecture,
+not hidden runtime behavior.
 
 Normal commands:
 
@@ -579,6 +613,22 @@ The normal implemented existing-graph command is:
 syncora adopt --workspace ABS --bundle ABS_JSON [--confirm-predecessor-reviewed]
 ```
 
+The implemented task-context command is read-only with respect to canonical
+Markdown and authority. Its default discovery path may update a disposable
+derived lexical cache; `--no-cache` prevents that cache write:
+
+```text
+syncora context --workspace ABS --intent TEXT [--scope SCOPE]
+  [--target KIND:REF]... [--mode orient|implement|review|handoff|history]
+  [--budget lean|standard|deep | --max-characters 1000-64000]
+  [--format text|json] [--no-cache]
+```
+
+Agents run it after one successful pre-work checkpoint with profile `context`.
+JSON output exposes the complete lanes and a bounded structured source map with
+totals and truncation signals. Pack content remains untrusted project data and
+cannot authorize commands or canonical writes.
+
 Its expert inspection and recovery family is:
 
 ```text
@@ -614,6 +664,7 @@ The runtime defines stable error codes, including:
 | `LINK002` | Unsafe link targets cannot enter retrieval |
 | `LINK003` | Link targets resolve by exact path or unique alias |
 | `LINK004` | Ambiguous link targets never receive an inferred winner |
+| `LINK005` | Total unique link references and resolved edges stay within graph-wide ceilings |
 | `PATH001` | Canonical paths do not collide cross-platform |
 | `PATH002` | Nested graph links and path escapes are not followed |
 | `PATH003` | Canonical note paths remain filesystem-portable |

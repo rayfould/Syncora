@@ -32,6 +32,7 @@ import { shadowMigration } from "./lib/migration-shadow.mjs";
 import { stageMigration } from "./lib/migration-stage.mjs";
 import { withPatchLock } from "./lib/patch-lock.mjs";
 import { searchWorkspace } from "./lib/search.mjs";
+import { compileTaskContext } from "./lib/task-context.mjs";
 import { validateWorkspace } from "./lib/validate.mjs";
 import {
   requireInitializedWorkspace,
@@ -105,6 +106,8 @@ async function main() {
       result = await readBacklinks(parsed.options);
     } else if (parsed.command === "checkpoint") {
       result = await checkpointWorkspace(parsed.options);
+    } else if (parsed.command === "context") {
+      result = await compileTaskContext(parsed.options);
     } else if (parsed.command === "init" || parsed.command === "setup") {
       result = await initializeWorkspace(parsed.options);
       if (parsed.command === "setup") result = { ...result, command: "setup" };

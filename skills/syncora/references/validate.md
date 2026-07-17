@@ -55,6 +55,10 @@ severity follows source authority, but neither code quarantines the source.
 The aggregate report exposes resolution and backlink-edge counts without a
 complete notes or edges array.
 
+`LINK005` fails validation before graph-wide unique references or resolved
+edges exceed their hard materialization ceilings. Backlinks and task context
+consume the resulting bounded adjacency maps.
+
 Validation never reads or writes the lexical cache. Cache presence, corruption,
 or deletion cannot change validation output or graph revision.
 

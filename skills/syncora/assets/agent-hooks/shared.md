@@ -11,6 +11,6 @@ explicit initialization, adoption, or diagnostic request may enter Syncora.
 Run the paired post-work checkpoint only before the final response and only
 when canonical Syncora knowledge changed or an
 authority-changing operation completed. Never imply
-background or after-final work, and never invent unavailable context or capture
-capabilities.
+background or after-final work, and never invent unavailable capture
+capabilities or bypass the bounded context compiler.
 <!-- syncora-agent-hook:end v2 -->
