@@ -4,10 +4,7 @@ All notable changes to Syncora are documented here.
 
 ## [Unreleased]
 
-### 0.1.0-preview.2 release candidate
-
-This candidate is not yet a published tag or GitHub release. The latest public
-tag remains `0.1.0-preview.1`.
+## [0.1.0-preview.2] - 2026-07-18
 
 #### Added
 
@@ -162,5 +159,6 @@ First public development preview of the portable Syncora Agent Skill.
 - Changed-file drift detection.
 - Stable-release compatibility guarantees.
 
-[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.1...HEAD
+[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.2...HEAD
+[0.1.0-preview.2]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.1

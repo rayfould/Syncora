@@ -1,10 +1,10 @@
 # Release status
 
-Current package version: **0.1.0-preview.2** (release candidate)
+Current package version: **0.1.0-preview.2**
 
-Latest public tag: **0.1.0-preview.1**
+Latest public tag: **0.1.0-preview.2**
 
-Current source status: **development preview.2 candidate with adoption, context, governed capture, and foreground changed-source drift detection**
+Current source status: **published development preview.2 with adoption, context, governed capture, and foreground changed-source drift detection**
 
 The public preview establishes the portable and safety-critical foundation. It
 is intended for collaborators who are comfortable testing pre-stable software
@@ -61,9 +61,8 @@ in version-controlled workspaces.
 - cross-platform Node 22 and 24 test suite.
 
 The legacy-adoption lifecycle, task-context compiler, governed capture path,
-and foreground changed-source detector above are included in the
-`v0.1.0-preview.2` release candidate. They are not part of the existing public
-`v0.1.0-preview.1` tag until preview.2 is published.
+and foreground changed-source detector above are included in the published
+`v0.1.0-preview.2` release.
 See the
 [adoption runbook](legacy-kg-adoption.md) and
 [governed capture contract](skill/governed-capture-contract.md). The bundled

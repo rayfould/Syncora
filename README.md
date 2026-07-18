@@ -8,9 +8,8 @@ keeps plain Markdown as the source of truth while helping Codex, Cursor, and
 Claude load the right project knowledge without pulling an entire knowledge
 graph into every conversation.
 
-> **Development preview.** The current package is the
-> `v0.1.0-preview.2` release candidate; the latest public tag remains
-> `v0.1.0-preview.1` until it is published. Preview.2 adds reviewed reversible
+> **Development preview.** The current public release is
+> `v0.1.0-preview.2`. Preview.2 adds reviewed reversible
 > adoption, task-specific context compilation, governed capture, and
 > foreground changed-source drift detection. Stable-release acceptance and
 > predecessor-system reconciliation remain incomplete.
