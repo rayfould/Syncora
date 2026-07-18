@@ -86,6 +86,10 @@ test("setup is the one-command greenfield initialization surface", async () => {
     assert.equal(first.ok, true);
     await access(join(workspace, ".syncora", "config.json"));
     await access(join(workspace, "local", "index.md"));
+    assert.equal(
+      await readFile(join(workspace, "local", ".syncora", ".gitignore"), "utf8"),
+      "*\n!.gitignore\n",
+    );
     await access(join(workspace, "AGENTS.md"));
 
     const second = JSON.parse(run([
@@ -143,9 +147,9 @@ test("setup atomically replaces an exact predecessor workflow without losing unr
     assert.match(patchedAgents, /Keep this instruction too\./);
     assert.doesNotMatch(patchedAgents, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patchedAgents, /END KNOWLEDGE GRAPH WORKFLOW/);
-    assert.match(patchedAgents, /syncora-agent-hook:begin v2/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v3/);
     assert.equal(
-      (patchedAgents.match(/syncora-agent-hook:begin v2/g) ?? []).length,
+      (patchedAgents.match(/syncora-agent-hook:begin v3/g) ?? []).length,
       1,
     );
   } finally {
@@ -206,7 +210,7 @@ test("setup refuses residual custom activation outside an exact predecessor bloc
     const patched = await readFile(agentsPath, "utf8");
     assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
-    assert.match(patched, /syncora-agent-hook:begin v2/);
+    assert.match(patched, /syncora-agent-hook:begin v3/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
@@ -284,7 +288,7 @@ test("setup requires review before replacing a possible custom predecessor-only 
     assert.equal(output.ok, true);
     const patched = await readFile(agentsPath, "utf8");
     assert.match(patched, /Keep the project formatting conventions\./);
-    assert.match(patched, /syncora-agent-hook:begin v2/);
+    assert.match(patched, /syncora-agent-hook:begin v3/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
@@ -343,7 +347,7 @@ test("patch-agents cannot bypass predecessor review after setup opts out", async
     assert.equal(patched.ok, true);
     const agents = await readFile(agentsPath, "utf8");
     assert.match(agents, /Keep the project formatting conventions\./);
-    assert.match(agents, /syncora-agent-hook:begin v2/);
+    assert.match(agents, /syncora-agent-hook:begin v3/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

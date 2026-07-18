@@ -1,4 +1,4 @@
-export const VERSION = "0.1.0-preview.1";
+export const VERSION = "0.1.0-preview.2";
 
 export const ERROR_OUTPUT_POLICY = Object.freeze({
   maximumSerializedCharacters: 16_384,
@@ -23,14 +23,18 @@ export class SyncoraError extends Error {
 
 const COMMANDS = new Set([
   "adopt",
+  "apply",
   "backlinks",
   "bundle",
+  "capture",
   "checkpoint",
   "context",
   "doctor",
   "init",
   "migrate",
   "patch-agents",
+  "propose",
+  "review",
   "search",
   "setup",
   "unpatch-agents",
@@ -55,11 +59,17 @@ const VALUE_OPTIONS = new Set([
   "--bundle",
   "--output",
   "--intent",
+  "--input",
   "--scope",
   "--mode",
   "--budget",
   "--max-characters",
   "--target",
+  "--proposal",
+  "--proposal-digest",
+  "--decision",
+  "--reviewed-by",
+  "--reason",
 ]);
 
 export function parseArgv(argv) {
@@ -100,11 +110,17 @@ export function parseArgv(argv) {
     noCache: false,
     includeHistory: false,
     intent: undefined,
+    input: undefined,
     scope: undefined,
     mode: undefined,
     budget: undefined,
     maxCharacters: undefined,
     targets: [],
+    proposal: undefined,
+    proposalDigest: undefined,
+    decision: undefined,
+    reviewedBy: undefined,
+    reason: undefined,
   };
 
   for (let index = 1; index < argv.length; index += 1) {
@@ -169,10 +185,16 @@ export function parseArgv(argv) {
       if (token === "--bundle") options.bundle = value;
       if (token === "--output") options.output = value;
       if (token === "--intent") options.intent = value;
+      if (token === "--input") options.input = value;
       if (token === "--scope") options.scope = value;
       if (token === "--mode") options.mode = value;
       if (token === "--budget") options.budget = value;
       if (token === "--target") options.targets.push(value);
+      if (token === "--proposal") options.proposal = value;
+      if (token === "--proposal-digest") options.proposalDigest = value;
+      if (token === "--decision") options.decision = value;
+      if (token === "--reviewed-by") options.reviewedBy = value;
+      if (token === "--reason") options.reason = value;
       if (token === "--max-characters") {
         const maximum = Number(value);
         if (!Number.isSafeInteger(maximum)) {
@@ -262,6 +284,97 @@ export function parseArgv(argv) {
     throw new SyncoraError(
       "CLI005",
       "--intent, --scope, --mode, --budget, --max-characters, and --target are only valid with context.",
+    );
+  }
+
+  const governedOptions = [
+    options.input,
+    options.proposal,
+    options.proposalDigest,
+    options.decision,
+    options.reviewedBy,
+    options.reason,
+  ];
+  if (command === "capture") {
+    if (!options.input) {
+      throw new SyncoraError("CLI002", "capture requires --input <absolute-json-path>.");
+    }
+    if (governedOptions.slice(1).some((value) => value !== undefined)) {
+      throw new SyncoraError(
+        "CLI005",
+        "capture accepts --input but not proposal review or apply options.",
+      );
+    }
+  } else if (command === "propose") {
+    if (Number(options.input !== undefined) + Number(options.proposal !== undefined) !== 1) {
+      throw new SyncoraError(
+        "CLI002",
+        "propose requires exactly one of --input <absolute-json-path> or --proposal <id>.",
+      );
+    }
+    if (
+      options.proposalDigest !== undefined ||
+      options.decision !== undefined ||
+      options.reviewedBy !== undefined ||
+      options.reason !== undefined
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        "Proposal review options are only valid with review.",
+      );
+    }
+    if (options.proposal !== undefined && options.dryRun) {
+      throw new SyncoraError(
+        "CLI005",
+        "Proposal inspection is already read-only and does not support --dry-run.",
+      );
+    }
+  } else if (command === "review") {
+    const missing = [
+      ["--proposal", options.proposal],
+      ["--proposal-digest", options.proposalDigest],
+      ["--decision", options.decision],
+      ["--reviewed-by", options.reviewedBy],
+      ["--reason", options.reason],
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missing.length > 0) {
+      throw new SyncoraError("CLI002", `review requires ${missing.join(", ")}.`);
+    }
+    if (options.input !== undefined) {
+      throw new SyncoraError("CLI005", "--input is only valid with capture or propose.");
+    }
+    if (!new Set(["approve", "reject"]).has(options.decision)) {
+      throw new SyncoraError(
+        "CLI004",
+        "review --decision must be approve or reject.",
+      );
+    }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(options.proposalDigest)) {
+      throw new SyncoraError(
+        "CLI004",
+        "--proposal-digest must be a lowercase tagged SHA-256 value.",
+      );
+    }
+  } else if (command === "apply") {
+    if (!options.proposal) {
+      throw new SyncoraError("CLI002", "apply requires --proposal <id>.");
+    }
+    if (
+      options.input !== undefined ||
+      options.proposalDigest !== undefined ||
+      options.decision !== undefined ||
+      options.reviewedBy !== undefined ||
+      options.reason !== undefined
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        "apply accepts a reviewed --proposal only; create approval with review.",
+      );
+    }
+  } else if (governedOptions.some((value) => value !== undefined)) {
+    throw new SyncoraError(
+      "CLI005",
+      "--input, --proposal, --proposal-digest, --decision, --reviewed-by, and --reason are only valid with capture, propose, review, or apply.",
     );
   }
   if (!new Set(["migrate", "checkpoint"]).has(command) && options.phase !== undefined) {
@@ -616,6 +729,59 @@ export function helpText(topic = undefined) {
     ].join("\n");
   }
 
+  if (topic === "capture" || topic === "propose") {
+    return [
+      "Usage:",
+      `  syncora ${topic} --workspace <absolute-path> --input <absolute-json-path> [--dry-run] [options]`,
+      ...(topic === "propose"
+        ? ["  syncora propose --workspace <absolute-path> --proposal <id> [options]"]
+        : []),
+      "",
+      "--workspace <absolute-path>",
+      "--input <absolute-json-path>  (bounded untrusted proposal draft)",
+      ...(topic === "propose"
+        ? ["--proposal <id>  (inspect one immutable proposal without note bodies)"]
+        : []),
+      "--dry-run  (creation only; validate without storing a proposal)",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Seals a validated proposal. Canonical Markdown remains byte-identical.",
+    ].join("\n");
+  }
+
+  if (topic === "review") {
+    return [
+      "Usage: syncora review --workspace <absolute-path> --proposal <id> --proposal-digest <sha256> --decision <approve|reject> --reviewed-by <text> --reason <text> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--proposal <id>",
+      "--proposal-digest <sha256>  (must match the exact sealed proposal)",
+      "--decision <approve|reject>",
+      "--reviewed-by <text>  (bounded attribution, not authentication)",
+      "--reason <text>",
+      "--dry-run",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Records an immutable disposition. Run approve only after explicit user authorization.",
+    ].join("\n");
+  }
+
+  if (topic === "apply") {
+    return [
+      "Usage: syncora apply --workspace <absolute-path> --proposal <id> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--proposal <id>",
+      "--dry-run",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Applies one approved immutable proposal with exact optimistic concurrency and process-interruption recovery.",
+    ].join("\n");
+  }
+
   if (topic === "migrate") {
     return [
       "Usage:",
@@ -662,8 +828,10 @@ export function helpText(topic = undefined) {
     "  setup           Initialize a greenfield workspace and patch agents",
     "  bundle          Build one reviewed legacy-adoption bundle",
     "  adopt           Apply one reviewed legacy-adoption bundle end to end",
+    "  apply           Transactionally apply one approved proposal",
     "  backlinks       Resolve one note and list bounded reverse links",
     "  checkpoint      Run a foreground preflight or paired postflight",
+    "  capture         Prepare an immutable governed knowledge proposal",
     "  context         Compile bounded task-specific project context",
     "  doctor          Inspect workspace readiness and safety",
     "  init            Compatibility alias for setup",
@@ -671,6 +839,8 @@ export function helpText(topic = undefined) {
     "  search          Rank bounded authority-aware lexical matches",
     "  validate        Inspect graph safety and authority read-only",
     "  patch-agents    Add or refresh project-local agent hooks",
+    "  propose         Create or inspect a governed proposal",
+    "  review          Approve or reject an exact proposal digest",
     "  unpatch-agents  Restore or remove Syncora-owned hooks",
     "",
     "Run syncora <command> --help for command options.",
@@ -785,9 +955,166 @@ export function stringifyJson(value) {
   );
 }
 
+export const GOVERNED_OUTPUT_POLICY = Object.freeze({
+  maximumCharacters: 65_536,
+  maximumFallbackPathCharacters: 4_096,
+  maximumFallbackStringCharacters: 2_048,
+});
+
+const GOVERNED_COMMANDS = new Set(["capture", "propose", "review", "apply"]);
+
+function boundedGovernedOutputString(value, maximum) {
+  if (typeof value !== "string") return value ?? null;
+  const characters = [...value];
+  if (characters.length <= maximum) return value;
+  return `${characters.slice(0, Math.max(0, maximum - 24)).join("")}...[output truncated]`;
+}
+
+function compactGovernedSummary(summary) {
+  if (summary === null || typeof summary !== "object" || Array.isArray(summary)) {
+    return undefined;
+  }
+  const compact = {};
+  for (const key of Object.keys(summary).sort().slice(0, 32)) {
+    const value = summary[key];
+    if (typeof value === "number" || typeof value === "boolean" || value === null) {
+      compact[key] = value;
+    } else if (typeof value === "string") {
+      compact[key] = boundedGovernedOutputString(
+        value,
+        GOVERNED_OUTPUT_POLICY.maximumFallbackStringCharacters,
+      );
+    }
+  }
+  return compact;
+}
+
+function compactReviewArtifact(artifact) {
+  if (artifact === null || typeof artifact !== "object" || Array.isArray(artifact)) {
+    return undefined;
+  }
+  return {
+    path: boundedGovernedOutputString(
+      artifact.path,
+      GOVERNED_OUTPUT_POLICY.maximumFallbackPathCharacters,
+    ),
+    digest: artifact.digest ?? artifact.sha256 ?? null,
+    byteLength: artifact.byteLength ?? null,
+  };
+}
+
+function compactGovernedResult(result) {
+  const proposal = result.proposal ?? {};
+  const review = result.review ?? {};
+  const artifact = result.reviewArtifact ?? proposal.reviewArtifact;
+  return {
+    ok: result.ok,
+    command: result.command,
+    output: {
+      truncated: true,
+      reason: "The full result exceeded the governed output budget; canonical content remains available through its local review artifact.",
+      maximumCharacters: GOVERNED_OUTPUT_POLICY.maximumCharacters,
+    },
+    workspace: boundedGovernedOutputString(
+      result.workspace,
+      GOVERNED_OUTPUT_POLICY.maximumFallbackPathCharacters,
+    ),
+    graph: result.graph
+      ? {
+          root: boundedGovernedOutputString(
+            result.graph.root,
+            GOVERNED_OUTPUT_POLICY.maximumFallbackPathCharacters,
+          ),
+          revision: result.graph.revision ?? null,
+          projectedRevision: result.graph.projectedRevision ?? null,
+        }
+      : undefined,
+    proposal: Object.keys(proposal).length > 0
+      ? {
+          id: proposal.id ?? proposal.proposalId ?? null,
+          digest: proposal.digest ?? proposal.proposalDigest ?? null,
+          intentDigest: proposal.intentDigest ?? null,
+          state: proposal.state ?? result.state ?? null,
+          reviewRequired: proposal.reviewRequired ?? null,
+          reviewArtifact: compactReviewArtifact(artifact),
+        }
+      : undefined,
+    proposalId: result.proposalId ?? review.proposalId,
+    proposalDigest: result.proposalDigest ?? review.proposalDigest,
+    transactionId: result.transactionId,
+    receiptId: result.receiptId,
+    decision: result.decision ?? review.decision,
+    reviewedBy: boundedGovernedOutputString(
+      result.reviewedBy ?? review.reviewedBy,
+      512,
+    ),
+    state: result.state,
+    dryRun: result.dryRun,
+    created: result.created,
+    idempotent: result.idempotent,
+    reviewArtifact: compactReviewArtifact(artifact),
+    summary: compactGovernedSummary(result.summary),
+    omittedChanges:
+      (result.omittedChanges ?? 0) + (Array.isArray(result.changes) ? result.changes.length : 0),
+    omittedReviews:
+      (result.omittedReviews ?? 0) + (Array.isArray(result.reviews) ? result.reviews.length : 0),
+    omittedConflicts:
+      (result.omittedConflicts ?? 0) + (Array.isArray(result.conflicts) ? result.conflicts.length : 0),
+    omittedReceipts:
+      (result.omittedReceipts ?? 0) + (Array.isArray(result.receipts) ? result.receipts.length : 0),
+    next: boundedGovernedOutputString(
+      result.next,
+      GOVERNED_OUTPUT_POLICY.maximumFallbackStringCharacters,
+    ),
+  };
+}
+
+function governedTextFallback(result) {
+  const compact = compactGovernedResult(result);
+  const proposal = compact.proposal ?? {};
+  const lines = [
+    `Syncora ${result.command}: ${result.ok ? "ok" : "failed"}`,
+    "Output: compacted to the governed output budget",
+  ];
+  if (compact.workspace) lines.push(`Workspace: ${terminalSafe(compact.workspace)}`);
+  if (compact.graph?.root) lines.push(`Graph: ${terminalSafe(compact.graph.root)}`);
+  const proposalId = proposal.id ?? compact.proposalId;
+  if (proposalId) lines.push(`Proposal: ${terminalSafe(proposalId)}`);
+  const digest = proposal.digest ?? compact.proposalDigest;
+  if (digest) lines.push(`Digest: ${terminalSafe(digest)}`);
+  if (compact.state ?? proposal.state) {
+    lines.push(`State: ${terminalSafe(compact.state ?? proposal.state)}`);
+  }
+  if (compact.decision) lines.push(`Decision: ${terminalSafe(compact.decision)}`);
+  if (compact.reviewArtifact?.path) {
+    lines.push(`Review artifact: ${terminalSafe(compact.reviewArtifact.path)}`);
+  }
+  lines.push("Use --format json for the compact machine-readable envelope.");
+  return `${lines.join("\n")}\n`;
+}
+
+function assertGovernedResultBound(command, rendered, format) {
+  if (!GOVERNED_COMMANDS.has(command)) return;
+  if ([...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters) {
+    throw new SyncoraError(
+      "OUTPUT001",
+      `Governed ${command} ${format} output exceeded its hard character limit.`,
+      { format, limit: GOVERNED_OUTPUT_POLICY.maximumCharacters },
+    );
+  }
+}
+
 export function renderResult(result, format = "text") {
   if (format === "json") {
-    return `${stringifyJson(result)}\n`;
+    let rendered = `${stringifyJson(result)}\n`;
+    if (
+      GOVERNED_COMMANDS.has(result.command) &&
+      [...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters
+    ) {
+      rendered = `${stringifyJson(compactGovernedResult(result))}\n`;
+    }
+    assertGovernedResultBound(result.command, rendered, format);
+    return rendered;
   }
 
   const lines = [
@@ -799,6 +1126,93 @@ export function renderResult(result, format = "text") {
       ? "SYNCORA_DEGRADED"
       : "SYNCORA_OK";
     return `${prefix} phase=${result.checkpoint.phase} profile=${result.checkpoint.profile} sequence=${result.checkpoint.sequence} validation=${result.validation.mode} revision=${result.graph.revision} checkpoint=${terminalSafe(result.checkpoint.id)}${result.checkpoint.disposition ? ` disposition=${result.checkpoint.disposition}` : ""}${result.checkpoint.idempotent ? " idempotent=true" : ""}\n`;
+  }
+
+  if (result.command === "capture" || result.command === "propose") {
+    const proposal = result.proposal ?? {};
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    lines.push(`Proposal: ${terminalSafe(proposal.id ?? proposal.proposalId ?? "dry-run")}`);
+    if (proposal.digest ?? proposal.proposalDigest) {
+      lines.push(`Digest: ${terminalSafe(proposal.digest ?? proposal.proposalDigest)}`);
+    }
+    lines.push(`State: ${terminalSafe(proposal.state ?? result.state ?? (result.dryRun ? "validated-dry-run" : "proposed"))}`);
+    if (proposal.authorityImpact ?? result.authorityImpact) {
+      const impact = proposal.authorityImpact ?? result.authorityImpact;
+      lines.push(`Authority impact: ${terminalSafe(typeof impact === "string" ? impact : impact.level)}`);
+    }
+    if (result.summary) {
+      lines.push(`Operations: ${result.summary.operations ?? 0}; file changes: ${result.summary.changes ?? 0}`);
+    }
+    const reviewArtifact = result.reviewArtifact ?? proposal.reviewArtifact;
+    if (reviewArtifact?.path) {
+      lines.push(`Review artifact: ${terminalSafe(reviewArtifact.path)}`);
+      if (reviewArtifact.digest) {
+        lines.push(`Review artifact digest: ${terminalSafe(reviewArtifact.digest)}`);
+      }
+    }
+    for (const change of result.changes ?? []) {
+      lines.push(`${String(change.action ?? "change").padEnd(9)} ${terminalSafe(change.path)}`);
+    }
+    for (const candidate of result.duplicateCandidates ?? []) {
+      lines.push(
+        `duplicate ${terminalSafe(candidate.path)} (${Number(candidate.similarity).toFixed(3)})`,
+      );
+    }
+    if ((result.omittedChanges ?? 0) > 0) {
+      lines.push(`... ${result.omittedChanges} additional change(s) omitted`);
+    }
+    if (result.next) lines.push(`Next: ${terminalSafe(result.next)}`);
+    let rendered = `${lines.join("\n")}\n`;
+    if ([...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters) {
+      rendered = governedTextFallback(result);
+    }
+    assertGovernedResultBound(result.command, rendered, format);
+    return rendered;
+  }
+
+  if (result.command === "review") {
+    const review = result.review ?? {};
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    lines.push(`Proposal: ${terminalSafe(review.proposalId ?? result.proposalId)}`);
+    lines.push(`Digest: ${terminalSafe(review.proposalDigest ?? result.proposalDigest)}`);
+    lines.push(`Decision: ${terminalSafe(review.decision ?? result.decision)}`);
+    lines.push(`Reviewer: ${terminalSafe(review.reviewedBy ?? result.reviewedBy)}`);
+    lines.push(`State: ${terminalSafe(result.dryRun ? "validated-dry-run" : review.state ?? "recorded")}`);
+    const reviewArtifact = result.reviewArtifact ?? result.artifact;
+    if (reviewArtifact?.path) {
+      lines.push(`Review artifact: ${terminalSafe(reviewArtifact.path)}`);
+    }
+    let rendered = `${lines.join("\n")}\n`;
+    if ([...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters) {
+      rendered = governedTextFallback(result);
+    }
+    assertGovernedResultBound(result.command, rendered, format);
+    return rendered;
+  }
+
+  if (result.command === "apply") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    lines.push(`Proposal: ${terminalSafe(result.proposalId ?? result.proposal?.id)}`);
+    lines.push(`State: ${terminalSafe(result.state ?? result.status ?? (result.dryRun ? "validated-dry-run" : "applied"))}`);
+    if (result.graph?.revision) lines.push(`Revision: ${terminalSafe(result.graph.revision)}`);
+    if (result.summary) {
+      lines.push(`Changes: ${result.summary.changed ?? result.summary.changes ?? 0}; already current: ${result.summary.already ?? 0}`);
+    }
+    for (const change of result.changes ?? []) {
+      lines.push(`${String(change.action ?? "change").padEnd(9)} ${terminalSafe(change.path)}`);
+    }
+    if ((result.omittedChanges ?? 0) > 0) {
+      lines.push(`... ${result.omittedChanges} additional change(s) omitted`);
+    }
+    let rendered = `${lines.join("\n")}\n`;
+    if ([...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters) {
+      rendered = governedTextFallback(result);
+    }
+    assertGovernedResultBound(result.command, rendered, format);
+    return rendered;
   }
 
   if (result.command === "validate") {

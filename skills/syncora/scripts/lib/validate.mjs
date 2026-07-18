@@ -7,10 +7,12 @@ import { discoverMarkdownFiles } from "./graph-scanner.mjs";
 import { buildLinkGraph } from "./link-resolver.mjs";
 import { parseNote } from "./note-parser.mjs";
 import {
+  readSyncoraConfigIfPresent,
   resolveGraphContext,
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 export const VALIDATION_POLICY = Object.freeze({
   noteSchemaVersion: 1,
@@ -132,7 +134,7 @@ function countBy(items, key) {
   return items.reduce((count, item) => count + Number(item === key), 0);
 }
 
-export async function inspectWorkspace(options, settings = {}) {
+export async function inspectWorkspaceUnlocked(options, settings = {}) {
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
     allowExternalGraphRoot: options.allowExternalGraphRoot,
@@ -221,6 +223,18 @@ export async function inspectWorkspace(options, settings = {}) {
   };
 
   return { report, notes, linkGraph, workspace, graph, scan };
+}
+
+export async function inspectWorkspace(options, settings = {}) {
+  const workspace = await resolveWorkspace(options.workspace);
+  if (!await readSyncoraConfigIfPresent(workspace.realPath)) {
+    return inspectWorkspaceUnlocked(options, settings);
+  }
+  return withCanonicalReadInterlock(
+    options,
+    () => inspectWorkspaceUnlocked(options, settings),
+    settings.readInterlockCapability,
+  );
 }
 
 export async function validateWorkspace(options) {

@@ -45,13 +45,14 @@ import {
   rollbackRecovery,
   verifyRecoveryBlobs,
 } from "./migration-transaction.mjs";
-import { inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
+import { inspectWorkspaceUnlocked as inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
 import {
   readSyncoraConfigIfPresent,
   readSyncoraLocalConfigIfPresent,
   resolveGraphContext,
   resolveWorkspace,
 } from "./workspace.mjs";
+import { assertNoNonterminalFileTransaction } from "./writer-interlock.mjs";
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIRECTORY = join(MODULE_DIRECTORY, "..", "..", "assets", "templates");
@@ -132,6 +133,14 @@ function assertEnvironmentMatchesLocks(environment, lockCapability) {
     workspacePath: environment.workspace.realPath,
     graphRoot: environment.graph.resolvedGraphPath,
   });
+}
+
+async function assertMigrationWriterAvailable(options, lockCapability) {
+  const roots = await resolveMigrationLockRoots(options);
+  if (lockCapability !== undefined) {
+    assertMigrationLockCapability(lockCapability, roots);
+  }
+  await assertNoNonterminalFileTransaction(roots.graphRoot);
 }
 
 function recoveryBindings(environment) {
@@ -579,7 +588,7 @@ async function finalizeCutover(environment, recoveryResult, shadow) {
   if (
     hooks.some((hook) => hook.legacyKnowledgeGraphWorkflow) ||
     hooks.some((hook) => hook.possibleCustomPredecessorActivation) ||
-    !hooks.some((hook) => hook.marker === "present" && hook.version === 2)
+    !hooks.some((hook) => hook.marker === "present" && hook.version === 3)
   ) {
     throw adoptionError("MIGRATE013", "Agent-instruction cutover did not replace predecessor activation.");
   }
@@ -639,6 +648,7 @@ async function finalizeCutover(environment, recoveryResult, shadow) {
 export async function cutoverMigration(options, execution = {}) {
   let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
+    await assertMigrationWriterAvailable(options, lockCapability);
     const environment = await loadEnvironment(options);
     assertEnvironmentMatchesLocks(environment, lockCapability);
     if (environment.loadedState.value.status === "cutover-applied") {
@@ -781,7 +791,7 @@ export async function cutoverMigration(options, execution = {}) {
       warnings,
     };
   };
-  if (options.dryRun || lockCapability !== undefined) return operation();
+  if (lockCapability !== undefined) return operation();
   const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
@@ -880,7 +890,7 @@ async function verifyActiveMigration(environment, options) {
   if (
     hooks.some((item) => item.legacyKnowledgeGraphWorkflow) ||
     hooks.some((item) => item.possibleCustomPredecessorActivation) ||
-    !hooks.some((item) => item.marker === "present" && item.version === 2)
+    !hooks.some((item) => item.marker === "present" && item.version === 3)
   ) {
     throw adoptionError("MIGRATE013", "Agent activation no longer matches the cutover receipt.");
   }
@@ -890,6 +900,7 @@ async function verifyActiveMigration(environment, options) {
 export async function verifyMigration(options, execution = {}) {
   let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
+    await assertMigrationWriterAvailable(options, lockCapability);
     const environment = await loadEnvironment(options);
     assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["cutover-applied", "verified"]).has(environment.loadedState.value.status)) {
@@ -983,7 +994,7 @@ export async function verifyMigration(options, execution = {}) {
       changes: plans.map((plan) => describePlan(plan, environment.workspace.realPath)),
     };
   };
-  if (options.dryRun || lockCapability !== undefined) return operation();
+  if (lockCapability !== undefined) return operation();
   const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
@@ -997,6 +1008,7 @@ export async function verifyMigration(options, execution = {}) {
 export async function rollbackMigration(options, execution = {}) {
   let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
+    await assertMigrationWriterAvailable(options, lockCapability);
     const environment = await loadEnvironment(options);
     assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["cutover-prepared", "cutover-applied", "verified", "retired", "rolled-back"]).has(environment.loadedState.value.status)) {
@@ -1135,7 +1147,7 @@ export async function rollbackMigration(options, execution = {}) {
       })),
     };
   };
-  if (options.dryRun || lockCapability !== undefined) return operation();
+  if (lockCapability !== undefined) return operation();
   const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
@@ -1149,6 +1161,7 @@ export async function rollbackMigration(options, execution = {}) {
 export async function retireMigration(options, execution = {}) {
   let lockCapability = readMigrationLockCapability(execution);
   const operation = async () => {
+    await assertMigrationWriterAvailable(options, lockCapability);
     const environment = await loadEnvironment(options);
     assertEnvironmentMatchesLocks(environment, lockCapability);
     if (!new Set(["verified", "retired"]).has(environment.loadedState.value.status)) {
@@ -1329,7 +1342,7 @@ export async function retireMigration(options, execution = {}) {
       changes: plans.map((plan) => describePlan(plan, environment.workspace.realPath)),
     };
   };
-  if (options.dryRun || lockCapability !== undefined) return operation();
+  if (lockCapability !== undefined) return operation();
   const lockRoots = await resolveMigrationLockRoots(options);
   return withMigrationLocks(
     lockRoots,
@@ -1341,45 +1354,55 @@ export async function retireMigration(options, execution = {}) {
 }
 
 export async function migrationStatus(options, execution = {}) {
-  const environment = await loadEnvironment(options);
-  assertEnvironmentMatchesLocks(
-    environment,
-    readMigrationLockCapability(execution),
-  );
-  const inspection = await inspectWorkspace({
-    workspace: environment.workspace.realPath,
-    allowExternalGraphRoot: environment.graph.external
-      ? environment.graph.resolvedGraphPath
-      : undefined,
-  });
-  const recovery = await readEnvironmentRecovery(environment);
-  return {
-    ok: true,
-    command: "migrate",
-    phase: "status",
-    workspace: environment.workspace.realPath,
-    graph: {
-      root: environment.graph.resolvedGraphPath,
-      revision: inspection.report.graph.revision,
-    },
-    migrationId: environment.loadedState.value.migrationId,
-    status: environment.loadedState.value.status,
-    dryRun: false,
-    summary: {
-      sources: environment.loadedState.value.baseline.sourceCount,
-      targets: environment.loadedState.value.baseline.targetCount,
-      baselineGraphRevision: environment.loadedState.value.baseline.graphRevision,
-      manifestSha256: environment.loadedState.value.baseline.manifestSha256,
-      stagedContentSha256:
-        environment.loadedState.value.artifacts.stagedContent.sha256,
-      fixtureSha256:
-        environment.loadedState.value.artifacts.fixtures?.sha256 ?? null,
-      graphValid: inspection.report.ok,
-      recovery: recovery?.value.status ?? null,
-      artifacts: Object.fromEntries(
-        Object.entries(environment.loadedState.value.artifacts).map(([key, value]) => [key, value !== null]),
-      ),
-    },
-    changes: [],
+  let lockCapability = readMigrationLockCapability(execution);
+  const operation = async () => {
+    await assertMigrationWriterAvailable(options, lockCapability);
+    const environment = await loadEnvironment(options);
+    assertEnvironmentMatchesLocks(environment, lockCapability);
+    const inspection = await inspectWorkspace({
+      workspace: environment.workspace.realPath,
+      allowExternalGraphRoot: environment.graph.external
+        ? environment.graph.resolvedGraphPath
+        : undefined,
+    });
+    const recovery = await readEnvironmentRecovery(environment);
+    return {
+      ok: true,
+      command: "migrate",
+      phase: "status",
+      workspace: environment.workspace.realPath,
+      graph: {
+        root: environment.graph.resolvedGraphPath,
+        revision: inspection.report.graph.revision,
+      },
+      migrationId: environment.loadedState.value.migrationId,
+      status: environment.loadedState.value.status,
+      dryRun: false,
+      summary: {
+        sources: environment.loadedState.value.baseline.sourceCount,
+        targets: environment.loadedState.value.baseline.targetCount,
+        baselineGraphRevision: environment.loadedState.value.baseline.graphRevision,
+        manifestSha256: environment.loadedState.value.baseline.manifestSha256,
+        stagedContentSha256:
+          environment.loadedState.value.artifacts.stagedContent.sha256,
+        fixtureSha256:
+          environment.loadedState.value.artifacts.fixtures?.sha256 ?? null,
+        graphValid: inspection.report.ok,
+        recovery: recovery?.value.status ?? null,
+        artifacts: Object.fromEntries(
+          Object.entries(environment.loadedState.value.artifacts).map(([key, value]) => [key, value !== null]),
+        ),
+      },
+      changes: [],
+    };
   };
+  if (lockCapability !== undefined) return operation();
+  const lockRoots = await resolveMigrationLockRoots(options);
+  return withMigrationLocks(
+    lockRoots,
+    (activeCapability) => {
+      lockCapability = activeCapability;
+      return operation();
+    },
+  );
 }

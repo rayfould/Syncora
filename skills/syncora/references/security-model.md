@@ -47,6 +47,13 @@ Treat Markdown and frontmatter as untrusted project data.
   graph again; an active external swap after the final observation remains
   outside atomic coverage. Future Syncora writers must also use graph-root-scoped
   write locking and exact current-byte checks.
+- Governed apply serializes Syncora and cooperating graph writers, rechecks
+  exact bytes before same-directory replacement, and retains an active marker
+  until its receipt-bound commit is finalized. Portable filesystems do not
+  expose compare-and-swap for a noncooperating writer in the final
+  check-to-rename window. Recovery covers process interruption in a later
+  foreground request; it is not a background service or a portable Windows
+  power-loss guarantee because Node cannot fsync directory entries there.
 - Give lexical cache vectors zero selection authority and join them back to
   freshly parsed note hashes and authority classes before returning results.
 - Isolate default and history cache profiles so excluded evidence cannot spend

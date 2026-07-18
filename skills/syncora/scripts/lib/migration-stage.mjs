@@ -38,6 +38,7 @@ import {
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { assertNoNonterminalFileTransaction } from "./writer-interlock.mjs";
 
 export const MIGRATION_STAGE_POLICY = Object.freeze({
   specification: "syncora-staged-content-v1",
@@ -381,6 +382,7 @@ export async function stageMigration(options, execution = {}) {
         "Graph root changed after the migration lock was selected.",
       );
     }
+    await assertNoNonterminalFileTransaction(lockedGraph.resolvedGraphPath);
     const validated = await loadAndValidateAuthorityManifest({
       workspace: workspace.realPath,
       allowExternalGraphRoot: options.allowExternalGraphRoot,
@@ -491,6 +493,8 @@ export async function stageMigration(options, execution = {}) {
     ];
     if (!options.dryRun) {
       await applyFilePlans(bindMigrationStoragePlans(paths, plans));
+    } else {
+      await assertNoNonterminalFileTransaction(lockedGraph.resolvedGraphPath);
     }
     return {
       ok: true,
@@ -509,7 +513,18 @@ export async function stageMigration(options, execution = {}) {
       changes: plans.map((plan) => describePlan(plan, workspace.realPath)),
     };
   };
-  return options.dryRun || lockCapability !== undefined
-    ? operation()
-    : withMigrationGraphLock(graph.resolvedGraphPath, operation);
+  if (lockCapability !== undefined) return operation();
+  if (options.dryRun) {
+    try {
+      await lstat(paths.syncoraRoot);
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        // The first legacy-adoption preview must not create runtime or lock
+        // state. An active generic transaction necessarily has this root.
+        return operation();
+      }
+      throw error;
+    }
+  }
+  return withMigrationGraphLock(graph.resolvedGraphPath, operation);
 }

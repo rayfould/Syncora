@@ -374,95 +374,7 @@ function countNuls(buffer) {
   return { count, first };
 }
 
-export async function parseNote(file, graphRoot, policy, options = {}) {
-  const diagnostics = [];
-  let before;
-  let resolved;
-  try {
-    before = await lstat(file.absolutePath);
-    resolved = await realpath(file.absolutePath);
-  } catch (error) {
-    return unreadableNote(file, diagnostics, error);
-  }
-
-  if (!before.isFile() || !isWithin(graphRoot, resolved) || !samePath(resolved, file.realPath)) {
-    diagnostics.push(
-      finding("PATH002", "error", "Note path changed or escaped after discovery.", file.path),
-    );
-    return baseNote(file, diagnostics);
-  }
-
-  if (before.size > policy.maxNoteBytes) {
-    let rawSha256 = null;
-    try {
-      const hashed = await hashFile(file.absolutePath);
-      rawSha256 = hashed.sha256;
-      if (hashed.nulCount > 0) {
-        diagnostics.push(
-          finding(
-            "ENC002",
-            "error",
-            "Embedded NUL bytes quarantine this note.",
-            file.path,
-            {
-              location: { line: null, column: null, byteOffset: hashed.firstNul },
-              details: { occurrences: hashed.nulCount },
-            },
-          ),
-        );
-      }
-      const after = await lstat(file.absolutePath);
-      if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
-        diagnostics.push(
-          finding("READ001", "error", "Note changed while it was being hashed.", file.path),
-        );
-      }
-    } catch (error) {
-      diagnostics.push(
-        finding("READ001", "error", "Oversized note could not be hashed completely.", file.path, {
-          details: { cause: error.message },
-        }),
-      );
-    }
-    diagnostics.push(
-      finding(
-        "NOTE001",
-        "error",
-        "Note exceeds the configured byte limit and is quarantined.",
-        file.path,
-        { details: { bytes: before.size, limit: policy.maxNoteBytes } },
-      ),
-    );
-    return {
-      ...baseNote(file, diagnostics),
-      rawSha256,
-      byteLength: before.size,
-    };
-  }
-
-  let buffer;
-  try {
-    if (
-      options.preloadedBuffer !== undefined &&
-      !Buffer.isBuffer(options.preloadedBuffer)
-    ) {
-      throw new TypeError("Preloaded note bytes must be a Buffer.");
-    }
-    buffer = options.preloadedBuffer ?? await readFile(file.absolutePath);
-    const after = await lstat(file.absolutePath);
-    if (
-      after.size !== before.size ||
-      after.mtimeMs !== before.mtimeMs ||
-      buffer.length !== before.size
-    ) {
-      diagnostics.push(
-        finding("READ001", "error", "Note changed while it was being read.", file.path),
-      );
-    }
-  } catch (error) {
-    return unreadableNote(file, diagnostics, error);
-  }
-
+function parseNoteBuffer(file, buffer, policy, options, diagnostics) {
   const rawSha256 = createHash("sha256").update(buffer).digest("hex");
   const hasBom = buffer.length >= 3 && buffer.subarray(0, 3).equals(UTF8_BOM);
   const content = hasBom ? buffer.subarray(3) : buffer;
@@ -480,8 +392,34 @@ export async function parseNote(file, graphRoot, policy, options = {}) {
         },
       ),
     );
+  }
+
+  if (buffer.length > policy.maxNoteBytes) {
+    diagnostics.push(
+      finding(
+        "NOTE001",
+        "error",
+        "Note exceeds the configured byte limit and is quarantined.",
+        file.path,
+        { details: { bytes: buffer.length, limit: policy.maxNoteBytes } },
+      ),
+    );
     return {
-      ...baseNote(file, diagnostics),
+      ...baseNote({ ...file, size: buffer.length }, diagnostics),
+      rawSha256,
+      byteLength: buffer.length,
+      encoding: {
+        utf8: false,
+        bom: hasBom,
+        newline: "unknown",
+        finalNewline: false,
+      },
+    };
+  }
+
+  if (nuls.count > 0) {
+    return {
+      ...baseNote({ ...file, size: buffer.length }, diagnostics),
       rawSha256,
       byteLength: buffer.length,
       encoding: { utf8: true, bom: hasBom, newline: "unknown", finalNewline: false },
@@ -496,7 +434,7 @@ export async function parseNote(file, graphRoot, policy, options = {}) {
       finding("ENC001", "error", "Invalid UTF-8 quarantines this note.", file.path),
     );
     return {
-      ...baseNote(file, diagnostics),
+      ...baseNote({ ...file, size: buffer.length }, diagnostics),
       rawSha256,
       byteLength: buffer.length,
       encoding: { utf8: false, bom: hasBom, newline: "unknown", finalNewline: false },
@@ -588,6 +526,117 @@ export async function parseNote(file, graphRoot, policy, options = {}) {
         }
       : {}),
   };
+}
+
+/**
+ * Parse exact in-memory note bytes with the same schema and content rules as a
+ * discovered graph file. Filesystem identity is deliberately the caller's
+ * responsibility; projected-graph validation uses this only after binding its
+ * baseline snapshot and operation paths.
+ */
+export function parseNoteBytes(file, buffer, policy, options = {}) {
+  if (!Buffer.isBuffer(buffer)) {
+    throw new TypeError("In-memory note bytes must be a Buffer.");
+  }
+  return parseNoteBuffer(
+    { ...file, size: buffer.length },
+    buffer,
+    policy,
+    options,
+    [],
+  );
+}
+
+export async function parseNote(file, graphRoot, policy, options = {}) {
+  const diagnostics = [];
+  let before;
+  let resolved;
+  try {
+    before = await lstat(file.absolutePath);
+    resolved = await realpath(file.absolutePath);
+  } catch (error) {
+    return unreadableNote(file, diagnostics, error);
+  }
+
+  if (!before.isFile() || !isWithin(graphRoot, resolved) || !samePath(resolved, file.realPath)) {
+    diagnostics.push(
+      finding("PATH002", "error", "Note path changed or escaped after discovery.", file.path),
+    );
+    return baseNote(file, diagnostics);
+  }
+
+  if (before.size > policy.maxNoteBytes) {
+    let rawSha256 = null;
+    try {
+      const hashed = await hashFile(file.absolutePath);
+      rawSha256 = hashed.sha256;
+      if (hashed.nulCount > 0) {
+        diagnostics.push(
+          finding(
+            "ENC002",
+            "error",
+            "Embedded NUL bytes quarantine this note.",
+            file.path,
+            {
+              location: { line: null, column: null, byteOffset: hashed.firstNul },
+              details: { occurrences: hashed.nulCount },
+            },
+          ),
+        );
+      }
+      const after = await lstat(file.absolutePath);
+      if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+        diagnostics.push(
+          finding("READ001", "error", "Note changed while it was being hashed.", file.path),
+        );
+      }
+    } catch (error) {
+      diagnostics.push(
+        finding("READ001", "error", "Oversized note could not be hashed completely.", file.path, {
+          details: { cause: error.message },
+        }),
+      );
+    }
+    diagnostics.push(
+      finding(
+        "NOTE001",
+        "error",
+        "Note exceeds the configured byte limit and is quarantined.",
+        file.path,
+        { details: { bytes: before.size, limit: policy.maxNoteBytes } },
+      ),
+    );
+    return {
+      ...baseNote(file, diagnostics),
+      rawSha256,
+      byteLength: before.size,
+    };
+  }
+
+  let buffer;
+  try {
+    if (
+      options.preloadedBuffer !== undefined &&
+      !Buffer.isBuffer(options.preloadedBuffer)
+    ) {
+      throw new TypeError("Preloaded note bytes must be a Buffer.");
+    }
+    buffer = options.preloadedBuffer ?? await readFile(file.absolutePath);
+    const after = await lstat(file.absolutePath);
+    if (
+      after.size !== before.size ||
+      after.mtimeMs !== before.mtimeMs ||
+      buffer.length !== before.size
+    ) {
+      diagnostics.push(
+        finding("READ001", "error", "Note changed while it was being read.", file.path),
+      );
+    }
+  } catch (error) {
+    return unreadableNote(file, diagnostics, error);
+  }
+
+  return parseNoteBuffer(file, buffer, policy, options, diagnostics);
 }
 
 function baseNote(file, diagnostics) {

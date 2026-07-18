@@ -1,7 +1,12 @@
 import { SyncoraError } from "./cli.mjs";
-import { inspectWorkspace } from "./validate.mjs";
+import { inspectWorkspaceUnlocked as inspectWorkspace } from "./validate.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
+import {
+  readSyncoraConfigIfPresent,
+  resolveWorkspace,
+} from "./workspace.mjs";
 
-export async function readBacklinks(options) {
+async function readBacklinksUnlocked(options) {
   const inspection = await inspectWorkspace(options);
   const resolution = inspection.linkGraph.resolveReference(options.note);
 
@@ -63,4 +68,15 @@ export async function readBacklinks(options) {
       occurrences: edge.occurrences,
     })),
   };
+}
+
+export async function readBacklinks(options) {
+  const workspace = await resolveWorkspace(options.workspace);
+  if (!await readSyncoraConfigIfPresent(workspace.realPath)) {
+    return readBacklinksUnlocked(options);
+  }
+  return withCanonicalReadInterlock(
+    options,
+    () => readBacklinksUnlocked(options),
+  );
 }

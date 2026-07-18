@@ -62,10 +62,9 @@ Supported note kinds are `atlas`, `project`, `decision`, `concept`, `reference`,
 - A session is historical chronology and cannot override canonical notes.
 - Inbox material is transient until classified.
 
-The bootstrap runtime does not yet enforce the complete authority model. Do not
-claim that legacy notes have effective authority. Read-only validation enforces
-the current schema-v1 subset, while every missing-schema note remains
-unpromoted until a later reviewed migration.
+The runtime enforces the supported schema-v1 authority invariants; it does not
+infer authority for legacy notes. Every missing-schema note remains unpromoted
+until it enters canonical authority through the reviewed v2 adoption workflow.
 
 Wiki links resolve by graph-relative path first, then by a unique filename stem
 or frontmatter `id`. Exact paths are portable-case and Unicode normalized and

@@ -8,11 +8,40 @@ import {
   rm,
   stat,
 } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 
 import { SyncoraError } from "./cli.mjs";
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+
+export const ATOMIC_FILE_DURABILITY = Object.freeze({
+  fileContentSync: true,
+  parentDirectorySync: process.platform !== "win32",
+  windowsPowerLossGuarantee: false,
+});
+
+/**
+ * Persist directory-entry changes when the platform exposes a usable directory
+ * handle. Windows does not provide Node with a portable directory-fsync
+ * contract, so callers can inspect ATOMIC_FILE_DURABILITY and treat a process
+ * crash as covered while keeping power-loss recovery explicitly out of scope.
+ */
+export async function syncDirectoryEntry(directory) {
+  if (process.platform === "win32") return false;
+  let handle;
+  try {
+    handle = await open(directory, "r");
+    await handle.sync();
+    return true;
+  } catch (error) {
+    if (new Set(["EINVAL", "ENOTSUP", "EOPNOTSUPP", "EISDIR"]).has(error?.code)) {
+      return false;
+    }
+    throw error;
+  } finally {
+    if (handle) await handle.close().catch(() => undefined);
+  }
+}
 
 export function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
@@ -67,14 +96,29 @@ export async function writeBufferAtomic(
   mode = undefined,
   beforePublish = undefined,
   prepareParent = undefined,
+  options = undefined,
 ) {
   if (prepareParent) await prepareParent();
   else await mkdir(dirname(path), { recursive: true });
   if (beforePublish) await beforePublish();
-  const temporaryPath = join(
+  const temporaryPath = options?.temporaryPath ?? join(
     dirname(path),
     `.${basename(path)}.syncora-${process.pid}-${randomUUID()}.tmp`,
   );
+  const temporaryLocation = relative(dirname(path), temporaryPath);
+  if (
+    !isAbsolute(temporaryPath) ||
+    temporaryLocation === "" ||
+    temporaryLocation === ".." ||
+    temporaryLocation.startsWith(`..${sep}`) ||
+    isAbsolute(temporaryLocation) ||
+    dirname(temporaryPath) !== dirname(path)
+  ) {
+    throw new SyncoraError(
+      "WRITE002",
+      `Atomic temporary path must be a distinct sibling of its target: ${path}`,
+    );
+  }
 
   const handle = await open(temporaryPath, "wx", 0o600);
   try {
@@ -84,6 +128,8 @@ export async function writeBufferAtomic(
     await handle.close();
   }
 
+  await options?.afterTemporarySync?.({ path, temporaryPath, content });
+
   if (mode !== undefined && process.platform !== "win32") {
     await chmod(temporaryPath, mode);
   }
@@ -91,6 +137,7 @@ export async function writeBufferAtomic(
   try {
     if (beforePublish) await beforePublish();
     await rename(temporaryPath, path);
+    await syncDirectoryEntry(dirname(path));
   } catch (error) {
     await rm(temporaryPath, { force: true }).catch(() => undefined);
     throw error;

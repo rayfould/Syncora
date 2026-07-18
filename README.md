@@ -8,12 +8,11 @@ keeps plain Markdown as the source of truth while helping Codex, Cursor, and
 Claude load the right project knowledge without pulling an entire knowledge
 graph into every conversation.
 
-> **Development preview.** The latest public tag is `v0.1.0-preview.1`; current
-> source adds a reviewed, reversible legacy-adoption lifecycle for the next
-> preview. Bootstrap, validation, search, checkpoint, and reversible
-> agent-patching are also usable, and general task-specific context compilation
-> is now implemented in current source. Governed capture
-> and changed-file drift detection remain under development.
+> **Development preview.** The current package is the
+> `v0.1.0-preview.2` release candidate; the latest public tag remains
+> `v0.1.0-preview.1` until it is published. Preview.2 adds reviewed reversible
+> adoption, task-specific context compilation, and governed capture. Automatic
+> changed-file drift detection remains under development.
 
 ## Why Syncora
 
@@ -26,9 +25,10 @@ Long-running agent work usually fails in one of two directions:
 
 Syncora's architecture uses one authoritative hub per scope, explicit note
 authority, bounded retrieval, and visible provenance to balance those failure
-modes. Current source implements the safe canonical read path; it may maintain
-a disposable lexical cache. Governed writes, drift detection, and the remaining
-stable-release acceptance work are still pending.
+modes. Current source implements the safe canonical read path and an explicit,
+reviewed write path; it may maintain disposable derived runtime state.
+Automatic drift detection and the remaining stable-release acceptance work are
+still pending.
 
 ## Requirements
 
@@ -93,18 +93,37 @@ migration bundle is required.
 - run foreground checkpoint decisions and maintain bounded local state;
 - compile task-specific context with typed targets, explicit modes, hard
   character budgets, mandatory/working/evidence lanes, and a source map;
+- prepare immutable knowledge proposals without changing canonical Markdown;
+- record an explicit approval or rejection bound to the exact proposal digest;
+- apply approved proposals with optimistic concurrency, projected-graph
+  validation, full-lifecycle graph serialization, exact receipts, foreground
+  transaction recovery, and exact rollback before the irreversible commit
+  boundary;
 - inventory legacy Markdown in a dry-run, zero-authority migration phase;
 - stage a reviewed v2 promotion manifest and exact target Markdown;
 - shadow-test the proposed authority graph before canonical mutation;
 - cut over, verify, retire predecessor activation, or restore exact
   pre-cutover bytes through a journaled migration lifecycle.
 
-It does **not** yet provide governed capture or perform changed-file drift
-detection. The task-context compiler is read-only with respect to canonical
-Markdown and authority; compiling a pack never authorizes a note write. Its
-default discovery path may update a disposable derived lexical cache, and
-`--no-cache` prevents that cache write. The
+It does **not** yet perform automatic changed-file drift detection. The
+task-context compiler is read-only with respect to canonical Markdown and
+authority; compiling a pack never authorizes a note write. Governed capture is
+a separate `capture` -> exact local artifact review -> `apply` lifecycle with
+one explicit user approval boundary. Its default discovery path may update a disposable derived
+lexical cache, and `--no-cache` prevents that cache write. The
 [release status](docs/release-status.md) tracks this boundary explicitly.
+
+To record a durable decision, you can simply tell your agent:
+
+```text
+Use $syncora to record this decision in the project knowledge graph.
+```
+
+The agent prepares a proposal and gives you the path and digest of an immutable
+local review artifact containing the exact before/after text. Open that
+artifact before answering the one approval question. The compact path and
+impact summary is only a guide; nothing canonical changes until you approve the
+artifact-bound proposal digest and the transactional apply succeeds.
 
 ## Direct runtime use
 
@@ -119,6 +138,10 @@ node <installed-syncora-skill>/scripts/syncora.mjs bundle --help
 node <installed-syncora-skill>/scripts/syncora.mjs adopt --workspace /absolute/path/to/project --bundle /absolute/path/to/review/adoption-bundle-v1.json
 node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
 node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute/path/to/project --intent "implement session expiry" --mode implement --target file:src/auth/session.ts --budget standard --format json
+node <installed-syncora-skill>/scripts/syncora.mjs capture --workspace /absolute/path/to/project --input /absolute/path/to/proposal-input.json --format json
+node <installed-syncora-skill>/scripts/syncora.mjs propose --workspace /absolute/path/to/project --proposal PROPOSAL_ID --format json
+node <installed-syncora-skill>/scripts/syncora.mjs review --workspace /absolute/path/to/project --proposal PROPOSAL_ID --proposal-digest sha256:DIGEST --decision approve --reviewed-by user --reason "Approved after inspecting the exact immutable review artifact." --format json
+node <installed-syncora-skill>/scripts/syncora.mjs apply --workspace /absolute/path/to/project --proposal PROPOSAL_ID --format json
 node <installed-syncora-skill>/scripts/syncora.mjs migrate --help
 ```
 
@@ -146,8 +169,15 @@ See [upgrade and uninstall](docs/upgrade-and-uninstall.md) for details.
 
 Syncora treats Markdown as untrusted data, resolves real paths before mutation,
 fails closed on external graph roots, bounds reads and output, and uses
-ownership-aware rollback for files it patches. There are no background workers:
-all work runs visibly during an agent turn.
+ownership-aware rollback for files it patches. Governed apply recovers from
+process interruption when a later foreground request reruns it; there are no
+background workers.
+
+Syncora serializes its own graph writers and rechecks exact bytes before atomic
+replacement. A noncooperating external process can still race the final
+check-and-rename window, and Node does not provide a portable Windows
+directory-fsync guarantee for power loss. Keep canonical Markdown under Git or
+another backup when testing the preview.
 
 Read [SECURITY.md](SECURITY.md) before testing hostile paths or content.
 

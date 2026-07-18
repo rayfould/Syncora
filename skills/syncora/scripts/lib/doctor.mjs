@@ -15,6 +15,10 @@ import {
   readCheckpointState,
 } from "./checkpoint-state.mjs";
 import {
+  readActiveFileTransaction,
+  readFileTransaction,
+} from "./file-transaction.mjs";
+import {
   captureStableDirectoryBinding,
   parseRecoveryGuardRecord,
 } from "./lock-recovery-guard.mjs";
@@ -310,6 +314,44 @@ async function inspectRuntimeLocks(workspacePath, checks) {
   }
 }
 
+async function inspectCanonicalTransaction(graphRoot, checks) {
+  try {
+    const active = await readActiveFileTransaction(graphRoot);
+    if (!active) {
+      checks.push(
+        check("ok", "WRITE007", "No governed canonical file transaction is active."),
+      );
+      return;
+    }
+    const journal = await readFileTransaction({
+      graphRoot,
+      transactionId: active.transactionId,
+    });
+    if (!journal) {
+      checks.push(
+        check(
+          "error",
+          "WRITE007",
+          `Canonical transaction ${active.transactionId} has no readable recovery journal.`,
+        ),
+      );
+      return;
+    }
+    const terminal = new Set(["finalized", "rolled-back"]).has(journal.status);
+    checks.push(
+      check(
+        "warn",
+        "WRITE007",
+        terminal
+          ? `Canonical transaction ${active.transactionId} is ${journal.status} but its stale marker still needs foreground cleanup.`
+          : `Canonical transaction ${active.transactionId} is ${journal.status}; resume its governed apply or recovery before context reads or another writer.`,
+      ),
+    );
+  } catch (error) {
+    checks.push(check("error", error.code ?? "WRITE007", error.message));
+  }
+}
+
 export async function diagnoseWorkspace(options) {
   const workspace = await resolveWorkspace(options.workspace);
   const checks = [];
@@ -373,6 +415,7 @@ export async function diagnoseWorkspace(options) {
   }
 
   if (graph) {
+    await inspectCanonicalTransaction(graph.resolvedGraphPath, checks);
     const index = await readOptionalBuffer(join(graph.resolvedGraphPath, "index.md"));
     checks.push(
       index

@@ -4,11 +4,16 @@ import { AUTHORITY_SEMANTICS } from "./authority-validator.mjs";
 import { stringifyJson, SyncoraError } from "./cli.mjs";
 import { NOTE_SCHEMA_SEMANTICS } from "./note-parser.mjs";
 import {
-  inspectWorkspace,
+  inspectWorkspaceUnlocked as inspectWorkspace,
   VALIDATION_POLICY,
   VALIDATION_SPECIFICATION,
 } from "./validate.mjs";
-import { samePath } from "./workspace.mjs";
+import {
+  readSyncoraConfigIfPresent,
+  resolveWorkspace,
+  samePath,
+} from "./workspace.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 export const AUTHORITY_INVENTORY_POLICY = Object.freeze({
   specification: "syncora-authority-inventory-v1",
@@ -384,7 +389,7 @@ export async function inspectAuthoritySnapshot(options) {
   return { inspection, queue, bindings };
 }
 
-export async function inventoryAuthority(options, hooks = {}) {
+async function inventoryAuthorityUnlocked(options, hooks = {}) {
   const snapshot = await inspectAuthoritySnapshot(options);
   const { inspection, queue, bindings } = snapshot;
   const start = resolveStart(queue, options.cursor, bindings);
@@ -436,4 +441,18 @@ export async function inventoryAuthority(options, hooks = {}) {
   }
   await verifyAuthoritySnapshot(options, snapshot, hooks);
   return report;
+}
+
+export async function inventoryAuthority(options, hooks = {}) {
+  const workspace = await resolveWorkspace(options.workspace);
+  if (!await readSyncoraConfigIfPresent(workspace.realPath)) {
+    // Authority inventory is also the entry point for adopting an
+    // uninitialized legacy graph. Such a graph has no governed transaction
+    // writer yet, so keep this pre-initialization read pure and unlocked.
+    return inventoryAuthorityUnlocked(options, hooks);
+  }
+  return withCanonicalReadInterlock(
+    options,
+    () => inventoryAuthorityUnlocked(options, hooks),
+  );
 }

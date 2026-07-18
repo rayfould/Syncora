@@ -1,7 +1,7 @@
 # Syncora Skill Implementation Plan
 
 Status: Active toward stable release
-Plan version: 4
+Plan version: 5
 Started: 2026-07-15
 
 ## 1. Objective
@@ -61,7 +61,7 @@ Deliverables:
   profiles;
 - foreground pre/post checkpoint orchestration with event triggers and bounded
   cadence backstops;
-- safe marker-v1 to marker-v2 activation-policy migration;
+- safe marker-v1/v2 to marker-v3 activation-policy migration;
 - external graph-root allowlisting.
 
 Exit gate:
@@ -115,17 +115,18 @@ Deliverables:
 
 - typed operation envelope;
 - unique proposal files;
-- `capture`, `propose`, and `apply`;
+- `capture`, `propose`, `review`, and `apply`;
 - expected graph revision and note hashes;
 - authority-impact classification;
-- conflict proposals;
+- immutable conflict records;
 - recovery journal and rollback;
 - provenance and idempotency.
 
 Exit gate:
 
 - concurrent and interrupted-write tests demonstrate no silent canonical data
-  loss.
+  loss among Syncora/cooperating writers, while the documented final-race limit
+  for noncooperating external writers remains explicit.
 
 ### Workstream F: Drift and maintenance
 
@@ -225,7 +226,7 @@ The migration runtime now owns that explicit, gated cutover.
 
 ### Milestone 2: Authority-aware graph kernel
 
-Status: In progress
+Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 - [x] Implement raw-byte Markdown scanning, strict constrained frontmatter, and
       bounded wiki-link parsing.
@@ -248,7 +249,8 @@ Status: In progress
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Included in `0.1.0-preview.1`
+Status: Core included in `0.1.0-preview.1`; hook v3 is implemented in the
+unpublished `0.1.0-preview.2` release candidate
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
       routing labels with positive dependency and durability tests.
@@ -257,9 +259,10 @@ Status: Included in `0.1.0-preview.1`
 - [x] Keep global installs inert for ordinary work in uninitialized projects;
       allow only explicit initialization, adoption, or diagnostics pre-init.
 - [x] Separate pre-work mode from the fail-closed post-work change disposition.
-- [x] Replace the broad v1 agent hook with a concise relevance-gated v2 hook.
+- [x] Replace the broad v1 agent hook with a concise relevance-gated hook; v3
+      adds the governed capture boundary to the established v2 routing policy.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target v1-to-v2 migrations.
+      changing-target upgrades from older markers to hook v3.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint
@@ -278,12 +281,12 @@ The semantic acceptance matrix is maintained in
 [`activation-evaluation.md`](activation-evaluation.md). Static and delegated
 evaluations do not replace the installed Codex, Cursor, and Claude release gate.
 
-This milestone established foreground orchestration. Milestone 3 now supplies
-the separate `context` command; governed `capture` remains Milestone 4.
+This milestone established foreground orchestration. Milestone 3 supplies the
+separate `context` command, and Milestone 4 supplies governed capture.
 
 ### Milestone 3: Budgeted context compiler
 
-Status: Complete in current source after `0.1.0-preview.1`
+Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 - [x] Implement typed target binding and deterministic scope resolution.
 - [x] Preserve normalized target case and enforce case-sensitive code
@@ -315,15 +318,35 @@ the general canonical-Markdown-read-only task-context command.
 
 ### Milestone 4: Governed write path
 
-Status: Pending
+Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
-- [ ] Port operation-envelope semantics.
-- [ ] Implement proposal lifecycle and optimistic concurrency.
-- [ ] Implement authority review gates.
-- [ ] Implement transaction recovery and conflict fixtures.
+- [x] Port a bounded typed operation-envelope contract.
+- [x] Implement immutable content-derived proposals, idempotency bindings, and
+      optimistic graph, source, and target concurrency.
+- [x] Publish an immutable exact before/after review artifact and require its
+      proposal binding to verify before approval.
+- [x] Implement projected-graph validation, duplicate signals, and
+      kernel-derived authority impact.
+- [x] Implement explicit approval or rejection bound to the exact proposal
+      digest; no proposal class auto-applies.
+- [x] Implement content-addressed file transactions, immutable receipts,
+      foreground process-interruption resume, exact pre-commit rollback,
+      irreversible receipt-bound commit, and recovery-required outcomes.
+- [x] Serialize the complete apply lifecycle with one transient graph-level
+      lock, bounded monotonic acquisition, and foreground retry after timeout.
+- [x] Add proposal, concurrency, transaction, rollback, and hostile-path
+      fixtures.
+- [x] Upgrade the generated agent hook to v3 so installed workspaces route
+      durable changes through exact review and transactional apply.
 
 Legacy cutover now has a dedicated exact-byte recovery transaction. General
-capture proposals and ordinary canonical writes remain pending.
+capture uses a separate graph-scoped transaction: `capture` and `propose` leave
+canonical Markdown unchanged, the human reviews the exact local artifact rather
+than the compact summary, `review` records the exact disposition, and only
+approved `apply` may publish canonical note bytes. Publication reaches
+`awaiting-finalization`; irreversible commit binds the receipt in
+`finalized-pending-receipt`; receipt publication precedes `finalized` marker
+release. Recovery runs only when a later foreground request reruns `apply`.
 
 ### Milestone 5: Drift, migration, and stable release
 
@@ -375,6 +398,11 @@ backlinks
 search
 checkpoint
 context --intent TEXT [--scope SCOPE] [--target KIND:REF]... [--mode MODE] [--budget PRESET]
+capture --input ABS_JSON
+propose --input ABS_JSON
+propose --proposal ID
+review --proposal ID --proposal-digest SHA256 --decision approve|reject --reviewed-by TEXT --reason TEXT
+apply --proposal ID
 patch-agents
 unpatch-agents
 ```
@@ -393,19 +421,19 @@ phase surface remains independently executable for diagnostics and exact
 recovery, but it is not a multi-approval installation workflow.
 
 Current source provides general canonical-Markdown-read-only context
-compilation; default discovery may update a disposable lexical cache. It does
-not claim governed capture or changed-file drift detection. Neither the context
-pack nor the adoption-specific transaction implies a general canonical-write
-surface. The skill must report this capability boundary instead of presenting
-unimplemented commands as usable.
+compilation and an explicit governed capture surface. Default discovery may
+update a disposable lexical cache. A context pack never authorizes a write;
+`capture` and `propose` only create derived proposal state, and `apply` requires
+an exact digest-bound review. Automatic changed-file drift detection remains
+pending and must not be presented as runtime behavior.
 
 ## 6. Predecessor component disposition
 
 | Legacy component | Disposition |
 |---|---|
 | Markdown parsing, checksums, wiki links | Port semantics into standalone ESM |
-| KG operation envelope | Port contract and validation semantics |
-| Proposal lifecycle and provenance | Port after the read path |
+| KG operation envelope | Ported as a bounded exact-field proposal schema |
+| Proposal lifecycle and provenance | Ported as immutable graph-scoped records and digest-bound review |
 | Decision bindings | Ported for exact path, bounded glob, component, and symbol bindings |
 | Drift signals and refresh proposals | Port after transactions |
 | Existing context-pack selector | Replace with budgeted compiler |
@@ -487,7 +515,7 @@ history modes.
 
 ### Direct external edits bypass transactions
 
-Mitigation: hashes, drift checks, and conflict proposals; hard prevention is
+Mitigation: hashes, drift checks, and immutable conflict records; hard prevention is
 outside a local-skill boundary.
 
 ## 9. Rollback boundaries

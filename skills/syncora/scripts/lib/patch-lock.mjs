@@ -21,6 +21,8 @@ import {
 } from "./lock-recovery-guard.mjs";
 
 const LOCK_SCHEMA_VERSION = 1;
+const DEFAULT_LOCK_FILE_NAME = "agent-patcher.lock";
+const LOCK_FILE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,126}\.lock$/u;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_POLL_MS = 25;
 const DEFAULT_STALE_MS = 5 * 60 * 1_000;
@@ -29,17 +31,19 @@ function lockError(message) {
   return new SyncoraError("PATCH005", message);
 }
 
-function lockPaths(workspacePath) {
+function lockPaths(workspacePath, lockFileName = DEFAULT_LOCK_FILE_NAME) {
+  if (!LOCK_FILE_NAME_PATTERN.test(lockFileName)) {
+    throw lockError("Patch lock file name is invalid.");
+  }
   const runtimeDirectory = join(workspacePath, ".syncora");
   const directory = join(runtimeDirectory, "locks");
+  const path = join(directory, lockFileName);
   return {
     workspacePath,
     runtimeDirectory,
     directory,
-    path: join(directory, "agent-patcher.lock"),
-    recoveryGuardPath: recoveryGuardPath(
-      join(directory, "agent-patcher.lock"),
-    ),
+    path,
+    recoveryGuardPath: recoveryGuardPath(path),
   };
 }
 
@@ -377,14 +381,17 @@ async function acquirePatchLock(workspacePath, options) {
     throw lockError("Patch lock timing options are invalid.");
   }
 
-  const initialPaths = lockPaths(workspacePath);
+  const initialPaths = lockPaths(
+    workspacePath,
+    options.lockName ?? DEFAULT_LOCK_FILE_NAME,
+  );
   await ensureSafeLockDirectory(workspacePath, initialPaths.directory);
   const paths = await capturePatchLockBindings(workspacePath, initialPaths);
   const { path } = paths;
   const token = randomUUID();
   const startedAt = performance.now();
 
-  while (performance.now() - startedAt <= timeoutMs) {
+  while (true) {
     // A stable optimistic read is enough to wait on a live owner. Only a
     // missing or stale-looking lock needs the recovery guard and its guarded
     // double-check. This prevents any number of waiters from starving the
@@ -417,6 +424,48 @@ async function acquirePatchLock(workspacePath, options) {
     ) {
       if (hooks.afterLiveOwnerObserved) {
         await hooks.afterLiveOwnerObserved(optimisticObservation);
+      }
+      if (performance.now() - startedAt >= timeoutMs) {
+        throw lockError(
+          `Timed out waiting for the workspace patch lock: ${path}`,
+        );
+      }
+      await wait(pollMs);
+      continue;
+    }
+
+    // A missing lock does not need the recovery guard to create a new owner:
+    // exclusive creation is already the atomic arbitration primitive. First
+    // honor any existing recovery guard so an orphaned or in-flight recovery
+    // still fails closed, then let all ordinary contenders race on `wx`.
+    // This avoids a recovery-guard thundering herd at every lock hand-off.
+    if (optimisticObservation === null) {
+      const guardObservation = await inspectRecoveryGuard({
+        lockPath: paths.path,
+        containmentRoot: paths.directory,
+        code: "PATCH005",
+        label: "Patch-lock recovery guard",
+        containmentBinding: paths.directoryBinding,
+      });
+      if (guardObservation !== null) {
+        if (hooks.afterRecoveryGuardBlocked) {
+          await hooks.afterRecoveryGuardBlocked(guardObservation);
+        }
+        if (performance.now() - startedAt >= timeoutMs) {
+          throw patchGuardTimeout(paths, timeoutMs, guardObservation);
+        }
+        await wait(pollMs);
+        continue;
+      }
+      if (hooks.beforeMissingLockCreate) {
+        await hooks.beforeMissingLockCreate();
+      }
+      const acquired = await tryCreateLock(paths, token, Date.now());
+      if (acquired) return { ...paths, token };
+      if (performance.now() - startedAt >= timeoutMs) {
+        throw lockError(
+          `Timed out waiting for the workspace patch lock: ${path}`,
+        );
       }
       await wait(pollMs);
       continue;
@@ -457,10 +506,13 @@ async function acquirePatchLock(workspacePath, options) {
       }
     }
     if (acquired) return { ...paths, token };
+    if (performance.now() - startedAt >= timeoutMs) {
+      throw lockError(
+        `Timed out waiting for the workspace patch lock: ${path}`,
+      );
+    }
     await wait(pollMs);
   }
-
-  throw lockError(`Timed out waiting for the workspace patch lock: ${path}`);
 }
 
 async function releasePatchLock(workspacePath, lock, options) {

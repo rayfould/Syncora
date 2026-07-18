@@ -127,8 +127,9 @@ Run post after canonical Syncora Markdown was changed or an operation actually
 applied an authority, migration, repair, or governed-capture change. A normal
 code edit, discussion, proposal, or change to derived `.syncora/` state is not
 by itself a completed knowledge capture. If code changes establish a durable
-truth that still needs capture, retain capture intent and report the unavailable
-capture capability; do not run post as if the knowledge was already recorded.
+truth that needs capture, retain capture intent and use the immutable proposal,
+exact review, and transactional apply workflow in [capture.md](capture.md). Do
+not run post until apply actually publishes the canonical change.
 
 If relevance escalates after preflight, keep the original checkpoint ID. Load
 the newly required bounded capability when available, but never run a second
@@ -141,5 +142,6 @@ findings digest, and state condition. Text output is one `SYNCORA_OK` or
 
 Checkpoint orchestration does not itself compile context. After a successful
 preflight with profile `context`, run the separate bounded `context` command as
-described in [context.md](context.md). Governed capture is still unavailable;
-do not silently substitute chat memory or direct note writes.
+described in [context.md](context.md). Checkpoint orchestration also does not
+itself capture knowledge; use [capture.md](capture.md), and do not silently
+substitute chat memory or direct note writes.

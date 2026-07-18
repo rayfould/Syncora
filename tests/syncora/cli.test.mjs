@@ -4,12 +4,50 @@ import test from "node:test";
 
 import {
   ERROR_OUTPUT_POLICY,
+  GOVERNED_OUTPUT_POLICY,
   helpText,
   parseArgv,
   renderError,
   renderResult,
   SyncoraError,
 } from "../../skills/syncora/scripts/lib/cli.mjs";
+
+test("governed output compacts maximum-shape results without reporting post-write failure", () => {
+  const longPath = `${"segment/".repeat(500)}note.md`;
+  const result = {
+    ok: true,
+    command: "apply",
+    workspace: "C:/workspace",
+    graph: { root: "C:/workspace/local", revision: `sha256:${"a".repeat(64)}` },
+    proposalId: `proposal_${"b".repeat(64)}`,
+    proposalDigest: `sha256:${"c".repeat(64)}`,
+    transactionId: `transaction_${"d".repeat(64)}`,
+    receiptId: `receipt_${"e".repeat(64)}`,
+    state: "applied",
+    dryRun: false,
+    idempotent: false,
+    summary: { changed: 32, already: 0, total: 32 },
+    changes: Array.from({ length: 32 }, (_, index) => ({
+      action: "update",
+      path: `${index}/${longPath}`,
+    })),
+    omittedChanges: 0,
+  };
+
+  const json = renderResult(result, "json");
+  const parsed = JSON.parse(json);
+  assert.ok([...json].length <= GOVERNED_OUTPUT_POLICY.maximumCharacters);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.state, "applied");
+  assert.equal(parsed.receiptId, result.receiptId);
+  assert.equal(parsed.output.truncated, true);
+  assert.equal(parsed.omittedChanges, 32);
+
+  const text = renderResult(result, "text");
+  assert.ok([...text].length <= GOVERNED_OUTPUT_POLICY.maximumCharacters);
+  assert.match(text, /Output: compacted/u);
+  assert.match(text, /State: applied/u);
+});
 
 test("adopt accepts one content-addressed reviewed bundle", () => {
   const workspace = resolve("workspace");
@@ -195,6 +233,114 @@ test("context exposes bounded repeatable task inputs without mutation flags", ()
       "--intent",
       "Orient",
       "--dry-run",
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI005",
+  );
+});
+
+test("governed capture exposes a proposal, digest-bound review, and reviewed apply", () => {
+  const workspace = resolve("workspace");
+  const input = resolve("review", "capture-draft.json");
+  const proposal = "prp_" + "a".repeat(64);
+  const digest = "sha256:" + "b".repeat(64);
+
+  const captured = parseArgv([
+    "capture",
+    "--workspace",
+    workspace,
+    "--input",
+    input,
+    "--dry-run",
+  ]);
+  assert.equal(captured.options.input, input);
+  assert.equal(captured.options.dryRun, true);
+
+  const inspected = parseArgv([
+    "propose",
+    "--workspace",
+    workspace,
+    "--proposal",
+    proposal,
+  ]);
+  assert.equal(inspected.options.proposal, proposal);
+
+  const reviewed = parseArgv([
+    "review",
+    "--workspace",
+    workspace,
+    "--proposal",
+    proposal,
+    "--proposal-digest",
+    digest,
+    "--decision",
+    "approve",
+    "--reviewed-by",
+    "workspace-owner",
+    "--reason",
+    "Approved after inspecting the exact proposal summary.",
+  ]);
+  assert.equal(reviewed.options.proposalDigest, digest);
+  assert.equal(reviewed.options.decision, "approve");
+
+  const applied = parseArgv([
+    "apply",
+    "--workspace",
+    workspace,
+    "--proposal",
+    proposal,
+  ]);
+  assert.equal(applied.options.proposal, proposal);
+
+  assert.match(helpText(), /\n  capture\s+Prepare an immutable governed knowledge proposal/u);
+  assert.match(helpText(), /\n  review\s+Approve or reject an exact proposal digest/u);
+  assert.match(helpText("capture"), /Canonical Markdown remains byte-identical/u);
+  assert.match(helpText("apply"), /process-interruption recovery/u);
+});
+
+test("governed CLI rejects ambiguous creation and unbound review", () => {
+  const workspace = resolve("workspace");
+  const input = resolve("draft.json");
+  const proposal = "prp_" + "a".repeat(64);
+
+  assert.throws(
+    () => parseArgv([
+      "propose",
+      "--workspace",
+      workspace,
+      "--input",
+      input,
+      "--proposal",
+      proposal,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI002",
+  );
+  assert.throws(
+    () => parseArgv([
+      "review",
+      "--workspace",
+      workspace,
+      "--proposal",
+      proposal,
+      "--proposal-digest",
+      "sha256:not-a-digest",
+      "--decision",
+      "approve",
+      "--reviewed-by",
+      "owner",
+      "--reason",
+      "reviewed",
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI004",
+  );
+  assert.throws(
+    () => parseArgv([
+      "apply",
+      "--workspace",
+      workspace,
+      "--proposal",
+      proposal,
+      "--reason",
+      "bypass",
     ]),
     (error) => error instanceof SyncoraError && error.code === "CLI005",
   );

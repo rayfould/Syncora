@@ -21,7 +21,7 @@ import { VERSION, SyncoraError } from "./cli.mjs";
 import { discoverMarkdownFiles } from "./graph-scanner.mjs";
 import {
   graphRevision,
-  inspectWorkspace,
+  inspectWorkspaceUnlocked as inspectWorkspace,
   VALIDATION_POLICY,
   VALIDATION_SPECIFICATION,
 } from "./validate.mjs";
@@ -32,6 +32,7 @@ import {
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 export const CHECKPOINT_RUNTIME_SPECIFICATION = "syncora-checkpoint-runtime-v2";
 export const CHECKPOINT_CHANGE_SPECIFICATION = "syncora-checkpoint-change-fingerprint-v1";
@@ -1029,7 +1030,7 @@ function validateInvocation(options) {
   }
 }
 
-export async function checkpointWorkspace(options, hooks = {}) {
+async function checkpointWorkspaceUnlocked(options, hooks = {}) {
   validateInvocation(options);
   let environment = await resolveCheckpointEnvironment(options);
   if (options.phase === "pre") {
@@ -1102,4 +1103,11 @@ export async function checkpointWorkspace(options, hooks = {}) {
     await recordIncomplete(environment, reservation.operation.operationId, error, hooks);
     throw error;
   }
+}
+
+export async function checkpointWorkspace(options, hooks = {}) {
+  return withCanonicalReadInterlock(
+    options,
+    () => checkpointWorkspaceUnlocked(options, hooks),
+  );
 }

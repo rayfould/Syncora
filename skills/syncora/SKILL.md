@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview safely sets up or adopts a bounded Markdown knowledge graph and compiles task-specific context with provenance. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for task context, handoffs, recovery, checkpointing, validation, or agent patching. Do not activate merely because `.syncora/config.json` exists or for self-contained requests.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview safely sets up or adopts a bounded Markdown knowledge graph, compiles task-specific context, and captures reviewed knowledge through transactional apply. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for context, durable decisions, handoffs, recovery, checkpointing, validation, or agent patching. Do not activate merely because `.syncora/config.json` exists or for self-contained requests.
 ---
 
 # Syncora
@@ -47,11 +47,12 @@ are not, by themselves, a reason to use adoption.
   truth.
 - Compiles bounded task-specific context with mandatory, working, and evidence
   lanes plus a source map.
+- Captures durable knowledge through immutable proposals, one exact local
+  review artifact, and process-interruption-recoverable transactional apply.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
 - Runs only during an active agent request; it has no background worker.
 
-Governed note capture and changed-file drift detection are still under
-development.
+Automatic changed-file drift detection remains under development.
 
 ## Agent instructions
 
@@ -89,17 +90,25 @@ external-root allowlist.
    `context` command with the task intent, suitable mode, and any known scope or
    typed targets. It may update a disposable lexical cache unless `--no-cache`
    is used. Consume only its bounded pack; never recursively load `local/`.
-6. Load only the other reference needed for the task. Never recursively load
+6. When durable knowledge should change, read
+   [capture.md](references/capture.md). Prepare one immutable proposal, give the
+   user its local review-artifact path and digest, and require inspection of the
+   artifact's exact before/after records. A compact summary is orientation, not
+   the review surface. Only after the user approves that exact artifact-bound
+   proposal, record the digest-bound review and run transactional `apply`.
+7. Load only the other reference needed for the task. Never recursively load
    `local/`.
-7. Run the paired post-work checkpoint only after canonical knowledge or
-   authority actually changed. Reuse the pre-work checkpoint ID. Nothing runs
-   in the background or after the final response.
+8. Run the paired post-work checkpoint only after canonical knowledge or
+   authority actually changed, including a successful governed apply. Reuse
+   the pre-work checkpoint ID. Nothing runs in the background or after the
+   final response.
 
 The `context` checkpoint profile records routing intent; the separate
-`context` command performs compilation. Governed capture remains unavailable.
-Do not imitate it with direct note writes, and do not replace bounded context
-with recursive graph loading, unconditional `doctor`, or unconditional
-full-graph validation.
+`context` command performs compilation. Capture intent alone never authorizes a
+write: `capture` and `propose` leave canonical Markdown unchanged, and `apply`
+requires an explicit review bound to the exact proposal digest. Do not replace
+either workflow with direct note writes, recursive graph loading,
+unconditional `doctor`, or unconditional full-graph validation.
 
 ### Use the smallest command surface
 
@@ -114,6 +123,12 @@ full-graph validation.
   required write gates, or relevant integrity investigations.
 - Use `search --query <text>` and `backlinks --note <path-or-alias>` only for
   bounded discovery. Neither ranking nor link count grants authority.
+- Use `capture` for normal proposal preparation, `propose --proposal` for
+  bounded inspection and review-artifact discovery, `review` for the user's
+  exact approval or rejection after artifact inspection, and `apply` only after
+  approval. Treat rejection and stale baselines as terminal; create a corrected
+  proposal instead of forcing or rebasing. Resume interrupted transactions only
+  in a later foreground request; no recovery runs in the background.
 - Keep `migrate --phase authority --dry-run` and the individual migration phases
   as expert inspection, recovery, and rollback tools.
 - If custom predecessor instructions remain active, inspect and remove them
@@ -130,6 +145,7 @@ full-graph validation.
 - Activation routing: [activation-policy.md](references/activation-policy.md)
 - Foreground checkpoint lifecycle: [checkpoint.md](references/checkpoint.md)
 - Task context compilation: [context.md](references/context.md)
+- Governed capture, review, and apply: [capture.md](references/capture.md)
 - Graph inventory or validation: [validate.md](references/validate.md)
 - Link resolution or backlinks: [backlinks.md](references/backlinks.md)
 - Lexical search or cache behavior: [search.md](references/search.md)

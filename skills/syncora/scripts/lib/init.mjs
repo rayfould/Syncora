@@ -19,7 +19,8 @@ import {
   withMigrationLocks,
 } from "./migration-lock.mjs";
 import { withPatchLock } from "./patch-lock.mjs";
-import { inspectWorkspace } from "./validate.mjs";
+import { inspectWorkspaceUnlocked as inspectWorkspace } from "./validate.mjs";
+import { assertNoNonterminalFileTransaction } from "./writer-interlock.mjs";
 import {
   readSyncoraConfigIfPresent,
   resolveGraphContext,
@@ -81,6 +82,15 @@ function sameDirectoryIdentity(left, right) {
     left.ctimeNs === right.ctimeNs &&
     left.mtimeNs === right.mtimeNs
   );
+}
+
+async function metadataIfPresent(path) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 async function inspectPreexistingGraph(graphRoot) {
@@ -168,6 +178,7 @@ async function initializeWorkspaceUnlocked(options, expectedLockRoots = undefine
       workspacePath: workspace.realPath,
       graphRoot: graph.resolvedGraphPath,
     });
+    await assertNoNonterminalFileTransaction(graph.resolvedGraphPath);
   }
   const today = new Date().toISOString().slice(0, 10);
   const workspaceName = safeWorkspaceName(workspace.realPath);
@@ -248,6 +259,19 @@ async function initializeWorkspaceUnlocked(options, expectedLockRoots = undefine
       join(workspace.realPath, ".syncora", ".gitignore"),
       await template("syncora.gitignore"),
       ".syncora/.gitignore",
+    ),
+  );
+
+  plans.push(
+    await createIfMissing(
+      join(graph.resolvedGraphPath, ".syncora", ".gitignore"),
+      "*\n!.gitignore\n",
+      graph.external
+        ? join(graph.resolvedGraphPath, ".syncora", ".gitignore")
+        : portablePath(
+            workspace.realPath,
+            join(graph.resolvedGraphPath, ".syncora", ".gitignore"),
+          ),
     ),
   );
 
@@ -339,13 +363,6 @@ async function initializeWorkspaceUnlocked(options, expectedLockRoots = undefine
 }
 
 export async function initializeWorkspace(options) {
-  if (options.dryRun) return initializeWorkspaceUnlocked(options);
-
-  // Refuse obvious legacy authority before lock acquisition creates any
-  // operational directories. The complete plan is rebuilt under lock below,
-  // so this preflight grants no write authority and cannot mask a race.
-  await initializeWorkspaceUnlocked({ ...options, dryRun: true });
-
   const workspace = await resolveWorkspace(options.workspace);
   const graph = await resolveGraphContext(workspace, {
     allowExternalGraphRoot: options.allowExternalGraphRoot,
@@ -356,7 +373,42 @@ export async function initializeWorkspace(options) {
   });
   const operation = () => initializeWorkspaceUnlocked(options, lockRoots);
 
-  return graph.external
-    ? withMigrationLocks(lockRoots, operation)
-    : withPatchLock(workspace.realPath, operation);
+  const graphMetadata = await metadataIfPresent(graph.resolvedGraphPath);
+  const existingConfig = await readSyncoraConfigIfPresent(workspace.realPath);
+  if (!existingConfig) {
+    if (options.dryRun) {
+      // An uninitialized preview must not create lock infrastructure. It has
+      // no governed canonical state yet, and the planner performs no writes.
+      return initializeWorkspaceUnlocked(options);
+    }
+
+    // Refuse legacy authority before acquiring locks can create operational
+    // directories. A successful plan is rebuilt under the applicable lock.
+    await initializeWorkspaceUnlocked({ ...options, dryRun: true });
+  }
+  if (graphMetadata === null) {
+    if (options.dryRun) {
+      // A greenfield preview must not create either lock root or any Syncora
+      // state. There is no canonical graph to serialize yet.
+      return initializeWorkspaceUnlocked(options);
+    }
+
+    // A greenfield internal graph has no canonical state or graph lock root to
+    // serialize yet. Preserve dry-run purity; for a real setup, hold the
+    // workspace lock and prove the graph is still absent before creating it.
+    return withPatchLock(workspace.realPath, async () => {
+      if (await metadataIfPresent(graph.resolvedGraphPath) !== null) {
+        throw new SyncoraError(
+          "WRITE007",
+          "Graph root appeared while greenfield setup was acquiring its workspace lock; rerun setup so both roots can be locked.",
+        );
+      }
+      return initializeWorkspaceUnlocked(options);
+    });
+  }
+
+  // Setup touches both workspace state/agent files and canonical graph files.
+  // Acquire graph then workspace, including previews, so setup cannot
+  // observe or create a mixed state while a governed transaction is active.
+  return withMigrationLocks(lockRoots, operation);
 }

@@ -20,6 +20,12 @@ import {
   SyncoraError,
 } from "./lib/cli.mjs";
 import { diagnoseWorkspace } from "./lib/doctor.mjs";
+import { applyGovernedProposal } from "./lib/governed-apply.mjs";
+import {
+  createGovernedProposal,
+  inspectGovernedProposal,
+} from "./lib/governed-capture.mjs";
+import { reviewGovernedProposal } from "./lib/governed-review.mjs";
 import { initializeWorkspace } from "./lib/init.mjs";
 import {
   cutoverMigration,
@@ -98,8 +104,15 @@ async function main() {
     let result;
     if (parsed.command === "adopt") {
       result = await adoptWorkspace(parsed.options);
+    } else if (parsed.command === "apply") {
+      result = await applyGovernedProposal(parsed.options);
     } else if (parsed.command === "bundle") {
       result = await buildAdoptionBundle(parsed.options);
+    } else if (parsed.command === "capture") {
+      result = await createGovernedProposal({
+        ...parsed.options,
+        command: "capture",
+      });
     } else if (parsed.command === "doctor") {
       result = await diagnoseWorkspace(parsed.options);
     } else if (parsed.command === "backlinks") {
@@ -113,6 +126,15 @@ async function main() {
       if (parsed.command === "setup") result = { ...result, command: "setup" };
     } else if (parsed.command === "migrate") {
       result = await runMigration(parsed.options);
+    } else if (parsed.command === "propose") {
+      result = parsed.options.input
+        ? await createGovernedProposal({
+            ...parsed.options,
+            command: "propose",
+          })
+        : await inspectGovernedProposal(parsed.options);
+    } else if (parsed.command === "review") {
+      result = await reviewGovernedProposal(parsed.options);
     } else if (parsed.command === "search") {
       result = await searchWorkspace(parsed.options);
     } else if (parsed.command === "validate") {

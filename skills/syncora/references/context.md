@@ -163,5 +163,7 @@ scanning the complete edge set per seed.
   post phase only if canonical knowledge or authority actually changes later
   in the same task.
 
-Governed capture is not implemented. A context pack never authorizes direct
-canonical note writes.
+A context pack never authorizes direct canonical note writes. When the task
+establishes durable knowledge, follow [capture.md](capture.md): prepare an
+immutable proposal, obtain explicit approval for its exact digest, and publish
+only through transactional `apply`.

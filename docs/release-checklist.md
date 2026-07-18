@@ -35,7 +35,31 @@
       rollback state.
 - [ ] Cutover and retirement retain legacy source notes, and recovery evidence
       restores exact pre-cutover graph, runtime, and agent bytes.
-- [ ] README and skill text label missing capabilities honestly.
+- [ ] Capture documentation, skill routing, runtime help, and release status
+      agree on `capture` -> inspect exact local review artifact -> exact digest
+      review -> `apply`; a bounded summary is never treated as approval input.
+- [ ] Proposal fixtures enforce mandatory prior-state bindings, exact hashes for
+      local file/note sources, 256 source references per operation, 512 per
+      proposal, and 64 MiB of verified local source bytes.
+- [ ] Proposal creation leaves canonical Markdown byte-identical, and apply
+      rejects missing, rejected, wrong-digest, stale, or semantically changed
+      proposals.
+- [ ] Interrupted governed apply resumes the same transaction or restores exact
+      prior bytes before irreversible commit; after commit it publishes the
+      bound receipt and reaches `finalized` without rolling back canonical
+      bytes. Unsafe pre-commit rollback preserves external edits and reports
+      recovery required.
+- [ ] Documentation and tests distinguish foreground process-interruption
+      recovery from unsupported background recovery and from the missing
+      Windows power-loss durability guarantee.
+- [ ] Concurrent apply tests prove one transient graph-level lifecycle lock
+      covers preflight through release, uses a bounded monotonic timeout, and
+      supports a later foreground retry after lock contention.
+- [ ] Concurrency claims cover Syncora/cooperating writers and byte rechecks,
+      without claiming portable compare-and-swap against a noncooperating
+      external writer in the final check-and-rename window.
+- [ ] README and skill text label automatic drift detection and other missing
+      capabilities honestly.
 - [ ] The release tag is annotated and the GitHub release is marked prerelease.
 - [ ] A public-repository install with telemetry enabled has seeded skills.sh.
 
@@ -43,7 +67,7 @@
 
 - [ ] Budgeted context compilation preserves mandatory truth or fails visibly.
 - [ ] Governed proposals and canonical writes enforce optimistic concurrency,
-      provenance, and recovery.
+      provenance, exact review, and recovery.
 - [ ] Reviewed v2 promotion staging and application reject incomplete,
       semantically conflicting, stale, and concurrently changed artifacts.
 - [ ] Drift detection produces source-grounded stale findings without directly

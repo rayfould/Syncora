@@ -837,6 +837,45 @@ async function acquireLock(storage, overrides = {}) {
       continue;
     }
 
+    // Exclusive lock creation is sufficient arbitration when the lock path is
+    // absent. Respect a present recovery guard first so orphaned recovery state
+    // remains fail-closed, then avoid making ordinary contenders serialize on
+    // the recovery guard at every hand-off.
+    if (optimisticObservation === null) {
+      const guardObservation = await inspectRecoveryGuard({
+        lockPath: storage.lockPath,
+        containmentRoot: storage.locksRoot,
+        code: "LOCK001",
+        label: "Checkpoint recovery guard",
+        containmentBinding: storage.locksBinding,
+      });
+      if (guardObservation !== null) {
+        if (hooks.afterRecoveryGuardBlocked) {
+          await hooks.afterRecoveryGuardBlocked(guardObservation);
+        }
+        if (performance.now() - started >= policy.timeoutMs) {
+          throw checkpointLockTimeout(
+            policy,
+            storage,
+            "recovery-guard",
+            guardObservation,
+          );
+        }
+        await delay(policy.pollMs);
+        continue;
+      }
+      if (hooks.beforeMissingLockCreate) {
+        await hooks.beforeMissingLockCreate();
+      }
+      const ownership = await tryCreateCheckpointLock(storage);
+      if (ownership) return ownership;
+      if (performance.now() - started >= policy.timeoutMs) {
+        throw checkpointLockTimeout(policy, storage, "checkpoint-lock");
+      }
+      await delay(policy.pollMs);
+      continue;
+    }
+
     const guard = await acquireCheckpointRecoveryGuard(
       storage,
       policy,

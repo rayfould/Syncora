@@ -13,7 +13,7 @@ import {
 import { parseNote } from "./note-parser.mjs";
 import { SyncoraError } from "./cli.mjs";
 import {
-  inspectWorkspace,
+  inspectWorkspaceUnlocked as inspectWorkspace,
   VALIDATION_POLICY,
 } from "./validate.mjs";
 import {
@@ -21,6 +21,7 @@ import {
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 function cacheState(cacheRead, built, graphRevision, noCache) {
   if (noCache) return "memory";
@@ -84,7 +85,7 @@ async function verifyStableGraph(options, inspection) {
   }
 }
 
-export async function searchWorkspace(options, hooks = {}, settings = {}) {
+async function searchWorkspaceUnlocked(options, hooks = {}, settings = {}) {
   const workspace = await resolveWorkspace(options.workspace);
   await requireInitializedWorkspace(workspace.realPath);
   validateSearchQuery(options.query);
@@ -214,4 +215,12 @@ export async function searchWorkspace(options, hooks = {}, settings = {}) {
     return { report, inspection };
   }
   return report;
+}
+
+export async function searchWorkspace(options, hooks = {}, settings = {}) {
+  return withCanonicalReadInterlock(
+    options,
+    () => searchWorkspaceUnlocked(options, hooks, settings),
+    settings.readInterlockCapability,
+  );
 }

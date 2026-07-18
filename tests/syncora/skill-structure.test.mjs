@@ -147,9 +147,13 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v2/);
+  assert.match(hook, /syncora-agent-hook:begin v3/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
+  assert.match(hook, /never edit\s+canonical graph Markdown directly/);
+  assert.match(hook, /local review-artifact path plus the exact digest bindings/);
+  assert.match(hook, /inspection of its exact before\/after records/);
+  assert.match(hook, /record approval only after the\s+user authorizes that artifact-bound proposal digest/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);
 });
 

@@ -37,13 +37,14 @@ import {
   verifyArtifactReference,
   workspaceIdentity,
 } from "./migration-state.mjs";
-import { graphRevision, inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
+import { graphRevision, inspectWorkspaceUnlocked as inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
 import {
   isWithin,
   resolveGraphContext,
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { assertNoNonterminalFileTransaction } from "./writer-interlock.mjs";
 
 export const MIGRATION_SHADOW_POLICY = Object.freeze({
   schemaVersion: 1,
@@ -251,6 +252,7 @@ export async function shadowMigration(options, execution = {}) {
         "Graph root changed after the migration lock was selected.",
       );
     }
+    await assertNoNonterminalFileTransaction(lockedGraph.resolvedGraphPath);
     const rootIdentity = authorityRootIdentity(graph.resolvedGraphPath);
     const loadedState = await readMigrationState(paths, {
       migrationId: options.migrationId,
@@ -398,6 +400,8 @@ export async function shadowMigration(options, execution = {}) {
     ];
     if (!options.dryRun) {
       await applyFilePlans(bindMigrationStoragePlans(paths, plans));
+    } else {
+      await assertNoNonterminalFileTransaction(lockedGraph.resolvedGraphPath);
     }
     return {
       ok: report.summary.pass,
@@ -412,7 +416,7 @@ export async function shadowMigration(options, execution = {}) {
       changes: plans.map((plan) => describePlan(plan, workspace.realPath)),
     };
   };
-  return options.dryRun || lockCapability !== undefined
+  return lockCapability !== undefined
     ? operation()
     : withMigrationGraphLock(graph.resolvedGraphPath, operation);
 }

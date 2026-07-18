@@ -40,7 +40,7 @@ surface the conflict instead of overriding the opt-out.
 | `none` | The request is self-contained and independent of workspace state. | Do not activate Syncora, inspect its state, increment its cadence, or load graph notes. |
 | `checkpoint` | The task concerns the project but does not need durable context, or relevance is uncertain. | Perform only the supported cheap pre-work checkpoint. Do not compile context or capture knowledge by default. |
 | `context` | Correct work depends on project decisions, constraints, status, history, or provenance. | Perform the pre-work checkpoint, then run the bounded task-context compiler with the current intent, suitable mode, and any known typed targets. |
-| `capture` | The task may establish or change durable knowledge without needing context retrieval. | Use checkpoint-level pre-work with planned capture intent. Before the final response, run post only if canonical Syncora Markdown changed or an authority-changing operation completed. |
+| `capture` | The task may establish or change durable knowledge without needing context retrieval. | Use checkpoint-level pre-work, then follow the governed proposal, exact review, and transactional apply flow when a durable change is actually needed. Run post only after apply changes canonical Markdown or authority. |
 | `maintenance` | The user requests initialization, diagnostics, validation, migration, repair, conflict review, upgrade, patching, or unpatching. | Run only the requested supported maintenance operation and its required safety gates. |
 
 The five labels describe routing, not five mutation authority levels. Select a
@@ -50,7 +50,8 @@ shorthand for checkpoint-level pre-work plus planned capture intent. If a task
 needs both context and capture, run pre with `context`, then run post only after
 the durable change. Maintenance-oriented project work can use pre
 `maintenance`, then post; a direct maintenance command instead owns its whole
-lifecycle.
+lifecycle. Creating or inspecting a proposal does not count as a durable
+change; only a successful canonical apply does.
 
 For compound prompts, classify every clause and retain each required operation.
 Precedence applies only when clauses can share one checkpoint gate; it never
@@ -97,13 +98,17 @@ one bounded pack. Do not run `context` for clauses that remain self-contained.
   is required. Reuse the existing checkpoint ID and do not run a second
   preflight or increment cadence again.
 - Mark capture intent when the work may produce a durable change; execute the
-  post disposition with that same checkpoint ID only when the change actually
-  occurs.
+  governed flow in [capture.md](capture.md), then execute the post disposition
+  with that same checkpoint ID only when apply actually changes canonical
+  knowledge.
 - If a proposed durable change does not occur, omit the post-work capture path.
 - Never substitute chat memory for a required context pack, and never replace
-  unavailable governed capture with an unreviewed direct note write.
+  governed capture with an unreviewed direct note write.
 
 Profile selection grants no mutation authority. Initialization, canonical
 writes, patching, unpatching, committing, and pushing retain their independent
 authorization requirements. In particular, selecting `capture` never grants
-permission to write canonical knowledge.
+permission to write canonical knowledge. `capture` and `propose` only prepare
+immutable derived state; the user must inspect the exact local review artifact,
+and `review --decision approve` must bind explicit approval to the artifact's
+proposal digest before `apply` may publish.

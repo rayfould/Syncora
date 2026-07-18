@@ -160,7 +160,7 @@ test("patch and unpatch exactly restore untouched BOM and CRLF files", async () 
     const patched = await readFile(agentsPath);
     assert.equal(patched.subarray(0, 3).equals(bom), true);
     const patchedText = patched.subarray(3).toString("utf8");
-    assert.match(patchedText, /syncora-agent-hook:begin v2/);
+    assert.match(patchedText, /syncora-agent-hook:begin v3/);
     assert.equal(/(^|[^\r])\n/.test(patchedText), false);
 
     run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
@@ -211,11 +211,11 @@ test("Codex override is patched and Claude AGENTS import avoids duplication", as
     run(["init", "--workspace", workspace, "--format", "json"]);
     assert.match(
       await readFile(join(workspace, "AGENTS.md"), "utf8"),
-      /syncora-agent-hook:begin v2/,
+      /syncora-agent-hook:begin v3/,
     );
     assert.match(
       await readFile(join(workspace, "AGENTS.override.md"), "utf8"),
-      /syncora-agent-hook:begin v2/,
+      /syncora-agent-hook:begin v3/,
     );
     assert.equal(
       await readFile(join(workspace, ".claude", "CLAUDE.md"), "utf8"),
@@ -398,7 +398,7 @@ test("migration cutover refreshes an exact tracked dual-workflow baseline withou
     await applyFilePlans(initialPatch.plans);
     const dual = await readFile(agentsPath, "utf8");
     assert.match(dual, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
-    assert.match(dual, /syncora-agent-hook:begin v2/);
+    assert.match(dual, /syncora-agent-hook:begin v3/);
 
     const planned = await planAgentMigrationCutover(workspace);
     await verifyAgentPatchPlans(workspace, planned.plans);
@@ -407,7 +407,7 @@ test("migration cutover refreshes an exact tracked dual-workflow baseline withou
     const cutover = await readFile(agentsPath, "utf8");
     assert.doesNotMatch(cutover, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.equal(
-      (cutover.match(/syncora-agent-hook:begin v2/g) ?? []).length,
+      (cutover.match(/syncora-agent-hook:begin v3/g) ?? []).length,
       1,
     );
     assert.equal(
@@ -462,7 +462,7 @@ test("migration cutover rejects malformed or duplicate predecessor markers befor
   }
 });
 
-test("an untouched tracked v1 hook upgrades to v2 and still restores the true original", async () => {
+test("an untouched tracked v1 hook upgrades to v3 and still restores the true original", async () => {
   const workspace = await temporaryWorkspace();
   const agentsPath = join(workspace, "AGENTS.md");
   const original = Buffer.concat([
@@ -482,7 +482,7 @@ test("an untouched tracked v1 hook upgrades to v2 and still restores the true or
 
     run(["patch-agents", "--workspace", workspace, "--format", "json"]);
     const upgraded = await readFile(agentsPath, "utf8");
-    assert.match(upgraded, /syncora-agent-hook:begin v2/);
+    assert.match(upgraded, /syncora-agent-hook:begin v3/);
     assert.doesNotMatch(upgraded, /syncora-agent-hook:begin v1/);
 
     run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
@@ -512,7 +512,7 @@ test("an untracked v1 marker is never snapshotted as original content", async ()
       run(["patch-agents", "--workspace", workspace, "--format", "json"])
         .stdout,
     );
-    assert.match(await readFile(agentsPath, "utf8"), /begin v2/);
+    assert.match(await readFile(agentsPath, "utf8"), /begin v3/);
     assert.ok(
       patched.warnings.some((warning) => warning.code === "PATCH_UNTRACKED"),
     );
@@ -530,11 +530,11 @@ test("a new root Claude target retires a previously Syncora-created nested targe
   const nestedClaude = join(workspace, ".claude", "CLAUDE.md");
   try {
     run(["init", "--workspace", workspace, "--format", "json"]);
-    assert.match(await readFile(nestedClaude, "utf8"), /begin v2/);
+    assert.match(await readFile(nestedClaude, "utf8"), /begin v3/);
     await writeFile(rootClaude, "# Root Claude\n", "utf8");
 
     run(["patch-agents", "--workspace", workspace, "--format", "json"]);
-    assert.match(await readFile(rootClaude, "utf8"), /begin v2/);
+    assert.match(await readFile(rootClaude, "utf8"), /begin v3/);
     await assert.rejects(access(nestedClaude));
 
     run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
@@ -593,7 +593,7 @@ test("future hook versions and unsafe snapshot state fail before target writes",
     );
     const future = replaceOwnedHook(
       await readFile(agentsPath, "utf8"),
-      "<!-- syncora-agent-hook:begin v3 -->\nfuture\n<!-- syncora-agent-hook:end v3 -->",
+      "<!-- syncora-agent-hook:begin v4 -->\nfuture\n<!-- syncora-agent-hook:end v4 -->",
     );
     await writeFile(agentsPath, future, "utf8");
     const futureResult = run(
@@ -858,7 +858,7 @@ test("a diverged v1 hook upgrade refreshes its baseline and preserves user edits
 
     run(["patch-agents", "--workspace", workspace, "--format", "json"]);
     const upgraded = await readFile(agentsPath, "utf8");
-    assert.match(upgraded, /syncora-agent-hook:begin v2/);
+    assert.match(upgraded, /syncora-agent-hook:begin v3/);
     assert.match(upgraded, /User-owned addition\./);
 
     run(["unpatch-agents", "--workspace", workspace, "--format", "json"]);
@@ -1196,7 +1196,7 @@ test("patch lock rejects a stable lock-directory retarget before writing", async
         pollMs: 5,
         staleMs: 1,
         hooks: {
-          beforeRecoveryGuardAcquire: async () => {
+          beforeMissingLockCreate: async () => {
             if (replaced) return;
             await rename(lockDirectory, originalDirectory);
             await symlink(

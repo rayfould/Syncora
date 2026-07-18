@@ -177,10 +177,14 @@ workspace/
 │   ├── state.json              # ignored derived state
 │   ├── cache/                  # ignored and rebuildable
 │   ├── locks/                  # ignored
-│   ├── operations/             # ignored by default
-│   ├── proposals/              # ignored by default
 │   └── snapshots/              # ignored
 ├── local/
+│   ├── .syncora/               # ignored graph-scoped governance state
+│   │   ├── proposals/
+│   │   ├── reviews/
+│   │   ├── operations/
+│   │   ├── transactions/
+│   │   └── blobs/
 │   ├── index.md
 │   ├── knowledge/
 │   │   ├── projects/
@@ -195,6 +199,11 @@ workspace/
 
 `local/` may be tracked in the workspace repository, ignored, or maintained as a
 standalone repository. Syncora does not impose a Git topology.
+
+Proposal, review, conflict, and recovery records are graph-scoped so multiple
+worktrees that share one resolved graph also share one governance lifecycle.
+They are noncanonical, excluded from Markdown scanning, and ignored by the
+graph-local `.syncora/.gitignore`.
 
 If `local/` resolves through a symlink or junction outside the workspace, the
 runtime rejects it by default. The user may allowlist the exact resolved root in
@@ -385,23 +394,45 @@ Initial operation kinds:
 
 The runtime performs duplicate search, schema validation, authority validation,
 path containment, optimistic concurrency, and same-directory transactional
-writes. A hash mismatch creates a conflict proposal rather than overwriting the
+writes. A hash mismatch creates an immutable conflict record rather than overwriting the
 newer state.
 
-Authority-changing operations require explicit evidence or review. Policies may
-allow safe additive supporting updates to apply automatically.
+Every proposal publishes a separate immutable local review artifact containing
+the exact JSON-escaped before/after text. A human must inspect that artifact
+before an explicit review can bind the proposal digest for canonical apply.
+Authority impact controls the compact orientation summary and policy checks;
+the summary is not the review surface, and no impact class auto-applies.
 
 Proposal and operation records use unique files. They do not append to shared
 mega-logs that become write or merge bottlenecks.
 
-## 13. Drift model
+Canonical publication reaches `awaiting-finalization` before the irreversible
+boundary. Commit then seals the receipt digest and advances to
+`finalized-pending-receipt`; only after that exact receipt is durably published
+may finalization release the graph-scoped active-writer marker. Failure before
+commit may roll back exact owned bytes. Failure after commit returns
+`WRITE009`, and a later foreground `apply` invocation completes receipt
+publication or finalization. No background recovery exists.
 
-`check --changed` uses Git diffs and renames when available, otherwise content
-fingerprints. Paths and globs are first-class bindings; stable symbol IDs are an
-optional enhancement.
+A transient graph-level `governed-apply.lock` wraps that entire lifecycle so
+concurrent applies cannot interleave preflight, rollback, commit, receipt
+recovery, or release decisions. Its monotonic acquisition wait is bounded to 10
+seconds by default with 25-millisecond polling; timeout returns `PATCH005` and a
+later foreground invocation retries the lifecycle.
 
-A changed fingerprint creates a derived stale finding and a refresh proposal.
-It never silently rewrites canonical content. No daemon is required.
+The executable Milestone 4 contract, including the review boundary and
+transaction lifecycle, is specified in
+[governed-capture-contract.md](governed-capture-contract.md).
+
+## 13. Planned drift model
+
+The not-yet-implemented `check --changed` command will use Git diffs and renames
+when available, otherwise content fingerprints. Paths and globs are first-class
+bindings; stable symbol IDs are an optional enhancement.
+
+A changed fingerprint will create a derived stale finding and a refresh
+proposal. It will never silently rewrite canonical content. No daemon is
+required; checks will run only in a foreground request.
 
 ## 14. Agent activation and foreground orchestration
 
@@ -441,13 +472,14 @@ Syncora uses five semantic profiles:
 | `none` | Do not activate Syncora, inspect its state, or increment its cadence. |
 | `checkpoint` | Run only the cheap foreground pre-work checkpoint for project-local work or uncertain relevance. |
 | `context` | Run the checkpoint, then compile bounded task context. |
-| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; run post only when canonical Syncora Markdown changed or an authority-changing operation completed. |
+| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; when a durable change is needed, prepare an immutable proposal, obtain exact digest approval, and apply transactionally. Run post only after canonical change. |
 | `maintenance` | Run the explicitly requested initialization, validation, migration, repair, upgrade, or patch operation. |
 
 The pre-work mode is `none`, `checkpoint`, `context`, or `maintenance`; capture
 intent is independent. Runtime profile `capture` is checkpoint-level pre-work
 plus planned capture intent. A context-bearing task that may also change durable
-knowledge uses pre `context`, then post after the change. For compound prompts,
+knowledge uses pre `context`, then the same governed proposal path, and post
+only after a successful canonical apply. For compound prompts,
 classify every clause: precedence can select a shared checkpoint gate, but it
 cannot erase a direct maintenance operation or a separate context requirement.
 Uncertainty selects `checkpoint`, not full context. Explicit user opt-out
@@ -546,13 +578,16 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v2 introduces relevance-gated activation. An untouched tracked v1 block
-upgrades in place while retaining its original pre-Syncora snapshot. If the
-surrounding file diverged before upgrade, the patcher refreshes the reversible
-baseline from current user-owned bytes with only the old marker removed, so a
-later unpatch cannot erase intervening user edits.
+Hook v3 keeps relevance-gated activation and adds the governed capture
+boundary: context and proposal preparation do not authorize direct canonical
+writes, exact digest approval precedes transactional apply, and automatic drift
+detection is not claimed. An untouched tracked older block upgrades in place
+while retaining its original pre-Syncora snapshot. If the surrounding file
+diverged before upgrade, the patcher refreshes the reversible baseline from
+current user-owned bytes with only the old marker removed, so a later unpatch
+cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v2 beside a broad
+Legacy adoption does not use ordinary patching to append hook v3 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed unless the user has inspected every
@@ -592,6 +627,7 @@ syncora backlinks
 syncora validate
 syncora conflicts
 syncora propose
+syncora review
 syncora apply
 syncora migrate
 syncora init
@@ -681,6 +717,17 @@ The runtime defines stable error codes, including:
 | `PACK003` | Budget overflow must be explicit |
 | `WRITE001` | Expected revision or hash must match |
 | `WRITE002` | Writes cannot escape allowed roots |
+| `WRITE006` | File-transaction journals, records, blobs, and receipts remain exact and recoverable |
+| `WRITE007` | One graph-scoped canonical writer owns the active transaction marker |
+| `WRITE008` | Terminal transaction state and receipt bindings cannot be reused inconsistently |
+| `WRITE009` | Irreversibly committed canonical bytes require foreground receipt publication/finalization, never rollback |
+| `PROPOSAL001` | Proposal inputs and immutable records satisfy exact schemas, bounds, and content-derived identities |
+| `PROPOSAL002` | Proposal identity, idempotency, and workspace/graph bindings cannot be reused for different intent |
+| `PROPOSAL003` | Semantic operations and their projected graph post-image remain valid |
+| `PROPOSAL004` | Graph-scoped immutable publication remains contained, stable, and verifiable |
+| `PROPOSAL005` | A referenced immutable proposal exists |
+| `REVIEW001` | Review and apply require the exact current proposal digest, policy, and compatible terminal disposition |
+| `REVIEW002` | Immutable review publication cannot collide with different content |
 | `PATCH001` | Agent patches must be well formed and idempotent |
 | `SCHEMA001` | Newer schemas open read-only |
 | `SEC001` | Note data cannot become operational authority |
@@ -690,7 +737,7 @@ The runtime defines stable error codes, including:
 | `STATE001` | Checkpoint and patch state cannot escape or violate their schemas |
 | `LOCK001` / `LOCK002` | Runtime locks are safe, owned, and bounded in wait time |
 | `CHECKPOINT001`-`CHECKPOINT009` | Foreground phase, identity, reservation, and publication invariants hold |
-| `PATCH005` | Agent patch transactions are serialized by the workspace lock |
+| `PATCH005` | Agent patch transactions and governed-apply lifecycles use bounded serialized locks |
 | `MIGRATE001` | Migration phase and required dry-run rules are valid |
 | `MIGRATE002` | Migration cursors must match graph, policy, revision, and position |
 | `MIGRATE003` | Migration inventory output remains within its hard byte budget |
@@ -866,6 +913,13 @@ The first stable release must prove:
 - A model may still be influenced by malicious text it reads.
 - Direct external edits can bypass the transaction layer.
 - Filesystem atomicity differs across operating systems and storage providers.
+- Syncora can serialize only its own and cooperating writers. Portable
+  filesystems provide no compare-and-swap that closes the final check-to-rename
+  race against a noncooperating external process.
+- File contents are flushed, and parent directories are synced where Node
+  exposes a usable primitive. Windows has no portable Node directory-fsync
+  guarantee, so process-interruption recovery does not imply sudden-power-loss
+  durability on Windows.
 
 Hard enforcement against every bypass would require a wrapper or service and is
 outside the local-skill architecture. Syncora instead provides visible policy,

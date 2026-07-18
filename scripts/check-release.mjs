@@ -20,20 +20,37 @@ const requiredPaths = [
   "docs/release-status.md",
   "docs/upgrade-and-uninstall.md",
   "docs/skill/architecture.md",
+  "docs/skill/governed-capture-contract.md",
   "docs/skill/implementation-plan.md",
   "package.json",
   "package-lock.json",
   "scripts/smoke-legacy-adoption.mjs",
   "skills/syncora/SKILL.md",
   "skills/syncora/agents/openai.yaml",
+  "skills/syncora/assets/agent-hooks/shared.md",
   "skills/syncora/assets/schemas/adoption-bundle-v1.schema.json",
   "skills/syncora/assets/schemas/authority-promotion-manifest-v2.schema.json",
   "skills/syncora/references/context.md",
+  "skills/syncora/references/capture.md",
   "skills/syncora/references/legacy-adoption.md",
   "skills/syncora/scripts/lib/adoption-bundle.mjs",
   "skills/syncora/scripts/lib/adopt.mjs",
+  "skills/syncora/scripts/lib/file-transaction.mjs",
+  "skills/syncora/scripts/lib/governed-apply.mjs",
+  "skills/syncora/scripts/lib/governed-capture.mjs",
+  "skills/syncora/scripts/lib/governed-environment.mjs",
+  "skills/syncora/scripts/lib/governed-review.mjs",
+  "skills/syncora/scripts/lib/immutable-file.mjs",
+  "skills/syncora/scripts/lib/projected-graph.mjs",
+  "skills/syncora/scripts/lib/proposal-provenance.mjs",
+  "skills/syncora/scripts/lib/proposal-schema.mjs",
+  "skills/syncora/scripts/lib/proposal-semantics.mjs",
+  "skills/syncora/scripts/lib/proposal-store.mjs",
+  "skills/syncora/scripts/lib/review-artifact-policy.mjs",
+  "skills/syncora/scripts/lib/review-artifact.mjs",
   "skills/syncora/scripts/lib/target-bindings.mjs",
   "skills/syncora/scripts/lib/task-context.mjs",
+  "skills/syncora/scripts/lib/writer-interlock.mjs",
   "skills/syncora/scripts/syncora.mjs",
 ];
 
@@ -240,6 +257,23 @@ if (
   );
 }
 
+const sharedHook = await readFile(
+  path.join(skillRoot, "assets", "agent-hooks", "shared.md"),
+  "utf8",
+);
+for (const requiredHookText of [
+  "syncora-agent-hook:begin v3",
+  "governed capture",
+  "exact digest",
+  "apply it transactionally",
+]) {
+  if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
+    errors.push(
+      `skills/syncora/assets/agent-hooks/shared.md: v3 governed-capture guidance is missing (${requiredHookText})`,
+    );
+  }
+}
+
 for (const match of skillSource.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)) {
   const target = match[1].split("#", 1)[0];
   if (!target || /^[a-z]+:/iu.test(target)) continue;
@@ -254,7 +288,7 @@ for (const match of skillSource.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)) {
 const readme = await readFile(path.join(repositoryRoot, "README.md"), "utf8");
 const releaseStatus = await readFile(path.join(repositoryRoot, "docs", "release-status.md"), "utf8");
 for (const requiredText of [
-  "0.1.0-preview.1",
+  packageJson.version,
   "development preview",
   "npx skills add",
   "$syncora",

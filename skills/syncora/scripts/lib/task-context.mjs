@@ -11,12 +11,13 @@ import {
   resolveNoteTargetBindings,
   TARGET_BINDING_POLICY,
 } from "./target-bindings.mjs";
-import { inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
+import { inspectWorkspaceUnlocked as inspectWorkspace, VALIDATION_POLICY } from "./validate.mjs";
 import {
   requireInitializedWorkspace,
   resolveWorkspace,
   samePath,
 } from "./workspace.mjs";
+import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 export const TASK_CONTEXT_POLICY = Object.freeze({
   specification: "syncora-task-context-v1",
@@ -927,7 +928,7 @@ function reserveOptionalItems(items, lane, maximumCharacters, maximumItems) {
   return { selected, omitted, usedCharacters };
 }
 
-export async function compileTaskContext(options, hooks = {}) {
+async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapability) {
   const workspace = await resolveWorkspace(options.workspace);
   const loadedConfig = await requireInitializedWorkspace(workspace.realPath);
   const contextConfig = normalizeContextConfig(loadedConfig);
@@ -942,7 +943,10 @@ export async function compileTaskContext(options, hooks = {}) {
     includeHistory,
     noCache: options.noCache === true,
     allowExternalGraphRoot: options.allowExternalGraphRoot,
-  }, hooks.searchHooks ?? {}, { withValidatedSnapshot: true });
+  }, hooks.searchHooks ?? {}, {
+    withValidatedSnapshot: true,
+    readInterlockCapability,
+  });
   const search = discovery.report;
   const inspection = discovery.inspection;
 
@@ -1604,4 +1608,12 @@ export async function compileTaskContext(options, hooks = {}) {
     ],
   };
   return finalizeOutputBudget(report, request.budget.maximumCharacters);
+}
+
+export async function compileTaskContext(options, hooks = {}) {
+  return withCanonicalReadInterlock(
+    options,
+    (readInterlockCapability) =>
+      compileTaskContextUnlocked(options, hooks, readInterlockCapability),
+  );
 }

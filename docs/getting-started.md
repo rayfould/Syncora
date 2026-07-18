@@ -112,8 +112,8 @@ node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute
 
 The built-in `lean`, `standard`, and `deep` ceilings are 4,800, 12,000, and
 32,000 characters. Mandatory truth fails visibly if it cannot fit; optional
-material is omitted whole and reported in the source map. Governed note capture
-and changed-file drift detection are not implemented yet. See
+material is omitted whole and reported in the source map. Automatic
+changed-file drift detection is not implemented yet. See
 [release status](release-status.md).
 
 Use JSON when an agent needs the complete lanes and a bounded structured source
@@ -121,6 +121,34 @@ map with totals and truncation signals. The default text form prints the
 bounded context plus a compact human-readable summary. Context compilation
 never changes canonical Markdown; unless `--no-cache` is used, it may update a
 disposable derived lexical cache.
+
+When work creates a durable decision, constraint, status change, or other
+project knowledge, the agent uses a separate governed flow:
+
+1. Prepare a bounded proposal draft and run `capture`.
+2. Open the returned immutable local review artifact and inspect its exact
+   JSON-escaped before/after records. The returned digest, impact, paths, and
+   compact summary are orientation only. Canonical Markdown is still unchanged.
+3. Ask one approval question naming the proposal and artifact digests. After
+   approval, record a `review` bound to that exact proposal digest.
+4. Run `apply`, which revalidates the artifact, provenance, and complete
+   post-image and publishes through a process-interruption-recoverable
+   transaction.
+
+A stale baseline becomes a conflict instead of overwriting newer work. A later
+foreground retry resumes the same transaction or returns the existing exact
+receipt. Before the irreversible commit boundary, a failed apply attempts exact
+rollback. After the boundary, the journal remains
+`finalized-pending-receipt`; rerunning `apply` publishes the bound receipt and
+finishes release. No worker performs that retry automatically. The agent
+normally handles these commands; maintainers can use the complete
+[capture reference](../skills/syncora/references/capture.md).
+
+Process interruption is the supported recovery model. Node cannot provide a
+portable Windows directory-fsync guarantee for sudden power loss. Syncora also
+cannot make a noncooperating editor or process participate in its graph lock;
+such a writer can race the final byte check and atomic rename. Keep the preview
+in a versioned or otherwise recoverable workspace.
 
 ## 6. External graph roots
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { lstat, open, realpath, rm } from "node:fs/promises";
+import { link, lstat, open, realpath, rm } from "node:fs/promises";
 import { isAbsolute, relative, sep } from "node:path";
 
 import { SyncoraError } from "./cli.mjs";
@@ -241,6 +241,7 @@ export async function tryAcquireRecoveryGuard({
   containmentBinding,
 }) {
   const path = recoveryGuardPath(lockPath);
+  const temporaryPath = `${path}.candidate-${process.pid}-${randomUUID()}`;
   const token = randomUUID();
   const record = {
     schemaVersion: RECOVERY_GUARD_SCHEMA_VERSION,
@@ -254,12 +255,13 @@ export async function tryAcquireRecoveryGuard({
   }
 
   let handle;
+  let published = false;
   try {
     await assertStableDirectoryBinding(containmentBinding, {
       code,
       label: `${label} trusted directory`,
     });
-    handle = await open(path, "wx+", 0o600);
+    handle = await open(temporaryPath, "wx+", 0o600);
   } catch (error) {
     if (error?.code === "EEXIST" || error?.code === "ENOENT") return null;
     if (error instanceof SyncoraError) throw error;
@@ -272,22 +274,45 @@ export async function tryAcquireRecoveryGuard({
     await handle.writeFile(payload);
     await handle.sync();
     const opened = await handle.stat({ bigint: true });
-    const current = await lstat(path, { bigint: true });
     await assertStableDirectoryBinding(containmentBinding, {
       code,
       label: `${label} trusted directory`,
     });
+    try {
+      await link(temporaryPath, path);
+      published = true;
+    } catch (error) {
+      if (error?.code === "EEXIST") {
+        await handle.close().catch(() => undefined);
+        await rm(temporaryPath).catch(() => undefined);
+        return null;
+      }
+      throw error;
+    }
+    const current = await lstat(path, { bigint: true });
     if (!sameFileIdentity(opened, current)) {
       throw protocolError(
         code,
         `${label} ownership changed during exclusive creation: ${path}`,
       );
     }
+    await rm(temporaryPath);
     return { path, token, record, payload, handle, containmentBinding };
   } catch (error) {
+    if (published) {
+      try {
+        const opened = await handle.stat({ bigint: true });
+        const current = await lstat(path, { bigint: true });
+        if (sameFileIdentity(opened, current)) await rm(path);
+      } catch {
+        // Ownership could not be re-proven; leave the complete published guard
+        // in place and fail closed rather than removing a possible replacement.
+      }
+    }
     await handle.close().catch(() => undefined);
-    // An incompletely published guard is deliberately left in place. Removing
-    // it by path after ownership became uncertain could delete a replacement.
+    await rm(temporaryPath).catch(() => undefined);
+    // The public path is linked only after complete bytes are durable, so a
+    // contender can never observe an empty or partially written guard.
     if (error instanceof SyncoraError) throw error;
     throw protocolError(code, `Unable to publish ${label}: ${path}`, {
       cause: error instanceof Error ? error.message : String(error),

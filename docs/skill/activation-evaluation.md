@@ -1,8 +1,8 @@
 # Syncora Activation Evaluation
 
 Status: Preview semantic acceptance fixture
-Applies to: current source after `0.1.0-preview.1`
-Updated: 2026-07-16
+Applies to: unpublished `0.1.0-preview.2` release-candidate source
+Updated: 2026-07-17
 
 This matrix tests routing independently of graph contents. It is a semantic
 agent evaluation, not a deterministic classifier API. Hosts must apply the
@@ -19,7 +19,7 @@ same installed skill and project hook.
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
-| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, and report governed capture as unavailable | Only after a separately authorized canonical change actually succeeds |
+| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then prepare one governed proposal and provide its exact local review artifact; after the user inspects and approves that artifact-bound proposal, record the digest-bound review and apply | Only after the approved apply changes canonical knowledge |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
 | Explicit graph validation | Direct `maintenance` | Run `validate`; no redundant checkpoint | Operation-owned lifecycle |
 | Validate, then review using accepted decisions | Direct `validate`, then `context` for the review clause | Preserve both clauses; maintenance does not erase context | Only after a separate canonical change |
@@ -43,6 +43,9 @@ same installed skill and project hook.
   increment.
 - Capture intent does not grant write authority and does not mean capture
   succeeded.
+- The bounded proposal summary is not the human review surface. Approval
+  requires inspection of the exact immutable local review artifact returned by
+  capture or proposal inspection.
 - A normal code edit does not trigger post unless canonical Syncora knowledge
   was actually changed or an authority-changing operation completed.
 - If post is mistakenly invoked without an exact canonical graph change, the
@@ -57,13 +60,14 @@ same installed skill and project hook.
   exact predecessor markers fail closed unless the user has inspected all
   active agent instruction surfaces, removed custom predecessor activation,
   and explicitly passes `--confirm-predecessor-reviewed`.
-- General canonical-Markdown-read-only `context` is executable in current
-  source; default discovery may update a disposable lexical cache. Governed
-  `capture` and changed-file drift detection remain explicit capability gaps.
+- General canonical-Markdown-read-only `context` and governed
+  `capture` -> `review` -> `apply` are executable in current source; default
+  discovery may update a disposable lexical cache. Automatic changed-file
+  drift detection remains an explicit capability gap.
 
 ## Host coverage
 
-Codex and Cursor receive the same v2 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v3 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public
