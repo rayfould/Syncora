@@ -300,7 +300,7 @@ try {
   assert.equal(adopted.summary.rollbackRetained, true);
   const patchedAgents = await readFile(path.join(workspace, "AGENTS.md"), "utf8");
   assert.equal(patchedAgents.includes("BEGIN KNOWLEDGE GRAPH WORKFLOW"), false);
-  assert.equal(patchedAgents.includes("syncora-agent-hook:begin v2"), true);
+  assert.equal(patchedAgents.includes("syncora-agent-hook:begin v4"), true);
   assert.equal(patchedAgents.includes("# Custom preface"), true);
 
   const rolledBack = runRuntime(migrationArguments("rollback"));

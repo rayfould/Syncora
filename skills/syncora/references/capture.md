@@ -74,11 +74,18 @@ move require the exact tagged SHA-256 of the bytes actually read. A
 `decision.accept` uses `null` for a new decision and the exact prior digest for
 an existing decision. Capture fails when the live path state differs.
 
-Every `file` or `note` source reference likewise requires the exact
-`expectedSha256` of the local bytes. Other source-reference types, including
-`user` and `operation`, must use `null`. A proposal may contain at most 256
+Every `file`, `note`, or `drift-finding` source reference likewise requires the
+exact `expectedSha256` of the local bytes. Other source-reference types,
+including `user` and `operation`, must use `null`. A proposal may contain at most 256
 source references per operation, 512 in total, and 64 MiB of verified local
 source bytes.
+
+For a finding produced by `check --changed`, use `propose --input` with
+`origin: "drift"`; normal `capture` intentionally accepts capture-origin input
+only. Exact-bind the immutable `drift-finding` artifact and every current
+changed file listed in it, target the finding's note with its recommended
+operation, and provide complete `afterText`. The finding itself has zero write
+authority. Read [drift.md](drift.md) for resolution and acknowledgment rules.
 
 Initial operation kinds:
 

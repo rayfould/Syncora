@@ -6,6 +6,7 @@ import {
   CURRENT_AGENT_HOOK_VERSION,
   inspectAgentHooks,
 } from "./agent-patcher.mjs";
+import { authorityRootIdentity } from "./authority-inventory.mjs";
 import {
   CHECKPOINT_RUNTIME_IDENTITY,
   CHECKPOINT_VALIDATOR_POLICY_IDENTITY,
@@ -18,10 +19,13 @@ import {
   readActiveFileTransaction,
   readFileTransaction,
 } from "./file-transaction.mjs";
+import { readDriftState } from "./drift-state.mjs";
+import { governedPolicyRevision } from "./governed-environment.mjs";
 import {
   captureStableDirectoryBinding,
   parseRecoveryGuardRecord,
 } from "./lock-recovery-guard.mjs";
+import { workspaceIdentity } from "./migration-state.mjs";
 import {
   isWithin,
   readBoundedRegularFileIfPresent,
@@ -422,6 +426,39 @@ export async function diagnoseWorkspace(options) {
         ? check("ok", "GRAPH002", "Graph atlas exists.")
         : check("warn", "GRAPH002", "Graph atlas is missing."),
     );
+    if (configInfo) {
+      try {
+        const driftState = await readDriftState({
+          graphRoot: graph.resolvedGraphPath,
+          workspaceIdentity: workspaceIdentity(workspace.realPath),
+          graphRootIdentity: authorityRootIdentity(graph.resolvedGraphPath),
+        });
+        const currentPolicyRevision = governedPolicyRevision();
+        checks.push(
+          driftState === null
+            ? check(
+              "warn",
+              "DRIFT001",
+              "No changed-source baseline exists; run check --changed in the foreground.",
+            )
+            : driftState.policyRevision !== currentPolicyRevision
+              ? check(
+                  "error",
+                  "DRIFT_POLICY_MISMATCH",
+                  "Changed-source policy changed; run check --changed --rebaseline --reason <text> in the foreground.",
+                )
+              : check(
+              driftState.activeFindings.length > 0 ? "warn" : "ok",
+              "DRIFT001",
+              driftState.activeFindings.length > 0
+                ? `${driftState.activeFindings.length} potentially stale knowledge finding(s) remain active.`
+                : "Changed-source baseline is readable and has no active findings.",
+            ),
+        );
+      } catch (error) {
+        checks.push(check("error", error.code ?? "DRIFT001", error.message));
+      }
+    }
   }
 
   let hooks = [];

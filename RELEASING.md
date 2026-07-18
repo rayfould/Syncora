@@ -22,7 +22,12 @@ Syncora uses semantic versions. Preview tags use the form
    surface, `bundle` then `adopt --bundle` is the two-command reviewed
    legacy-graph surface,
    lifecycle phases are advanced recovery boundaries, and post-retirement
-   `rollback` remains available.
+   `rollback` remains available. Also confirm they agree that `check --changed`
+   is foreground-only, first use establishes a baseline rather than freshness,
+   exact fingerprints outrank Git hints, only `file`/`module`/`path_glob` are
+   automatic, every repair uses exact-bound `propose`/`review`/`apply`, later
+   source evolution leaves one cumulative active finding, and policy mismatch
+   uses the explicit reasoned rebaseline command.
 8. Commit the release, create an annotated tag, and push the branch and tag.
 9. Create a GitHub prerelease using the matching changelog entry.
 10. Install once from the public GitHub URL with telemetry enabled so skills.sh

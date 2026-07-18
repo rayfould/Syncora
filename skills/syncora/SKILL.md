@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview safely sets up or adopts a bounded Markdown knowledge graph, compiles task-specific context, and captures reviewed knowledge through transactional apply. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for context, durable decisions, handoffs, recovery, checkpointing, validation, or agent patching. Do not activate merely because `.syncora/config.json` exists or for self-contained requests.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview sets up or adopts a bounded Markdown knowledge graph, compiles task-specific context, detects changed-source drift, and captures reviewed knowledge transactionally. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for context, decisions, handoffs, drift, recovery, validation, or agent patching. Stay inactive for self-contained requests.
 ---
 
 # Syncora
@@ -49,10 +49,10 @@ are not, by themselves, a reason to use adoption.
   lanes plus a source map.
 - Captures durable knowledge through immutable proposals, one exact local
   review artifact, and process-interruption-recoverable transactional apply.
+- Detects potentially stale notes after bound project sources change, while
+  keeping every repair behind the same exact proposal and review boundary.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
 - Runs only during an active agent request; it has no background worker.
-
-Automatic changed-file drift detection remains under development.
 
 ## Agent instructions
 
@@ -96,9 +96,14 @@ external-root allowlist.
    artifact's exact before/after records. A compact summary is orientation, not
    the review surface. Only after the user approves that exact artifact-bound
    proposal, record the digest-bound review and run transactional `apply`.
-7. Load only the other reference needed for the task. Never recursively load
+7. After substantive project-source mutation, or for an explicit drift request,
+   read [drift.md](references/drift.md) and run the foreground `check --changed`
+   command before deciding whether knowledge capture is warranted. A finding
+   proves potential staleness only. Do not run it for `none` routes, every turn,
+   on a timer, in the background, or after the final response.
+8. Load only the other reference needed for the task. Never recursively load
    `local/`.
-8. Run the paired post-work checkpoint only after canonical knowledge or
+9. Run the paired post-work checkpoint only after canonical knowledge or
    authority actually changed, including a successful governed apply. Reuse
    the pre-work checkpoint ID. Nothing runs in the background or after the
    final response.
@@ -123,6 +128,10 @@ unconditional `doctor`, or unconditional full-graph validation.
   required write gates, or relevant integrity investigations.
 - Use `search --query <text>` and `backlinks --note <path-or-alias>` only for
   bounded discovery. Neither ranking nor link count grants authority.
+- Use `check --changed` after substantive source mutation. Inspect immutable
+  finding evidence; route a real repair through `propose`, exact artifact
+  review, `review`, and `apply`, or record an exact-digest still-current
+  acknowledgment for a harmless change. Never let a finding rewrite Markdown.
 - Use `capture` for normal proposal preparation, `propose --proposal` for
   bounded inspection and review-artifact discovery, `review` for the user's
   exact approval or rejection after artifact inspection, and `apply` only after
@@ -146,6 +155,7 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Foreground checkpoint lifecycle: [checkpoint.md](references/checkpoint.md)
 - Task context compilation: [context.md](references/context.md)
 - Governed capture, review, and apply: [capture.md](references/capture.md)
+- Foreground changed-source drift: [drift.md](references/drift.md)
 - Graph inventory or validation: [validate.md](references/validate.md)
 - Link resolution or backlinks: [backlinks.md](references/backlinks.md)
 - Lexical search or cache behavior: [search.md](references/search.md)

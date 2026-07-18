@@ -324,15 +324,33 @@ async function proposalFiles(graph) {
   return files.filter((name) => /^proposal_[a-f0-9]{64}\.json$/u.test(name)).sort();
 }
 
-async function settleConcurrentApply({ workspace, graph, proposal, result }) {
-  if (result.status === 0) return result;
-  const boundedLockContention =
+function isBoundedLockContention(result) {
+  return (
+    result.status !== 0 &&
     result.output.error.code === "PATCH005" &&
     /timed out (?:after \d+ms )?waiting for (?:the )?(?:workspace )?patch(?:-lock)?(?: recovery guard)?/iu
-      .test(result.output.error.message);
+      .test(result.output.error.message)
+  );
+}
+
+async function settleConcurrentCaptureAttempts(argsList, initialResults) {
+  const settled = [];
+  for (let index = 0; index < initialResults.length; index += 1) {
+    const result = initialResults[index];
+    settled.push(
+      isBoundedLockContention(result)
+        ? await asyncResult(argsList[index])
+        : result,
+    );
+  }
+  return settled;
+}
+
+async function settleConcurrentApply({ workspace, graph, proposal, result }) {
+  if (result.status === 0) return result;
   assert.ok(
     new Set(["WRITE007", "WRITE009"]).has(result.output.error.code) ||
-      boundedLockContention,
+      isBoundedLockContention(result),
     result.stderr,
   );
   return asyncResult(applyArgs(workspace, graph, proposal));
@@ -491,11 +509,20 @@ test("concurrent identical captures converge on one immutable proposal", async (
       suffix: "concurrent-identical-capture",
     });
     const inputPath = await writeInput(fixture.workspaceA, "identical", drafted.input);
-    const results = await Promise.all(
-      Array.from({ length: 8 }, () =>
-        asyncResult(captureArgs(fixture.workspaceA, fixture.graph, inputPath))),
+    const argsList = Array.from({ length: 8 }, () =>
+      captureArgs(fixture.workspaceA, fixture.graph, inputPath));
+    const initialResults = await Promise.all(
+      argsList.map((args) => asyncResult(args)),
     );
-    assert.equal(results.every((result) => result.status === 0), true);
+    const results = await settleConcurrentCaptureAttempts(
+      argsList,
+      initialResults,
+    );
+    assert.equal(
+      results.every((result) => result.status === 0),
+      true,
+      JSON.stringify(results.filter((result) => result.status !== 0), null, 2),
+    );
     assert.equal(new Set(results.map((result) => result.output.proposal.id)).size, 1);
     assert.equal(new Set(results.map((result) => result.output.proposal.digest)).size, 1);
     assert.equal(results.filter((result) => result.output.idempotent === false).length, 1);
@@ -520,13 +547,18 @@ test("one intent wins when concurrent captures reuse an idempotency key", async 
       writeInput(fixture.workspaceA, "idempotency-first", first.input),
       writeInput(fixture.workspaceA, "idempotency-second", second.input),
     ]);
-    const results = await Promise.all(
-      Array.from({ length: 8 }, (_, index) =>
-        asyncResult(captureArgs(
+    const argsList = Array.from({ length: 8 }, (_, index) =>
+      captureArgs(
           fixture.workspaceA,
           fixture.graph,
           index % 2 === 0 ? firstInput : secondInput,
-        ))),
+        ));
+    const initialResults = await Promise.all(
+      argsList.map((args) => asyncResult(args)),
+    );
+    const results = await settleConcurrentCaptureAttempts(
+      argsList,
+      initialResults,
     );
     const successes = results.filter((result) => result.status === 0);
     const failures = results.filter((result) => result.status !== 0);

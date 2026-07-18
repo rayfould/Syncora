@@ -48,17 +48,18 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v3 keeps relevance-gated activation and adds the governed capture boundary:
-prepare an immutable proposal, give the user its exact local review artifact,
-obtain explicit approval for the artifact-bound proposal digest, then publish
-only through transactional `apply`. It also tells agents that proposal creation
-and context compilation never authorize direct canonical note writes, and that
-automatic drift detection remains unavailable.
+Hook v4 is current. It keeps relevance-gated activation and the governed capture
+boundary: prepare an immutable proposal, give the user its exact local review
+artifact, obtain explicit approval for the artifact-bound proposal digest, then
+publish only through transactional `apply`. It also routes substantive source
+mutation to the foreground `check --changed` operation while explicitly
+forbidding checks on every turn, background work, and after-final work.
 
-An exact tracked older hook retains its original pre-Syncora snapshot. A
-diverged or untracked v1 or v2 hook refreshes its baseline from current
+An exact tracked v1, v2, or v3 hook retains its original pre-Syncora restoration
+snapshot while its owned marker is upgraded to v4. A diverged or untracked v1,
+v2, or v3 hook instead refreshes the restoration baseline from current
 user-owned bytes with only the old marker removed, so a later unpatch cannot
-erase intervening edits.
+erase intervening edits. A hook newer than v4 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
@@ -69,7 +70,7 @@ adoption seals reviewed files with `bundle`, then applies them with one
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v3, and records a predecessor-free restoration baseline in the
+with hook v4, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 

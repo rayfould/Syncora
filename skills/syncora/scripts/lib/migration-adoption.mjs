@@ -7,6 +7,7 @@ import {
   describePlan,
 } from "./atomic-file.mjs";
 import {
+  CURRENT_AGENT_HOOK_VERSION,
   inspectAgentHooks,
   planAgentMigrationCutover,
   verifyAgentPatchPlans,
@@ -588,7 +589,11 @@ async function finalizeCutover(environment, recoveryResult, shadow) {
   if (
     hooks.some((hook) => hook.legacyKnowledgeGraphWorkflow) ||
     hooks.some((hook) => hook.possibleCustomPredecessorActivation) ||
-    !hooks.some((hook) => hook.marker === "present" && hook.version === 3)
+    !hooks.some(
+      (hook) =>
+        hook.marker === "present" &&
+        hook.version === CURRENT_AGENT_HOOK_VERSION,
+    )
   ) {
     throw adoptionError("MIGRATE013", "Agent-instruction cutover did not replace predecessor activation.");
   }
@@ -890,7 +895,11 @@ async function verifyActiveMigration(environment, options) {
   if (
     hooks.some((item) => item.legacyKnowledgeGraphWorkflow) ||
     hooks.some((item) => item.possibleCustomPredecessorActivation) ||
-    !hooks.some((item) => item.marker === "present" && item.version === 3)
+    !hooks.some(
+      (item) =>
+        item.marker === "present" &&
+        item.version === CURRENT_AGENT_HOOK_VERSION,
+    )
   ) {
     throw adoptionError("MIGRATE013", "Agent activation no longer matches the cutover receipt.");
   }

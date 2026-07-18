@@ -41,6 +41,7 @@ export const PROPOSAL_POLICY = Object.freeze({
 const HASH_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/u;
 const PROPOSAL_ID_PATTERN = /^proposal_[0-9a-f]{64}$/u;
+const DRIFT_FINDING_ID_PATTERN = /^finding_[0-9a-f]{64}$/u;
 const OPERATION_KIND_SET = new Set(PROPOSAL_OPERATION_KINDS);
 const ORIGINS = new Set(["capture", "manual", "drift", "repair"]);
 const ACTOR_TYPES = new Set(["human", "model", "system", "agent"]);
@@ -50,6 +51,7 @@ const SOURCE_REFERENCE_TYPES = new Set([
   "concept",
   "context-pack",
   "decision",
+  "drift-finding",
   "external",
   "file",
   "module",
@@ -155,6 +157,13 @@ export function assertTaggedSha256(value, label = "Digest") {
 export function assertProposalId(value, label = "Proposal ID") {
   if (typeof value !== "string" || !PROPOSAL_ID_PATTERN.test(value)) {
     throw proposalError(`${label} must be a content-derived proposal ID.`);
+  }
+  return value;
+}
+
+export function assertDriftFindingId(value, label = "Drift finding ID") {
+  if (typeof value !== "string" || !DRIFT_FINDING_ID_PATTERN.test(value)) {
+    throw proposalError(`${label} must be a content-derived drift finding ID.`);
   }
   return value;
 }
@@ -285,14 +294,17 @@ function parseSourceReference(value, pointer) {
     ? assertPortableGraphPath(rawRef, `${pointer} ref`)
     : value.type === "file"
       ? assertPortableWorkspacePath(rawRef, `${pointer} ref`)
+      : value.type === "drift-finding"
+        ? assertDriftFindingId(rawRef, `${pointer} ref`)
       : rawRef;
   const expectedSha256 = value.expectedSha256 === null
     ? null
     : assertTaggedSha256(value.expectedSha256, `${pointer} expectedSha256`);
-  if ((value.type === "file" || value.type === "note") && expectedSha256 === null) {
+  const locallyResolvable = new Set(["file", "note", "drift-finding"]).has(value.type);
+  if (locallyResolvable && expectedSha256 === null) {
     throw proposalError(`${pointer} must bind locally resolvable bytes with expectedSha256.`);
   }
-  if (value.type !== "file" && value.type !== "note" && expectedSha256 !== null) {
+  if (!locallyResolvable && expectedSha256 !== null) {
     throw proposalError(`${pointer} cannot claim a digest for an unresolvable source type.`);
   }
   return { type: value.type, ref, expectedSha256 };
@@ -472,7 +484,7 @@ export function parseProposalInput(value) {
     totalChanges += operation.changes.length;
     totalSourceReferences += operation.sourceRefs.length;
     for (const source of operation.sourceRefs) {
-      const pathLike = source.type === "file" || source.type === "note";
+      const pathLike = new Set(["file", "note", "drift-finding"]).has(source.type);
       const identity = `${source.type}\u0000${pathLike ? source.ref.toLowerCase() : source.ref}`;
       const priorBinding = sourceBindings.get(identity);
       if (

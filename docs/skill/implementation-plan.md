@@ -1,8 +1,9 @@
 # Syncora Skill Implementation Plan
 
 Status: Active toward stable release
-Plan version: 5
+Plan version: 6
 Started: 2026-07-15
+Updated: 2026-07-18
 
 ## 1. Objective
 
@@ -61,7 +62,7 @@ Deliverables:
   profiles;
 - foreground pre/post checkpoint orchestration with event triggers and bounded
   cadence backstops;
-- safe marker-v1/v2 to marker-v3 activation-policy migration;
+- safe older-marker to marker-v4 activation-policy migration;
 - external graph-root allowlisting.
 
 Exit gate:
@@ -133,11 +134,16 @@ Exit gate:
 Deliverables:
 
 - `check --changed`;
-- Git and non-Git fingerprint sources;
-- path, glob, dependency, and optional symbol bindings;
-- stale findings and refresh proposals;
-- `validate`, `conflicts`, `repair`, and `upgrade`;
-- disposable cache rebuild.
+- exact raw-byte fingerprint authority in Git and non-Git workspaces, with Git
+  limited to bounded advisory hints;
+- automatic `file`, `module`, and `path_glob` selection, including dependency
+  files only when explicitly bound through those forms;
+- explicit incomplete coverage for untyped, malformed, `symbol`, and
+  `component` bindings until a versioned symbol index exists;
+- immutable zero-authority stale findings, refresh work, exact-digest
+  still-current acknowledgments, and workspace-sharded graph-local state;
+- drift repairs routed only through exact-bound governed proposals, review, and
+  apply.
 
 Exit gate:
 
@@ -249,7 +255,7 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v3 is implemented in the
+Status: Core included in `0.1.0-preview.1`; hook v4 is implemented in the
 unpublished `0.1.0-preview.2` release candidate
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -259,10 +265,11 @@ unpublished `0.1.0-preview.2` release candidate
 - [x] Keep global installs inert for ordinary work in uninitialized projects;
       allow only explicit initialization, adoption, or diagnostics pre-init.
 - [x] Separate pre-work mode from the fail-closed post-work change disposition.
-- [x] Replace the broad v1 agent hook with a concise relevance-gated hook; v3
-      adds the governed capture boundary to the established v2 routing policy.
+- [x] Replace the broad v1 agent hook with a concise relevance-gated hook; v4
+      adds foreground drift routing to the established governed-capture and
+      relevance policy.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v3.
+      changing-target upgrades from older markers to hook v4.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint
@@ -336,8 +343,9 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
       lock, bounded monotonic acquisition, and foreground retry after timeout.
 - [x] Add proposal, concurrency, transaction, rollback, and hostile-path
       fixtures.
-- [x] Upgrade the generated agent hook to v3 so installed workspaces route
-      durable changes through exact review and transactional apply.
+- [x] Introduce generated agent hook v3 so installed workspaces route durable
+      changes through exact review and transactional apply; Milestone 5
+      subsequently upgraded it to v4 for foreground drift routing.
 
 Legacy cutover now has a dedicated exact-byte recovery transaction. General
 capture uses a separate graph-scoped transaction: `capture` and `propose` leave
@@ -350,9 +358,27 @@ release. Recovery runs only when a later foreground request reruns `apply`.
 
 ### Milestone 5: Drift, migration, and stable release
 
-Status: In progress
+Status: Runtime capability implemented in the unpublished `0.1.0-preview.2`
+release candidate; integration and stable-release evidence remain in progress
 
-- [ ] Implement changed-file drift checks.
+- [x] Implement foreground changed-source checks with exact raw-byte
+      fingerprints as authority and Git limited to bounded advisory hints.
+- [x] Establish a visible first-run baseline without claiming historical
+      freshness, and seed it in successful non-dry-run setup and adoption.
+- [x] Evaluate only current-schema eligible canonical/supporting `file`,
+      `module`, and `path_glob` bindings automatically; report untyped,
+      malformed, `symbol`, and `component` coverage as incomplete without grep
+      inference.
+- [x] Publish immutable zero-authority findings, refresh work, proposal
+      bindings, exact-digest acknowledgments, and strict workspace-sharded
+      graph-local state.
+- [x] Route every actual drift repair through complete agent-authored resulting
+      text, exact active-finding and note provenance, complete live binding
+      rechecks, exact artifact review, digest-bound approval, and transactional
+      apply.
+- [x] Normalize shared observation catalogs, preserve one cumulative active
+      finding per note, surface degraded source coverage, and provide an
+      explicit immutable policy-rebaseline workflow.
 - [x] Implement reviewed manifest staging, bounded shadow gates, graph-scoped
       migration state, journaled cutover, verification, retirement, status,
       and rollback.
@@ -369,6 +395,12 @@ Status: In progress
 - [ ] Publish a stable release only after the compatibility and threat-model
       gates pass. Development previews follow the narrower, explicitly labeled
       preview checklist.
+
+No further core runtime capability milestone is scheduled after Milestone 5.
+The unchecked items above are real transition, compatibility, threat-model,
+and release-evidence gates: the current repository graph has not thereby been
+live-adopted, hosted or external source state has not thereby been reconciled,
+and no stable release is claimed.
 
 ## 5. Production package surface
 
@@ -398,6 +430,8 @@ backlinks
 search
 checkpoint
 context --intent TEXT [--scope SCOPE] [--target KIND:REF]... [--mode MODE] [--budget PRESET]
+check --changed [--acknowledge-current FINDING_ID --finding-digest SHA256 --reason TEXT]
+check --changed --rebaseline --reason TEXT
 capture --input ABS_JSON
 propose --input ABS_JSON
 propose --proposal ID
@@ -424,8 +458,12 @@ Current source provides general canonical-Markdown-read-only context
 compilation and an explicit governed capture surface. Default discovery may
 update a disposable lexical cache. A context pack never authorizes a write;
 `capture` and `propose` only create derived proposal state, and `apply` requires
-an exact digest-bound review. Automatic changed-file drift detection remains
-pending and must not be presented as runtime behavior.
+an exact digest-bound review. Current source also provides foreground
+changed-source detection for exact `file`, `module`, and `path_glob` bindings.
+Its first observation is only a baseline, Git is advisory, findings grant zero
+authority, and repairs use `propose` -> exact artifact review -> `review` ->
+`apply`. Background monitoring and automatic symbol/component coverage must not
+be presented as runtime behavior.
 
 ## 6. Predecessor component disposition
 
@@ -435,7 +473,7 @@ pending and must not be presented as runtime behavior.
 | KG operation envelope | Ported as a bounded exact-field proposal schema |
 | Proposal lifecycle and provenance | Ported as immutable graph-scoped records and digest-bound review |
 | Decision bindings | Ported for exact path, bounded glob, component, and symbol bindings |
-| Drift signals and refresh proposals | Port after transactions |
+| Drift signals and refresh proposals | Ported as exact foreground observations, zero-authority findings, and governed repair bindings |
 | Existing context-pack selector | Replace with budgeted compiler |
 | Hosted controllers and service modules | Excluded from the skill |
 | Hosted SQL and repository adapters | Migration input only |
@@ -515,16 +553,19 @@ history modes.
 
 ### Direct external edits bypass transactions
 
-Mitigation: hashes, drift checks, and immutable conflict records; hard prevention is
-outside a local-skill boundary.
+Mitigation: exact source fingerprints, immutable zero-authority drift findings,
+exact-bound governed repairs, and immutable conflict records. Hard prevention
+is outside a local-skill boundary, and no background watcher is implied.
 
 ## 9. Rollback boundaries
 
 - Skill bootstrap files can be removed without changing predecessor systems.
 - Agent hooks can be unpatched independently.
 - Ordinary derived workspace `.syncora/` state can be deleted and rebuilt only
-  outside an active operation; graph-local migration journals must remain while
-  adoption or rollback is active.
+  outside an active operation. Deleting graph-local drift state also discards
+  its baseline, active findings, acknowledgments, and proposal bindings, so it
+  is not routine cleanup while unresolved review work exists. Graph-local
+  migration journals must remain while adoption or rollback is active.
 - Graph migration preserves original notes through acceptance and retirement.
 - Authority migration stages content-addressed reviewed bytes before a
   write-free shadow comparison.

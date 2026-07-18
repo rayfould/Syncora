@@ -2,7 +2,7 @@
 
 Status: Preview semantic acceptance fixture
 Applies to: unpublished `0.1.0-preview.2` release-candidate source
-Updated: 2026-07-17
+Updated: 2026-07-18
 
 This matrix tests routing independently of graph contents. It is a semantic
 agent evaluation, not a deterministic classifier API. Hosts must apply the
@@ -21,6 +21,10 @@ same installed skill and project hook.
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
 | Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then prepare one governed proposal and provide its exact local review artifact; after the user inspects and approves that artifact-bound proposal, record the digest-bound review and apply | Only after the approved apply changes canonical knowledge |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
+| Substantive project-source mutation with eligible knowledge bindings | Minimum task-relevant pre route | Perform the authorized source work, then run foreground `check --changed`; treat findings as zero-authority review work, not replacement truth | Only if a separately approved drift repair changes canonical knowledge |
+| Explicit changed-source drift request | Direct `maintenance` | Run `check --changed`; first observation establishes a baseline rather than freshness | Operation-owned lifecycle |
+| Review says an exact finding is harmless | Direct `maintenance` | Run `check --changed --acknowledge-current` with the exact finding ID, digest, and bounded reason | Operation-owned lifecycle; no canonical change |
+| Doctor or check reports `DRIFT_POLICY_MISMATCH` | Direct `maintenance` after reviewing prior findings | Run `check --changed --rebaseline --reason <text>`; do not use it to bypass corrupt or identity-mismatched state | Operation-owned lifecycle; no canonical change |
 | Explicit graph validation | Direct `maintenance` | Run `validate`; no redundant checkpoint | Operation-owned lifecycle |
 | Validate, then review using accepted decisions | Direct `validate`, then `context` for the review clause | Preserve both clauses; maintenance does not erase context | Only after a separate canonical change |
 | Relevance discovered after a checkpoint preflight | Reclassify in memory; reuse the same checkpoint ID | Load the newly required bounded capability | Use the original ID if canonical capture succeeds |
@@ -29,7 +33,7 @@ same installed skill and project hook.
 ## Acceptance rules
 
 - `none` performs no Syncora command, state read, counter increment, or graph
-  load.
+  load, including no drift check.
 - A global installation does not activate implicit project routes until a
   project-local `.syncora/config.json` confirms initialization.
 - Explicit adoption may run before that config exists. Successful cutover
@@ -62,12 +66,22 @@ same installed skill and project hook.
   and explicitly passes `--confirm-predecessor-reviewed`.
 - General canonical-Markdown-read-only `context` and governed
   `capture` -> `review` -> `apply` are executable in current source; default
-  discovery may update a disposable lexical cache. Automatic changed-file
-  drift detection remains an explicit capability gap.
+  discovery may update a disposable lexical cache.
+- Foreground `check --changed` is executable in current source. Exact raw-byte
+  fingerprints are authoritative, Git hints are advisory, and the first
+  observation cannot claim historical freshness.
+- Automatic drift coverage is limited to typed `file`, `module`, and
+  `path_glob` bindings. Untyped, malformed, `symbol`, and `component` bindings
+  remain visibly unevaluated.
+- A finding grants zero authority. Drift repair uses `propose` -> exact local
+  artifact review -> `review` -> `apply`; `capture` rejects drift-origin input.
+- Drift checks are event-driven foreground work after substantive source
+  mutation or an explicit maintenance request. They do not run on every turn,
+  from a timer, in a watcher, or after the final response.
 
 ## Host coverage
 
-Codex and Cursor receive the same v3 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v4 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

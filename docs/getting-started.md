@@ -60,7 +60,13 @@ Use $syncora to set up this workspace.
 That explicit request authorizes normal greenfield setup; the skill should run
 one `setup` command without adding a mandatory preview-and-confirm cycle.
 Initialization creates a `local/` Markdown graph and patches
-supported project-level instruction files by default. Use
+supported project-level instruction files by default. A successful non-dry-run
+setup also makes one foreground changed-source observation. Its reported
+`baseline-established` state, when eligible sources exist, is a starting point
+for future comparisons, not a claim that newly created or adopted knowledge was
+historically fresh. A graph without eligible automatic bindings reports
+`no-tracked-sources`. If the runtime cannot complete the observation, setup
+reports `completed-degraded` and the baseline requires explicit attention. Use
 `--no-patch-agents` when invoking the runtime directly if you want the graph
 without persistent agent hooks.
 
@@ -91,8 +97,12 @@ Run `doctor` or `validate` only when you want the corresponding diagnostic
 report. The initialized graph routes through
 `local/index.md`. Canonical project facts,
 decisions, and concepts remain plain Markdown. Ordinary generated `.syncora/`
-state is noncanonical and rebuildable outside active operations; it should not
-be treated as knowledge.
+state is noncanonical; it should not be treated as knowledge. Drift state lives
+under the resolved graph at
+`.syncora/drift/workspaces/<workspace-identity>/`, so separate worktrees that
+share an external graph retain separate baselines and observations. Do not
+discard active migration, proposal, transaction, or drift evidence merely
+because it is noncanonical.
 
 ## 5. Normal use
 
@@ -112,15 +122,69 @@ node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute
 
 The built-in `lean`, `standard`, and `deep` ceilings are 4,800, 12,000, and
 32,000 characters. Mandatory truth fails visibly if it cannot fit; optional
-material is omitted whole and reported in the source map. Automatic
-changed-file drift detection is not implemented yet. See
-[release status](release-status.md).
+material is omitted whole and reported in the source map.
 
 Use JSON when an agent needs the complete lanes and a bounded structured source
 map with totals and truncation signals. The default text form prints the
 bounded context plus a compact human-readable summary. Context compilation
 never changes canonical Markdown; unless `--no-cache` is used, it may update a
 disposable derived lexical cache.
+
+After substantive project-source mutation, or when the user explicitly asks
+for drift maintenance, the agent runs:
+
+```bash
+node <installed-syncora-skill>/scripts/syncora.mjs check --changed --workspace /absolute/path/to/project --format json
+```
+
+The command is foreground-only. It does not run before or after every message,
+and nothing watches the project between requests. The first complete run in a
+workspace without setup/adoption baseline state returns `baseline-established`
+when eligible sources exist; that establishes a comparison point and cannot
+prove historical freshness. With no eligible automatic binding it reports
+`no-tracked-sources` instead. Missing or excluded covered roots and unsupported
+binding kinds add bounded warnings and a visible `-degraded` state.
+
+Exact raw-byte fingerprints are the detection authority in both Git and
+non-Git workspaces. Git may contribute bounded change and rename hints, but a
+Git baseline never overrides those fingerprints. Automatic source selection is
+limited to eligible canonical or supporting active projects, concepts, and
+references, plus accepted decisions, with `file`, `module`, or `path_glob`
+bindings. Dependency manifests and lockfiles are covered only when named by one
+of those binding forms. `symbol` and `component` bindings are reported as
+unevaluated because the preview has no real versioned symbol index.
+
+A changed binding creates an immutable, zero-authority finding and refresh work
+item beneath the resolved graph. A finding means only that a note is
+potentially stale; it contains no replacement text and never changes canonical
+Markdown. If current sources show that the note needs repair, the agent authors
+the complete resulting note and uses `propose --input`, inspects the exact local
+review artifact, records the exact digest decision with `review`, and runs
+`apply` only after approval. `capture` intentionally rejects `origin: "drift"`
+inputs, so drift evidence cannot bypass the governed path.
+
+If exact evidence shows the note is still current, close only that finding with
+an exact digest and a reason:
+
+```bash
+node <installed-syncora-skill>/scripts/syncora.mjs check --changed \
+  --acknowledge-current finding_<64-hex> \
+  --finding-digest sha256:<64-hex> \
+  --reason "The source change does not alter the documented contract." \
+  --workspace /absolute/path/to/project
+```
+
+An active finding otherwise remains until a matching applied drift proposal is
+proven, all matched source fingerprints return exactly to their pre-finding
+values, a still-current acknowledgment is exact and fresh, later source
+evolution creates one cumulative replacement, or an explicit reasoned
+policy rebaseline of incompatible retained state dispositions it. Proposal creation and apply recheck the complete
+matched bindings and canonical note hash. A direct note edit, later check, or
+changed timestamp does not silently clear it. If doctor reports
+`DRIFT_POLICY_MISMATCH`, run `check --changed --rebaseline --reason <text>` only
+after reviewing prior active findings. The command refuses absent or already
+policy-compatible state. See the bundled
+[foreground drift reference](../skills/syncora/references/drift.md).
 
 When work creates a durable decision, constraint, status change, or other
 project knowledge, the agent uses a separate governed flow:

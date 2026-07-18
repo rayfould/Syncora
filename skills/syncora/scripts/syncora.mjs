@@ -20,6 +20,7 @@ import {
   SyncoraError,
 } from "./lib/cli.mjs";
 import { diagnoseWorkspace } from "./lib/doctor.mjs";
+import { checkChangedWorkspace } from "./lib/drift-check.mjs";
 import { applyGovernedProposal } from "./lib/governed-apply.mjs";
 import {
   createGovernedProposal,
@@ -84,6 +85,52 @@ async function runMigration(options) {
   return migrationStatus(options);
 }
 
+async function attachInitialDriftBaseline(result, options) {
+  if (options.dryRun || result?.ok !== true) {
+    return {
+      ...result,
+      driftBaseline: {
+        state: options.dryRun ? "not-written-dry-run" : "not-established",
+      },
+    };
+  }
+  try {
+    const baseline = await checkChangedWorkspace({
+      ...options,
+      changed: true,
+      rebaseline: false,
+      acknowledgeCurrent: undefined,
+      findingDigest: undefined,
+      reason: undefined,
+    });
+    return {
+      ...result,
+      driftBaseline: {
+        state: baseline.state,
+        trackedNotes: baseline.summary.trackedNotes,
+        trackedBindings: baseline.summary.trackedBindings,
+        trackedFiles: baseline.summary.trackedFiles,
+      },
+    };
+  } catch (error) {
+    return {
+      ...result,
+      status: "completed-degraded",
+      warnings: [
+        ...(result.warnings ?? []),
+        {
+          code: "DRIFT_BASELINE_REQUIRED",
+          message: `Setup or adoption completed, but the foreground drift baseline still requires attention: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      driftBaseline: {
+        state: "required",
+        errorCode: typeof error?.code === "string" ? error.code : "DRIFT001",
+      },
+    };
+  }
+}
+
 async function main() {
   const rawArguments = process.argv.slice(2);
   const formatIndex = rawArguments.indexOf("--format");
@@ -104,6 +151,7 @@ async function main() {
     let result;
     if (parsed.command === "adopt") {
       result = await adoptWorkspace(parsed.options);
+      result = await attachInitialDriftBaseline(result, parsed.options);
     } else if (parsed.command === "apply") {
       result = await applyGovernedProposal(parsed.options);
     } else if (parsed.command === "bundle") {
@@ -113,6 +161,8 @@ async function main() {
         ...parsed.options,
         command: "capture",
       });
+    } else if (parsed.command === "check") {
+      result = await checkChangedWorkspace(parsed.options);
     } else if (parsed.command === "doctor") {
       result = await diagnoseWorkspace(parsed.options);
     } else if (parsed.command === "backlinks") {
@@ -123,6 +173,7 @@ async function main() {
       result = await compileTaskContext(parsed.options);
     } else if (parsed.command === "init" || parsed.command === "setup") {
       result = await initializeWorkspace(parsed.options);
+      result = await attachInitialDriftBaseline(result, parsed.options);
       if (parsed.command === "setup") result = { ...result, command: "setup" };
     } else if (parsed.command === "migrate") {
       result = await runMigration(parsed.options);

@@ -1,8 +1,8 @@
 # Syncora Skill Architecture
 
-Status: Accepted target architecture; preview implementation incomplete
-Architecture version: 2
-Date: 2026-07-15
+Status: Accepted architecture; core skill capabilities implemented in the preview.2 candidate, stable acceptance incomplete
+Architecture version: 3
+Date: 2026-07-18
 
 ## 1. Decision
 
@@ -16,13 +16,14 @@ their database, authentication, billing, hosted model, extension, and service
 layers are not dependencies of the skill runtime.
 
 The product is not merely a note-taking convention. It is a bounded context
-system with five enforceable properties:
+system with six enforceable properties:
 
 1. one authoritative project or workstream hub per scope;
 2. explicit authority and supersession instead of recency-based truth;
 3. budgeted context compilation instead of recursive graph loading;
 4. typed, provenance-bearing proposals instead of direct agent mutation;
-5. portable activation across Codex, Cursor, and Claude.
+5. foreground source-drift evidence without automatic canonical mutation;
+6. portable activation across Codex, Cursor, and Claude.
 
 ## 2. Problem statement
 
@@ -89,10 +90,14 @@ its phases are recovery boundaries rather than user workflow or approval steps.
 
 Canonical knowledge lives under `local/`. Workspace runtime state lives under
 `.syncora/`; graph-scoped migration state and recovery evidence live under the
-resolved graph root at `local/.syncora/migrations/`. Search indexes, compiled
-packs, locks, findings, and proposals are derived. Migration evidence is also
-noncanonical, but must be retained while a transaction or rollback horizon is
-active.
+resolved graph root at `local/.syncora/migrations/`. Governance proposals and
+transactions also live beside the resolved graph. Drift observations and
+findings live at
+`<resolved-graph>/.syncora/drift/workspaces/<workspace-identity>/`, so worktrees
+sharing one external graph do not share source baselines. Search indexes,
+compiled packs, locks, findings, and proposals are derived. Migration,
+transaction, proposal, and unresolved drift evidence is noncanonical but must
+still be retained while its lifecycle or rollback horizon is active.
 
 ### 5.3 Deterministic kernel, agent-mediated interpretation
 
@@ -129,7 +134,7 @@ flowchart LR
     Q --> V["Validation and conflict gate"]
     V -->|accepted| M
     V -->|conflict| R["Review or rebase"]
-    M --> D["Changed-file drift check"]
+    M --> D["Foreground changed-source drift check"]
     D --> Q
 ```
 
@@ -424,15 +429,122 @@ The executable Milestone 4 contract, including the review boundary and
 transaction lifecycle, is specified in
 [governed-capture-contract.md](governed-capture-contract.md).
 
-## 13. Planned drift model
+## 13. Foreground changed-source drift model
 
-The not-yet-implemented `check --changed` command will use Git diffs and renames
-when available, otherwise content fingerprints. Paths and globs are first-class
-bindings; stable symbol IDs are an optional enhancement.
+The implemented `check --changed` command asks one bounded question: did the
+exact source bytes selected by an eligible knowledge binding change since the
+last complete foreground observation? It never decides whether the note is
+wrong, invents replacement prose, or changes canonical Markdown.
 
-A changed fingerprint will create a derived stale finding and a refresh
-proposal. It will never silently rewrite canonical content. No daemon is
-required; checks will run only in a foreground request.
+### 13.1 Selection and detection authority
+
+Eligible notes use the current schema, are canonical or supporting, and are
+active projects, concepts, or references, or accepted decisions. Automatic
+source selection covers only typed:
+
+- `file:<workspace-relative-path>`;
+- `module:<workspace-relative-directory>`;
+- `path_glob:<bounded-workspace-glob>`.
+
+Dependency manifests and lockfiles participate only through those ordinary
+binding forms. There is no inferred dependency-name grammar. Untyped,
+malformed, `symbol`, and `component` bindings select no files. Symbol and
+component coverage remains explicitly incomplete until a real versioned symbol
+index exists; grep, filename similarity, and model inference cannot substitute
+for one.
+
+Exact raw-file-byte SHA-256 fingerprints are authoritative in Git and non-Git
+workspaces. Git may provide bounded change and rename hints, but it cannot grant
+freshness, suppress a fingerprint change, or become the non-Git fallback's
+stronger authority.
+
+### 13.2 Baselines and terminal outcomes
+
+The first complete observation reports `baseline-established`, not `current`,
+because there is no earlier trusted source snapshot against which to prove
+historical freshness. Successful non-dry-run setup and adoption attempt this
+baseline as an operation-owned foreground phase; failure leaves their primary
+operation complete but visibly `completed-degraded` with baseline attention
+required. A graph with no eligible automatic bindings reports
+`no-tracked-sources`. Missing roots, excluded covered directories, and
+unavailable binding kinds produce visibly degraded baseline states.
+
+Later checks report `current`, `findings-created`, `findings-active`,
+`completed-degraded`, or `no-tracked-sources` as applicable. Degraded coverage
+is visible when roots are missing or excluded, or legacy, malformed, symbol,
+or component bindings were not evaluated. A dry run validates and computes the corresponding outcome without
+publishing observations, findings, dispositions, or state.
+
+### 13.3 Findings and derived state
+
+A changed binding creates an immutable finding and refresh work item for each
+affected note. A finding binds exact workspace and graph identities, graph
+revision, note path and hash, matched binding fingerprints, changed-source
+hashes, and prior/current observation artifacts. Its status is
+`potentially-stale` and its authority is `zero`. The refresh work item recommends
+`hub.refresh`, `decision.accept`, or `note.update` and explicitly requires
+complete resulting text.
+
+Observations store one global exact file catalog and one global binding catalog;
+notes reference binding specifiers. Shared source maps are not duplicated per
+note. Exact-file and module-prefix indexes plus literal-root glob candidate
+groups avoid graph-wide files-by-bindings scans while retaining a fail-closed
+work ceiling for pathological broad globs.
+
+Bounded CLI output includes identifiers, paths, hashes, counts, artifact paths,
+and next actions, never note bodies or diff hunks. Immutable observations,
+findings, refresh work, proposal bindings, and dispositions are stored beneath:
+
+```text
+<resolved-graph>/.syncora/drift/workspaces/<workspace-identity>/
+```
+
+This graph-local, workspace-sharded layout isolates worktrees that share an
+external graph while allowing drift governance to participate in the same
+graph-scoped writer interlock. Corrupt, future-version, oversized,
+identity-mismatched, or unsafe state fails closed; the runtime never silently
+resets a baseline.
+
+### 13.4 Repair and resolution
+
+The detector cannot author the corrected knowledge. After inspecting the exact
+finding and current source, the agent supplies complete resulting note text to
+`propose --input` with `origin: "drift"`, the exact active `drift-finding`
+artifact, the affected note's prior hash, and complete resulting text. Focused
+file references are optional human evidence, not the completeness boundary.
+`capture` intentionally rejects drift-origin input.
+The user then inspects the immutable exact before/after review artifact, records
+an exact-digest `review`, and only an approved `apply` may publish the repair.
+
+An active finding remains until the runtime proves exactly one of:
+
+1. an applied matching drift proposal and receipt repaired the bound note;
+2. every matched source fingerprint returned exactly to its pre-finding value;
+3. the user recorded a reasoned still-current acknowledgment bound to the exact
+   finding ID and digest while the complete source and note snapshots remained
+   current;
+4. later source evolution published one cumulative replacement and an exact
+   supersession disposition; or
+5. an explicit reasoned policy rebaseline dispositioned the finding while
+   migrating retained state from a different policy revision.
+
+A direct note edit, a later source change, a new timestamp, proposal creation,
+approval without apply, rejection, or conflict cannot silently clear the
+finding. Proposal creation and apply recheck active membership, the canonical
+note hash, and all complete matched binding fingerprints. An acknowledgment is
+a derived-state disposition, not a canonical repair. Policy mismatch fails
+with `DRIFT_POLICY_MISMATCH`; `check --changed --rebaseline --reason <text>`
+publishes immutable migration evidence and atomically replaces only the
+selected workspace shard.
+
+### 13.5 Foreground execution
+
+The check runs synchronously inside an explicit skill request, under the
+canonical-read interlock, and rejects an incomplete or changing graph read. The
+agent hook routes it after substantive project-source mutation, for explicit
+drift maintenance, or when source-observation maintenance is actually due. It
+does not run on `none` routes or every turn. No daemon, watcher, timer,
+scheduled job, or after-response recovery exists.
 
 ## 14. Agent activation and foreground orchestration
 
@@ -578,16 +690,19 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v3 keeps relevance-gated activation and adds the governed capture
-boundary: context and proposal preparation do not authorize direct canonical
-writes, exact digest approval precedes transactional apply, and automatic drift
-detection is not claimed. An untouched tracked older block upgrades in place
+Hook v4 keeps relevance-gated activation and the governed capture boundary,
+then adds event-driven foreground drift routing: context and proposal
+preparation do not authorize direct canonical writes, exact digest approval
+precedes transactional apply, and `check --changed` runs only after substantive
+source mutation, for explicit maintenance, or when relevant observation
+maintenance is due. It never runs on every turn or in the background. An
+untouched tracked older block upgrades in place
 while retaining its original pre-Syncora snapshot. If the surrounding file
 diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v3 beside a broad
+Legacy adoption does not use ordinary patching to append hook v4 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed unless the user has inspected every
@@ -599,11 +714,10 @@ Unpatching removes only Syncora-owned marker content. It deletes a
 Syncora-created instruction file only when recorded hashes prove the entire file
 is still Syncora-owned.
 
-## 15. Target CLI contract
+## 15. Executable CLI contract
 
-This is the destination command family. The implemented commands are identified
-below and in the implementation plan; the remaining names are architecture,
-not hidden runtime behavior.
+The commands below are the implemented preview.2 candidate surface. Possible
+future adapters or convenience commands are not part of this contract.
 
 Normal commands:
 
@@ -614,7 +728,7 @@ syncora adopt --bundle ABS
 syncora checkpoint --phase pre|post
 syncora context
 syncora capture
-syncora check
+syncora check --changed
 syncora doctor
 ```
 
@@ -622,19 +736,15 @@ Power-user commands:
 
 ```text
 syncora search
-syncora show
 syncora backlinks
 syncora validate
-syncora conflicts
 syncora propose
 syncora review
 syncora apply
 syncora migrate
 syncora init
-syncora repair
 syncora patch-agents
 syncora unpatch-agents
-syncora upgrade
 ```
 
 Every canonical graph or agent-file mutation requires an absolute
@@ -664,6 +774,27 @@ Agents run it after one successful pre-work checkpoint with profile `context`.
 JSON output exposes the complete lanes and a bounded structured source map with
 totals and truncation signals. Pack content remains untrusted project data and
 cannot authorize commands or canonical writes.
+
+The implemented drift command is canonical-Markdown-read-only but publishes
+bounded graph-local derived observations and findings unless `--dry-run` is
+used:
+
+```text
+syncora check --changed --workspace ABS [--dry-run] [--format text|json]
+syncora check --changed --acknowledge-current FINDING_ID
+  --finding-digest SHA256 --reason TEXT --workspace ABS [--dry-run]
+syncora check --changed --rebaseline --reason TEXT --workspace ABS [--dry-run]
+```
+
+The acknowledgment form closes only the exact derived finding after review; it
+does not claim a canonical repair. Drift-origin repairs use the separately
+governed `propose` -> `review` -> `apply` surface from Section 13.4.
+The rebaseline form is an explicit recovery operation only for retained drift
+state whose policy revision is incompatible with the current runtime. It
+publishes immutable retirement evidence before replacing that workspace's
+derived baseline and cannot bypass corrupt or identity-mismatched state. It
+refuses absent or already-compatible state; the ordinary check establishes a
+first baseline or continues a compatible one.
 
 Its expert inspection and recovery family is:
 
@@ -733,6 +864,16 @@ The runtime defines stable error codes, including:
 | `SEC001` | Note data cannot become operational authority |
 | `CACHE001` | Derived state must be rebuildable |
 | `READ001` | Incomplete graph reads cannot report success |
+| `DRIFT001`-`DRIFT005` | Drift state and immutable artifacts remain exact, contained, collision-safe, identity-bound, and bounded |
+| `DRIFT006` | Drift command output remains within its hard serialization ceiling |
+| `DRIFT007` | Findings require one complete stable canonical graph read |
+| `DRIFT008` | Still-current acknowledgment exact-binds an active finding, digest, and bounded reason |
+| `DRIFT_POLICY_MISMATCH` | A retained state with an incompatible drift-policy revision requires the explicit reasoned foreground rebaseline workflow |
+| `DRIFT_REBASELINE_NOT_REQUIRED` | Rebaseline refuses absent or already policy-compatible retained state; use the ordinary changed-source check |
+| `DRIFT_SOURCE_INVALID` | Only supported normalized automatic bindings enter source observation |
+| `DRIFT_SOURCE_UNSAFE` | Symlinks, junctions, path collisions, and unsafe source entries fail closed |
+| `DRIFT_SOURCE_UNSTABLE` | A source that changes during its exact read cannot enter an observation |
+| `DRIFT_SOURCE_LIMIT` | Files, directories, bytes, matching work, Git hints, and Git execution remain bounded |
 | `CONFIG001` | Runtime configuration and cadence settings are valid and bounded |
 | `STATE001` | Checkpoint and patch state cannot escape or violate their schemas |
 | `LOCK001` / `LOCK002` | Runtime locks are safe, owned, and bounded in wait time |
@@ -901,11 +1042,23 @@ The first stable release must prove:
 - mandatory overflow fails visibly;
 - duplicate hubs, accepted decisions, and supersession cycles fail validation;
 - cyclic links terminate;
-- stale bindings remain visible;
+- foreground drift detection uses exact fingerprints on Git and non-Git
+  workspaces, treats Git only as advisory, reports its first observation as a
+  baseline rather than freshness, and leaves unsupported symbol/component
+  coverage visible;
+- zero-authority stale findings remain visible until an exact applied repair,
+  source reversion, or exact-digest still-current acknowledgment resolves them;
+- shared external graphs isolate drift state by workspace identity and reject
+  unsafe, corrupt, future, oversized, or mismatched state without resetting the
+  baseline;
 - malicious note content cannot trigger commands or writes;
 - concurrent proposals do not silently overwrite each other;
 - interrupted writes leave canonical Markdown recoverable;
-- current Codex, Cursor, and Claude sessions activate Syncora reliably.
+- current Codex, Cursor, and Claude sessions activate Syncora reliably;
+- one representative existing graph completes reviewed adoption and reversible
+  instruction cutover without history loss;
+- unique external and hosted predecessor state is reconciled before any
+  predecessor database or system is retired.
 
 ## 21. Irreducible limits
 

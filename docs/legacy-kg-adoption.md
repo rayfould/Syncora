@@ -118,6 +118,15 @@ stops the command; rerun the exact command after correcting the reported issue
 to resume from durable state. One authorization covers this declared composite
 operation. An explicit rollback command remains available for operator-driven
 recovery.
+After a successful non-dry-run adoption, the same user-level command makes one
+foreground changed-source observation for the adopted bindings. Its
+`baseline-established` result, when eligible sources exist, is only the
+starting point for later comparison; it does not certify that legacy knowledge
+was historically fresh. With no eligible automatic binding it reports
+`no-tracked-sources`. If observation publication fails after retirement
+succeeds, `adopt` reports
+`completed-degraded` and retains the completed migration while requiring
+explicit drift-baseline attention.
 If a caught cutover or verification failure leaves a recoverable publication
 state, `adopt` first attempts the same exact rollback automatically. A
 concurrent user edit is never overwritten; the command instead reports
@@ -196,8 +205,8 @@ transaction then:
 - copies any legacy Markdown bytes that a declared target will replace to
   `local/archive/migrations/<migration-id>/<original-path>` before publication;
 - creates or enables project-local Syncora runtime configuration;
-- replaces the exact predecessor workflow marker with the relevance-gated v3
-  hook, including governed capture routing;
+- replaces the exact predecessor workflow marker with relevance-gated hook v4,
+  including governed capture and foreground drift routing;
 - preserves unrelated agent bytes, encoding, and newline style;
 - records exact before/after bytes, hashes, and modes for recovery;
 - validates the resulting graph and activation before reporting success.

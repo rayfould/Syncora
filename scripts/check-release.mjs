@@ -32,10 +32,17 @@ const requiredPaths = [
   "skills/syncora/assets/schemas/authority-promotion-manifest-v2.schema.json",
   "skills/syncora/references/context.md",
   "skills/syncora/references/capture.md",
+  "skills/syncora/references/drift.md",
+  "skills/syncora/references/agent-patching.md",
+  "skills/syncora/references/initialize.md",
   "skills/syncora/references/legacy-adoption.md",
   "skills/syncora/scripts/lib/adoption-bundle.mjs",
   "skills/syncora/scripts/lib/adopt.mjs",
   "skills/syncora/scripts/lib/file-transaction.mjs",
+  "skills/syncora/scripts/lib/drift-check.mjs",
+  "skills/syncora/scripts/lib/drift-governance.mjs",
+  "skills/syncora/scripts/lib/drift-source.mjs",
+  "skills/syncora/scripts/lib/drift-state.mjs",
   "skills/syncora/scripts/lib/governed-apply.mjs",
   "skills/syncora/scripts/lib/governed-capture.mjs",
   "skills/syncora/scripts/lib/governed-environment.mjs",
@@ -261,16 +268,107 @@ const sharedHook = await readFile(
   path.join(skillRoot, "assets", "agent-hooks", "shared.md"),
   "utf8",
 );
+const adoptionSmoke = await readFile(
+  path.join(repositoryRoot, "scripts", "smoke-legacy-adoption.mjs"),
+  "utf8",
+);
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v3",
+  "syncora-agent-hook:begin v4",
   "governed capture",
   "exact digest",
   "apply it transactionally",
+  "check --changed",
+  "do not run drift checks",
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v3 governed-capture guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v4 governed-capture and drift guidance is missing (${requiredHookText})`,
     );
+  }
+}
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v4")) {
+  errors.push(
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v4 hook",
+  );
+}
+
+const agentPatchingReference = await readFile(
+  path.join(skillRoot, "references", "agent-patching.md"),
+  "utf8",
+);
+for (const [description, pattern] of [
+  ["current hook v4 declaration", /Hook v4 is current\./u],
+  ["foreground drift routing", /foreground `check --changed` operation/u],
+  [
+    "exact tracked v1-v3 snapshot preservation",
+    /exact tracked v1, v2, or v3 hook retains its original pre-Syncora restoration\s+snapshot/u,
+  ],
+  [
+    "diverged or untracked v1-v3 baseline refresh",
+    /diverged or untracked v1,\s+v2, or v3 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
+  ],
+  ["future hook fail-closed behavior", /hook newer than v4 fails closed before target writes/u],
+]) {
+  if (!pattern.test(agentPatchingReference)) {
+    errors.push(
+      `skills/syncora/references/agent-patching.md: current hook contract is missing (${description})`,
+    );
+  }
+}
+
+const driftReference = await readFile(
+  path.join(skillRoot, "references", "drift.md"),
+  "utf8",
+);
+for (const [description, pattern] of [
+  ["policy-mismatch eligibility", /DRIFT_POLICY_MISMATCH/u],
+  ["absent-state refusal", /refuses when no retained drift state\s+exists/u],
+  ["compatible-state refusal", /state already uses the current policy/u],
+  ["ordinary-check recovery", /run\s+ordinary `check --changed`/u],
+]) {
+  if (!pattern.test(driftReference)) {
+    errors.push(
+      `skills/syncora/references/drift.md: rebaseline safety contract is missing (${description})`,
+    );
+  }
+}
+
+const implementationPlan = await readFile(
+  path.join(repositoryRoot, "docs", "skill", "implementation-plan.md"),
+  "utf8",
+);
+if (!/subsequently upgraded it to v4/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify v4 as the current upgrade",
+  );
+}
+
+const initializationReference = await readFile(
+  path.join(skillRoot, "references", "initialize.md"),
+  "utf8",
+);
+const legacyAdoptionGuide = await readFile(
+  path.join(repositoryRoot, "docs", "legacy-kg-adoption.md"),
+  "utf8",
+);
+for (const [displayPath, source] of [
+  ["skills/syncora/references/agent-patching.md", agentPatchingReference],
+  ["skills/syncora/references/initialize.md", initializationReference],
+  ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
+]) {
+  if (!/hook v4/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v4`);
+  }
+  for (const stalePattern of [
+    /Hook v3 keeps/iu,
+    /installed hook is relevance-gated v3/iu,
+    /relevance-gated v3\s+hook/iu,
+    /with hook v3/iu,
+    /automatic drift detection remains unavailable/iu,
+  ]) {
+    if (stalePattern.test(source)) {
+      errors.push(`${displayPath}: contains stale pre-v4 operational hook guidance`);
+    }
   }
 }
 

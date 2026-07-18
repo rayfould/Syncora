@@ -3,8 +3,10 @@ import {
   readCanonicalNoteBytes,
   readWorkspaceSourceBytes,
 } from "./governed-environment.mjs";
+import { verifyDriftFindingFreshness } from "./drift-governance.mjs";
 import {
   PROPOSAL_POLICY,
+  assertDriftFindingId,
   assertPortableGraphPath,
   assertPortableWorkspacePath,
   assertTaggedSha256,
@@ -44,6 +46,8 @@ export async function verifyProposalSourceReferences(environment, proposalInput)
         normalizedRef = assertPortableGraphPath(source.ref, "Proposal source note");
       } else if (source.type === "file") {
         normalizedRef = assertPortableWorkspacePath(source.ref, "Proposal source file");
+      } else if (source.type === "drift-finding") {
+        normalizedRef = assertDriftFindingId(source.ref, "Proposal drift finding");
       } else {
         if (source.expectedSha256 !== null) {
           throw provenanceError(
@@ -114,12 +118,30 @@ export async function verifyProposalSourceReferences(environment, proposalInput)
             ref: binding.ref,
           });
         }
-      } else {
+      } else if (binding.type === "file") {
         bytes = await readWorkspaceSourceBytes(environment, binding.ref, {
           maximumBytes,
           code: "WRITE001",
           label: "Bound proposal source file",
         });
+      } else {
+        try {
+          const freshness = await verifyDriftFindingFreshness(environment, {
+            findingId: binding.ref,
+            findingDigest: binding.expectedSha256,
+            maximumArtifactBytes: maximumBytes,
+          });
+          bytes = freshness.artifactBytes;
+        } catch (error) {
+          throw provenanceError(
+            "Bound drift finding is no longer active and source-fresh.",
+            {
+              operationId: binding.operationId,
+              ref: binding.ref,
+              cause: error instanceof Error ? error.message : String(error),
+            },
+          );
+        }
       }
     } catch (error) {
       if (maximumBytes === remaining && remaining < perSourceLimit) {

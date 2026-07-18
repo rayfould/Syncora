@@ -84,10 +84,39 @@ one.
 Ordinary proposals are bounded to 64 semantic operations, 256 file changes,
 256 provenance references per operation, 512 provenance references per
 proposal, 64 MiB of verified local source bytes, the canonical 256 KiB note
-limit, and 16 MiB of sealed content. Every local `file` or `note` provenance
-reference carries an exact source hash. Successful command output contains
-summaries and hashes, never complete note bodies; the separately bounded local
-review artifact carries the exact before/after text and is capped at 8 MiB.
+limit, and 16 MiB of sealed content. Every local `file`, `note`, or
+`drift-finding` provenance reference carries an exact source hash. Successful
+command output contains summaries and hashes, never complete note bodies; the
+separately bounded local review artifact carries the exact before/after text and
+is capped at 8 MiB.
+
+## Drift-origin proposals
+
+A changed-source finding has zero authority and contains no replacement truth.
+When source review proves the affected note needs repair, the agent must author
+complete resulting note text and use `propose --input` with `origin: "drift"`.
+`capture` intentionally rejects drift-origin input so the approachable capture
+surface cannot blur the evidence-specific contract.
+
+Each drift-origin operation must:
+
+- exact-bind an active immutable `drift-finding` ID and artifact digest;
+- use the finding's recommended semantic operation and affect its exact note;
+- bind the note's expected prior hash through the ordinary change contract;
+- allow Syncora to recheck the exact canonical note and every complete matched
+  file/module/glob fingerprint at proposal and apply time;
+- use focused file references only as optional human evidence;
+- supply complete `afterText`; a finding or refresh summary is never accepted
+  as replacement content.
+
+Proposal creation publishes a separate immutable proposal-to-finding binding.
+Creating, approving, rejecting, conflicting, or failing a proposal does not
+resolve the finding. A later foreground check closes it only after verifying a
+matching applied receipt. Exact source reversion, cumulative finding
+supersession, an exact fresh still-current acknowledgment, and explicit
+reasoned rebaseline of retained policy-incompatible state are the non-repair
+disposition paths. Direct note
+edits do not silently clear evidence and make the old lineage inapplicable.
 
 ## Graph-scoped governance state
 
@@ -112,9 +141,23 @@ external graph also share proposals, locks, conflicts, and recovery state:
   blobs/
 ```
 
-This state is noncanonical and excluded from Markdown scanning. Workspace
-`.syncora/` remains the home of host-local configuration, checkpoints, and
-rebuildable caches.
+Drift evidence is also graph-local but deliberately workspace-sharded:
+
+```text
+<resolved-graph>/.syncora/drift/workspaces/<workspace-identity>/
+  state.json
+  observations/
+  findings/
+  refresh/
+  proposal-bindings/
+  dispositions/
+```
+
+Thus worktrees sharing an external graph share canonical governance but not
+source baselines or observations. This state is noncanonical and excluded from
+Markdown scanning. Workspace `.syncora/` remains the home of host-local
+configuration, checkpoints, and rebuildable caches. Noncanonical drift state
+must still be retained while an active finding or its audit trail matters.
 
 ## Apply invariant
 
@@ -184,6 +227,6 @@ supersession topology is authority-changing.
 
 ## Foreground-only lifecycle
 
-No daemon, watcher, or background worker participates. Proposal creation,
-review, apply, validation, recovery, and receipts all run within an explicit
-agent request and stop before the final response.
+No daemon, watcher, timer, or background worker participates. Drift checks,
+proposal creation, review, apply, validation, recovery, and receipts all run
+within an explicit agent request and stop before the final response.

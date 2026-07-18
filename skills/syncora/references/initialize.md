@@ -57,10 +57,11 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed hook is relevance-gated v3 and teaches the governed capture
-boundary. Initialization may safely upgrade a tracked older hook under the same
-workspace patch lock used by `patch-agents`; restoration snapshots are verified
-before any upgrade is published.
+The installed relevance-gated hook v4 teaches the governed capture
+boundary plus foreground changed-source drift routing. Initialization may
+safely upgrade a tracked v1, v2, or v3 hook under the same workspace patch lock
+used by `patch-agents`; restoration snapshots are verified before any upgrade
+is published.
 If initialization opted out of hooks, a later `patch-agents` call still refuses
 to write while predecessor activation remains outside Syncora-owned markers;
 confirmation never overrides that gate.

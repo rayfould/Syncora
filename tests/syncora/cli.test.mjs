@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import {
+  DRIFT_OUTPUT_POLICY,
   ERROR_OUTPUT_POLICY,
   GOVERNED_OUTPUT_POLICY,
   helpText,
@@ -11,6 +12,37 @@ import {
   renderResult,
   SyncoraError,
 } from "../../skills/syncora/scripts/lib/cli.mjs";
+
+function driftResult(overrides = {}) {
+  return {
+    ok: true,
+    command: "check",
+    mode: "changed",
+    state: "findings-created",
+    workspace: "C:/workspace",
+    graph: {
+      root: "C:/workspace/local",
+      revision: `sha256:${"a".repeat(64)}`,
+    },
+    provider: {
+      kind: "fingerprint",
+      baseline: "exact-bytes",
+      baselineInitialized: true,
+    },
+    summary: {
+      changedPaths: 1,
+      renames: 0,
+      activeFindings: 1,
+      newFindings: 1,
+      resolvedFindings: 0,
+    },
+    findings: [],
+    warnings: [],
+    omittedFindings: 0,
+    omittedWarnings: 0,
+    ...overrides,
+  };
+}
 
 test("governed output compacts maximum-shape results without reporting post-write failure", () => {
   const longPath = `${"segment/".repeat(500)}note.md`;
@@ -236,6 +268,239 @@ test("context exposes bounded repeatable task inputs without mutation flags", ()
     ]),
     (error) => error instanceof SyncoraError && error.code === "CLI005",
   );
+});
+
+test("check requires explicit changed mode and owns drift-only options", () => {
+  const workspace = resolve("workspace");
+
+  assert.throws(
+    () => parseArgv(["check", "--workspace", workspace]),
+    (error) =>
+      error instanceof SyncoraError &&
+      error.code === "CLI002" &&
+      /requires --changed/u.test(error.message),
+  );
+
+  const parsed = parseArgv([
+    "check",
+    "--changed",
+    "--workspace",
+    workspace,
+    "--dry-run",
+    "--format",
+    "json",
+  ]);
+  assert.equal(parsed.command, "check");
+  assert.equal(parsed.options.changed, true);
+  assert.equal(parsed.options.dryRun, true);
+  assert.equal(parsed.options.format, "json");
+
+  assert.throws(
+    () => parseArgv(["validate", "--workspace", workspace, "--changed"]),
+    (error) => error instanceof SyncoraError && error.code === "CLI005",
+  );
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--workspace",
+      workspace,
+      "--proposal",
+      `proposal_${"b".repeat(64)}`,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI005",
+  );
+});
+
+test("check acknowledgement is exact, digest-bound, and complete", () => {
+  const workspace = resolve("workspace");
+  const finding = `finding_${"c".repeat(64)}`;
+  const digest = `sha256:${"d".repeat(64)}`;
+  const reason = "The exact finding was reviewed and the bound note remains current.";
+
+  const parsed = parseArgv([
+    "check",
+    "--changed",
+    "--workspace",
+    workspace,
+    "--acknowledge-current",
+    finding,
+    "--finding-digest",
+    digest,
+    "--reason",
+    reason,
+  ]);
+  assert.equal(parsed.options.acknowledgeCurrent, finding);
+  assert.equal(parsed.options.findingDigest, digest);
+  assert.equal(parsed.options.reason, reason);
+
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--workspace",
+      workspace,
+      "--acknowledge-current",
+      finding,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI002",
+  );
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--workspace",
+      workspace,
+      "--acknowledge-current",
+      finding,
+      "--finding-digest",
+      `sha256:${"D".repeat(64)}`,
+      "--reason",
+      reason,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI004",
+  );
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--workspace",
+      workspace,
+      "--finding-digest",
+      digest,
+      "--reason",
+      reason,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI005",
+  );
+});
+
+test("check rebaseline is explicit, reasoned, and mutually exclusive with acknowledgement", () => {
+  const workspace = resolve("workspace");
+  const parsed = parseArgv([
+    "check",
+    "--changed",
+    "--rebaseline",
+    "--reason",
+    "Upgrade the foreground drift policy.",
+    "--workspace",
+    workspace,
+  ]);
+  assert.equal(parsed.options.rebaseline, true);
+  assert.equal(parsed.options.reason, "Upgrade the foreground drift policy.");
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--rebaseline",
+      "--workspace",
+      workspace,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI002",
+  );
+  assert.throws(
+    () => parseArgv([
+      "check",
+      "--changed",
+      "--rebaseline",
+      "--acknowledge-current",
+      `finding_${"1".repeat(64)}`,
+      "--finding-digest",
+      `sha256:${"2".repeat(64)}`,
+      "--reason",
+      "Conflicting modes.",
+      "--workspace",
+      workspace,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI005",
+  );
+});
+
+test("check is a first-class help surface with an explicit foreground safety boundary", () => {
+  assert.deepEqual(parseArgv(["check", "--help"]), {
+    command: "help",
+    options: { topic: "check" },
+  });
+  assert.match(helpText(), /\n  check\s+Detect changed sources bound to project knowledge/u);
+  assert.match(helpText("check"), /syncora check --changed/u);
+  assert.match(helpText("check"), /--acknowledge-current <finding-id>/u);
+  assert.match(helpText("check"), /--rebaseline/u);
+  assert.match(helpText("check"), /after DRIFT_POLICY_MISMATCH/u);
+  assert.match(helpText("check"), /exact immutable finding artifact digest/u);
+  assert.match(helpText("check"), /Canonical Markdown is never changed/u);
+});
+
+test("check rendering is bounded and never emits note bodies or diff hunks", () => {
+  const secret = `SYNCORA_PRIVATE_BODY_${"x".repeat(8_192)}`;
+  const finding = {
+    id: `finding_${"e".repeat(64)}`,
+    digest: `sha256:${"f".repeat(64)}`,
+    artifactPath: "local/.syncora/drift/findings/finding.json",
+    refreshArtifactPath: "local/.syncora/drift/refresh/refresh.json",
+    note: {
+      path: "knowledge/projects/runtime.md",
+      sha256: `sha256:${"1".repeat(64)}`,
+      kind: "project",
+      scope: "workspace",
+      body: secret,
+    },
+    changedSources: {
+      returned: 1,
+      total: 1,
+      diff: secret,
+    },
+    recommendedOperation: "hub.refresh",
+    afterTextRequired: true,
+    nextCommand: "syncora propose --input <absolute-json-path>",
+    beforeText: secret,
+    afterText: secret,
+    diffHunk: secret,
+  };
+
+  const small = driftResult({
+    findings: [{
+      ...finding,
+      note: { ...finding.note, body: "PRIVATE_NOTE_BODY" },
+      changedSources: { ...finding.changedSources, diff: "PRIVATE_DIFF_HUNK" },
+      beforeText: "PRIVATE_BEFORE_TEXT",
+      afterText: "PRIVATE_AFTER_TEXT",
+      diffHunk: "PRIVATE_DIFF_HUNK",
+    }],
+  });
+  const smallJson = renderResult(small, "json");
+  assert.doesNotMatch(
+    smallJson,
+    /PRIVATE_(?:NOTE_BODY|DIFF_HUNK|BEFORE_TEXT|AFTER_TEXT)/u,
+  );
+
+  const large = driftResult({
+    findings: Array.from({ length: 40 }, (_, index) => ({
+      ...finding,
+      id: `finding_${index.toString(16).padStart(64, "0")}`,
+      artifactPath: `${"very-long-segment/".repeat(500)}finding-${index}.json`,
+    })),
+    warnings: Array.from({ length: 40 }, (_, index) => ({
+      code: `DRIFT_WARN_${index}`,
+      message: `${"warning ".repeat(1_000)}${index}`,
+      body: secret,
+    })),
+  });
+
+  const json = renderResult(large, "json");
+  const parsed = JSON.parse(json);
+  assert.ok([...json].length <= DRIFT_OUTPUT_POLICY.maximumCharacters);
+  assert.equal(parsed.output.truncated, true);
+  assert.equal(parsed.findings.length, DRIFT_OUTPUT_POLICY.maximumReturnedFindings);
+  assert.equal(parsed.omittedFindings, 24);
+  assert.equal(json.includes(secret), false);
+  assert.equal("body" in parsed.findings[0].note, false);
+  assert.deepEqual(Object.keys(parsed.findings[0].changedSources).sort(), ["previewLimit", "total"]);
+
+  const text = renderResult(large, "text");
+  assert.ok([...text].length <= DRIFT_OUTPUT_POLICY.maximumCharacters);
+  assert.match(text, /Output: compacted/u);
+  assert.equal(text.includes(secret), false);
+  assert.doesNotMatch(text, /PRIVATE_(?:NOTE_BODY|DIFF_HUNK|BEFORE_TEXT|AFTER_TEXT)/u);
 });
 
 test("governed capture exposes a proposal, digest-bound review, and reviewed apply", () => {

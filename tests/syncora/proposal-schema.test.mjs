@@ -255,11 +255,15 @@ test("decision.supersede remains update-only and rejects a missing or null prior
 });
 
 test("source refs bind every local source, reject unverifiable digest claims, and detect conflicts", () => {
-  for (const type of ["file", "note"]) {
+  for (const type of ["file", "note", "drift-finding"]) {
     const missingBinding = inputWith();
     missingBinding.operations[0].sourceRefs = [sourceRef({
       type,
-      ref: type === "file" ? "src/context.ts" : "knowledge/concepts/context.md",
+      ref: type === "file"
+        ? "src/context.ts"
+        : type === "note"
+          ? "knowledge/concepts/context.md"
+          : `finding_${"a".repeat(64)}`,
       expectedSha256: null,
     })];
     assert.throws(
@@ -293,6 +297,25 @@ test("source refs bind every local source, reject unverifiable digest claims, an
   const exactDuplicate = structuredClone(conflicting);
   exactDuplicate.operations[0].sourceRefs[1].expectedSha256 = hash("a");
   assert.doesNotThrow(() => parseProposalInput(exactDuplicate));
+
+  const driftFinding = inputWith();
+  driftFinding.origin = "drift";
+  driftFinding.operations[0].sourceRefs = [sourceRef({
+    type: "drift-finding",
+    ref: `finding_${"a".repeat(64)}`,
+    expectedSha256: hash("b"),
+  })];
+  assert.equal(
+    parseProposalInput(driftFinding).operations[0].sourceRefs[0].type,
+    "drift-finding",
+  );
+
+  const malformedFinding = structuredClone(driftFinding);
+  malformedFinding.operations[0].sourceRefs[0].ref = "finding_not-content-derived";
+  assert.throws(
+    () => parseProposalInput(malformedFinding),
+    /content-derived drift finding ID/,
+  );
 });
 
 test("proposal-wide source-reference work is bounded across operations", () => {

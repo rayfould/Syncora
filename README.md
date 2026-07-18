@@ -11,8 +11,9 @@ graph into every conversation.
 > **Development preview.** The current package is the
 > `v0.1.0-preview.2` release candidate; the latest public tag remains
 > `v0.1.0-preview.1` until it is published. Preview.2 adds reviewed reversible
-> adoption, task-specific context compilation, and governed capture. Automatic
-> changed-file drift detection remains under development.
+> adoption, task-specific context compilation, governed capture, and
+> foreground changed-source drift detection. Stable-release acceptance and
+> predecessor-system reconciliation remain incomplete.
 
 ## Why Syncora
 
@@ -26,9 +27,9 @@ Long-running agent work usually fails in one of two directions:
 Syncora's architecture uses one authoritative hub per scope, explicit note
 authority, bounded retrieval, and visible provenance to balance those failure
 modes. Current source implements the safe canonical read path and an explicit,
-reviewed write path; it may maintain disposable derived runtime state.
-Automatic drift detection and the remaining stable-release acceptance work are
-still pending.
+reviewed write path. A foreground drift check can identify source-bound notes
+that may need review without granting a finding authority or rewriting the
+note. Stable-release acceptance work is still pending.
 
 ## Requirements
 
@@ -99,19 +100,42 @@ migration bundle is required.
   validation, full-lifecycle graph serialization, exact receipts, foreground
   transaction recovery, and exact rollback before the irreversible commit
   boundary;
+- detect foreground changes to exact `file`, `module`, and `path_glob` source
+  bindings with raw-byte fingerprints in Git and non-Git workspaces;
+- publish immutable, zero-authority stale findings and refresh work items,
+  retain one cumulative actionable finding per note, recheck complete live
+  bindings and note bytes, and record exact acknowledgments or policy
+  rebaselines without changing canonical Markdown;
 - inventory legacy Markdown in a dry-run, zero-authority migration phase;
 - stage a reviewed v2 promotion manifest and exact target Markdown;
 - shadow-test the proposed authority graph before canonical mutation;
 - cut over, verify, retire predecessor activation, or restore exact
   pre-cutover bytes through a journaled migration lifecycle.
 
-It does **not** yet perform automatic changed-file drift detection. The
-task-context compiler is read-only with respect to canonical Markdown and
-authority; compiling a pack never authorizes a note write. Governed capture is
-a separate `capture` -> exact local artifact review -> `apply` lifecycle with
-one explicit user approval boundary. Its default discovery path may update a disposable derived
-lexical cache, and `--no-cache` prevents that cache write. The
-[release status](docs/release-status.md) tracks this boundary explicitly.
+Drift detection is foreground-only: there is no watcher, timer, daemon, or work
+after the agent's response. The first complete observation with eligible
+sources establishes a baseline; it does not certify historical freshness. Git supplies advisory
+change and rename hints when available, while exact raw-byte fingerprints
+remain authoritative. Automatic coverage is limited to `file`, `module`, and
+`path_glob` bindings. `symbol` and `component` bindings remain explicitly
+unevaluated until a real versioned symbol index exists.
+
+A drift finding means only “potentially stale.” It contains no replacement
+truth and cannot authorize a write. If the note needs repair, the agent must
+author complete resulting text and use the same exact-artifact
+`propose` -> `review` -> `apply` path as other governed changes; `capture`
+intentionally rejects drift-origin inputs. If review proves the note is still
+current, an exact finding-digest acknowledgment closes only that derived
+finding after the note and complete source fingerprints are rechecked. Later
+source evolution supersedes the prior finding with one cumulative actionable
+head. Policy changes fail with one explicit, reasoned foreground rebaseline
+command. See the [foreground drift reference](skills/syncora/references/drift.md).
+
+The task-context compiler remains read-only with respect to canonical Markdown
+and authority; compiling a pack never authorizes a note write. Governed capture
+has one explicit user approval boundary. Its default discovery path may update
+a disposable derived lexical cache, and `--no-cache` prevents that cache
+write. The [release status](docs/release-status.md) tracks the remaining gates.
 
 To record a durable decision, you can simply tell your agent:
 
@@ -138,6 +162,7 @@ node <installed-syncora-skill>/scripts/syncora.mjs bundle --help
 node <installed-syncora-skill>/scripts/syncora.mjs adopt --workspace /absolute/path/to/project --bundle /absolute/path/to/review/adoption-bundle-v1.json
 node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
 node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute/path/to/project --intent "implement session expiry" --mode implement --target file:src/auth/session.ts --budget standard --format json
+node <installed-syncora-skill>/scripts/syncora.mjs check --changed --workspace /absolute/path/to/project --format json
 node <installed-syncora-skill>/scripts/syncora.mjs capture --workspace /absolute/path/to/project --input /absolute/path/to/proposal-input.json --format json
 node <installed-syncora-skill>/scripts/syncora.mjs propose --workspace /absolute/path/to/project --proposal PROPOSAL_ID --format json
 node <installed-syncora-skill>/scripts/syncora.mjs review --workspace /absolute/path/to/project --proposal PROPOSAL_ID --proposal-digest sha256:DIGEST --decision approve --reviewed-by user --reason "Approved after inspecting the exact immutable review artifact." --format json
@@ -172,6 +197,13 @@ fails closed on external graph roots, bounds reads and output, and uses
 ownership-aware rollback for files it patches. Governed apply recovers from
 process interruption when a later foreground request reruns it; there are no
 background workers.
+
+Drift observations, findings, refresh work, proposal bindings, and
+acknowledgments are noncanonical state beneath the resolved graph. They are
+sharded by exact workspace identity, so worktrees sharing an external graph do
+not share a baseline or changed-source observations. Corrupt, future-version,
+oversized, or identity-mismatched drift state fails closed instead of silently
+resetting history.
 
 Syncora serializes its own graph writers and rechecks exact bytes before atomic
 replacement. A noncooperating external process can still race the final

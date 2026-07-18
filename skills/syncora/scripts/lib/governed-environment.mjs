@@ -8,6 +8,15 @@ import {
 } from "./authority-inventory.mjs";
 import { SyncoraError } from "./cli.mjs";
 import {
+  DRIFT_STATE_POLICY,
+  readDriftFindingSourceBytes,
+} from "./drift-state.mjs";
+import { DRIFT_SOURCE_POLICY } from "./drift-source.mjs";
+import {
+  DRIFT_FINDING_SPECIFICATION,
+  DRIFT_PROPOSAL_BINDING_SPECIFICATION,
+} from "./drift-governance.mjs";
+import {
   FILE_TRANSACTION_DURABILITY,
   FILE_TRANSACTION_POLICY,
 } from "./file-transaction.mjs";
@@ -56,6 +65,15 @@ export const GOVERNED_WRITE_POLICY = Object.freeze({
   fileTransaction: FILE_TRANSACTION_POLICY,
   fileTransactionDurability: FILE_TRANSACTION_DURABILITY,
   reviewArtifact: REVIEW_ARTIFACT_POLICY,
+  drift: {
+    source: DRIFT_SOURCE_POLICY,
+    state: DRIFT_STATE_POLICY,
+    observationSpecification: "syncora-drift-observation-v1",
+    findingSpecification: DRIFT_FINDING_SPECIFICATION,
+    refreshSpecification: "syncora-drift-refresh-v1",
+    proposalBindingSpecification: DRIFT_PROPOSAL_BINDING_SPECIFICATION,
+    dispositionSpecification: "syncora-drift-disposition-v1",
+  },
 });
 
 export function governedPolicyRevision() {
@@ -294,6 +312,31 @@ export async function readWorkspaceSourceBytes(
   });
   if (bytes === null) {
     throw writeError("WRITE001", `Workspace provenance file is missing: ${portablePath}`);
+  }
+  return bytes;
+}
+
+export async function readDriftFindingBytes(
+  environment,
+  findingId,
+  options = {},
+) {
+  const maximumBytes = boundedReadLimit(
+    options.maximumBytes,
+    DRIFT_STATE_POLICY.maximumArtifactBytes,
+    DRIFT_STATE_POLICY.maximumArtifactBytes,
+    "Drift finding read",
+  );
+  const bytes = await readDriftFindingSourceBytes({
+    graphRoot: environment.graphRoot,
+    workspaceIdentity: environment.workspaceIdentity,
+    graphRootIdentity: environment.graphRootIdentity,
+    policyRevision: environment.policyRevision,
+    findingId,
+    maximumBytes,
+  });
+  if (bytes === null) {
+    throw writeError("WRITE001", `Bound drift finding is missing: ${findingId}`);
   }
   return bytes;
 }

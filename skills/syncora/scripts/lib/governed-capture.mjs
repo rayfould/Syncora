@@ -1,5 +1,9 @@
 import { SyncoraError } from "./cli.mjs";
 import {
+  publishDriftProposalBindings,
+  validateDriftProposalInput,
+} from "./drift-governance.mjs";
+import {
   assertFileTransactionAvailable,
   readFileTransaction,
 } from "./file-transaction.mjs";
@@ -186,6 +190,14 @@ function creationResult(environment, summary, options, publication = {}) {
     },
     duplicateCandidates: summary.assessment.duplicateCandidates,
     reviewArtifact: publication.artifact ?? null,
+    ...(summary.origin === "drift"
+      ? {
+          drift: {
+            findingBindings: publication.driftBindings ?? 0,
+            resolution: "only-an-applied-matching-proposal-resolves-findings",
+          },
+        }
+      : {}),
     ...bounded,
     next: options.dryRun
       ? "Rerun capture without --dry-run to store the immutable proposal."
@@ -209,6 +221,10 @@ export async function createGovernedProposal(options) {
       includeLexicalSource: true,
     });
     const hydrated = await hydrateProposalInput(environment, parsed);
+    const validatedDriftFindings = await validateDriftProposalInput(
+      environment,
+      hydrated.input,
+    );
     await verifyProposalSourceReferences(environment, hydrated.input);
     const projection = validateProjectedGraph(inspection, hydrated.changes);
     if (!projection.ok) {
@@ -268,6 +284,11 @@ export async function createGovernedProposal(options) {
       proposal: sealed,
     });
     await verifyProposalSourceReferences(environment, sealed);
+    const driftBindings = await publishDriftProposalBindings({
+      environment,
+      proposal: sealed,
+      validatedFindings: validatedDriftFindings,
+    });
     const publication = await publishSealedProposal({
       graphRoot: environment.graphRoot,
       proposal: sealed,
@@ -276,7 +297,11 @@ export async function createGovernedProposal(options) {
       environment,
       publication.proposal,
       options,
-      { ...publication, artifact: artifactPublication.artifact },
+      {
+        ...publication,
+        artifact: artifactPublication.artifact,
+        driftBindings: driftBindings.length,
+      },
     );
   });
 }

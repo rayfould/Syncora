@@ -340,6 +340,40 @@ function matchBinding(binding, target) {
   return null;
 }
 
+/**
+ * Compile one normalized file/module/path_glob binding into the exact matcher
+ * used by task-context selection. Drift observation calls this in a bounded
+ * loop so source coverage cannot quietly acquire a second glob dialect.
+ */
+export function createNormalizedFileBindingMatcher(binding) {
+  if (
+    binding === null ||
+    typeof binding !== "object" ||
+    !["file", "module", "path_glob"].includes(binding.kind) ||
+    typeof binding.ref !== "string"
+  ) {
+    throw targetError("File binding matcher requires a file, module, or path_glob binding.");
+  }
+  const ref = normalizeTargetRef(binding.kind, binding.ref);
+  if (ref !== binding.ref) {
+    throw targetError("File binding matcher requires an already-normalized reference.", {
+      ...targetReferenceDetails(binding.ref),
+    });
+  }
+  const prepared = binding.kind === "path_glob"
+    ? { kind: binding.kind, ref, compiledGlob: compilePathGlob(ref) }
+    : { kind: binding.kind, ref };
+
+  return (fileRef) => {
+    if (typeof fileRef !== "string") return false;
+    return Boolean(matchBinding(prepared, {
+      kind: "file",
+      ref: fileRef,
+      pathSegments: fileRef.split("/").map((segment) => [...segment]),
+    }));
+  };
+}
+
 function matchRank(reason) {
   if (reason === "exact_binding") return 0;
   if (reason === "module_parent") return 1;

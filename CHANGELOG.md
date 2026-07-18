@@ -41,15 +41,32 @@ tag remains `0.1.0-preview.1`.
   foreground process-interruption resume, exact rollback before irreversible
   commit, and recovery-required outcomes that preserve bytes Syncora cannot
   prove it owns.
+- Foreground `check --changed` with exact raw-byte source fingerprints,
+  bounded advisory Git change and rename hints, and equal Git/non-Git detection
+  authority.
+- Automatic drift coverage for eligible current-schema canonical/supporting
+  `file`, `module`, and `path_glob` bindings, with explicit degraded coverage
+  for untyped, malformed, `symbol`, and `component` bindings.
+- Graph-local, workspace-identity-sharded drift observations, immutable
+  zero-authority findings, refresh work items, proposal bindings, and exact
+  finding-digest still-current dispositions.
+- Drift-origin proposal governance that exact-binds the active finding and
+  rechecks the canonical note plus complete live file/module/glob fingerprints
+  at proposal and apply time.
+- Cumulative one-head-per-note finding supersession, normalized shared
+  observation catalogs, indexed binding matching, visible missing/excluded
+  coverage, and an explicit reasoned policy-rebaseline workflow with immutable
+  dispositions.
 
 #### Changed
 
 - Reworked the public skill entrypoint around a plain-language product
   explanation, new-workspace and existing-graph quick starts, concise metadata,
   and a clear boundary between visitor guidance and internal agent rules.
-- Upgraded the generated project instruction hook to v3 so installed agents
-  retain relevance-gated routing and use exact review plus transactional apply
-  for durable knowledge changes.
+- Upgraded the generated project instruction hook to v4 so installed agents
+  retain relevance-gated routing, use exact review plus transactional apply for
+  durable knowledge changes, and run foreground drift checks only after
+  substantive source mutation or an explicit maintenance request.
 - Greenfield `setup`/`init` now refuses pre-existing knowledge and unsupported
   predecessor workflows, while atomically replacing the exact supported
   predecessor marker when no graph exists.
@@ -94,6 +111,20 @@ tag remains `0.1.0-preview.1`.
   writers in the final byte-check-to-rename window.
 - Context, search, backlinks, checkpoints, and migration phases honor the same
   graph-scoped writer interlock, so they cannot consume a half-published graph.
+- A first complete drift observation reports `baseline-established` instead of
+  claiming historical freshness. Exact fingerprints remain authoritative when
+  Git is absent, incomplete, or unavailable; Git never grants freshness.
+- Drift findings contain identifiers, hashes, paths, counts, and next actions,
+  not note bodies or diff hunks. A finding grants zero authority and never
+  silently rewrites canonical Markdown.
+- `capture` rejects drift-origin input. Repairs require complete agent-authored
+  resulting text, an immutable exact `drift-finding` provenance reference, and
+  the ordinary `propose` -> exact artifact review -> `review` -> `apply`
+  lifecycle.
+- Drift state is stored beneath the resolved graph and sharded by workspace
+  identity, isolating worktrees that share an external graph. Unsafe, corrupt,
+  future-version, oversized, or identity-mismatched state fails closed rather
+  than resetting the baseline.
 
 - Cutover and retirement preserve legacy notes; overwritten Markdown is copied
   to an inactive migration archive, and retirement records predecessor

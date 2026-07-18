@@ -68,11 +68,20 @@ test("skill frontmatter and progressive references are self-contained", async ()
   ].map((match) => match[1]);
   assert.ok(references.length >= 3);
   assert.ok(references.includes("references/legacy-adoption.md"));
+  assert.ok(references.includes("references/drift.md"));
   for (const reference of references) {
     await access(join(skillRoot, ...reference.split("/")));
   }
 
   await access(join(skillRoot, "scripts", "syncora.mjs"));
+  for (const runtime of [
+    "drift-check.mjs",
+    "drift-governance.mjs",
+    "drift-source.mjs",
+    "drift-state.mjs",
+  ]) {
+    await access(join(skillRoot, "scripts", "lib", runtime));
+  }
   await access(join(skillRoot, "assets", "agent-hooks", "shared.md"));
   const normalizedSkill = normalizeWhitespace(skill);
   assert.match(
@@ -147,13 +156,15 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v3/);
+  assert.match(hook, /syncora-agent-hook:begin v4/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
   assert.match(hook, /local review-artifact path plus the exact digest bindings/);
   assert.match(hook, /inspection of its exact before\/after records/);
   assert.match(hook, /record approval only after the\s+user authorizes that artifact-bound proposal digest/);
+  assert.match(hook, /check --changed/);
+  assert.match(hook, /Do not run drift checks for `none` routes, on every turn, or as\s+background work/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);
 });
 

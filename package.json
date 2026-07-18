@@ -18,7 +18,7 @@
   },
   "scripts": {
     "test": "npm run check",
-    "test:skill": "node --test --test-concurrency=1 tests/syncora/*.test.mjs",
+    "test:skill": "node --test --test-isolation=none --test-concurrency=1 tests/syncora/*.test.mjs",
     "test:adoption": "node --test --test-concurrency=1 tests/syncora/adoption.test.mjs",
     "check:release": "node scripts/check-release.mjs",
     "check:syntax": "node scripts/check-runtime-syntax.mjs",

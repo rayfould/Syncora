@@ -27,6 +27,7 @@ const COMMANDS = new Set([
   "backlinks",
   "bundle",
   "capture",
+  "check",
   "checkpoint",
   "context",
   "doctor",
@@ -67,6 +68,8 @@ const VALUE_OPTIONS = new Set([
   "--target",
   "--proposal",
   "--proposal-digest",
+  "--acknowledge-current",
+  "--finding-digest",
   "--decision",
   "--reviewed-by",
   "--reason",
@@ -121,6 +124,10 @@ export function parseArgv(argv) {
     decision: undefined,
     reviewedBy: undefined,
     reason: undefined,
+    changed: false,
+    rebaseline: false,
+    acknowledgeCurrent: undefined,
+    findingDigest: undefined,
   };
 
   for (let index = 1; index < argv.length; index += 1) {
@@ -132,6 +139,16 @@ export function parseArgv(argv) {
 
     if (token === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (token === "--changed") {
+      options.changed = true;
+      continue;
+    }
+
+    if (token === "--rebaseline") {
+      options.rebaseline = true;
       continue;
     }
 
@@ -192,6 +209,8 @@ export function parseArgv(argv) {
       if (token === "--target") options.targets.push(value);
       if (token === "--proposal") options.proposal = value;
       if (token === "--proposal-digest") options.proposalDigest = value;
+      if (token === "--acknowledge-current") options.acknowledgeCurrent = value;
+      if (token === "--finding-digest") options.findingDigest = value;
       if (token === "--decision") options.decision = value;
       if (token === "--reviewed-by") options.reviewedBy = value;
       if (token === "--reason") options.reason = value;
@@ -287,6 +306,61 @@ export function parseArgv(argv) {
     );
   }
 
+  if (command === "check") {
+    if (!options.changed) {
+      throw new SyncoraError("CLI002", "check requires --changed.");
+    }
+    const acknowledging = options.acknowledgeCurrent !== undefined;
+    if (acknowledging && options.rebaseline) {
+      throw new SyncoraError(
+        "CLI005",
+        "check accepts either --acknowledge-current or --rebaseline, not both.",
+      );
+    }
+    if (acknowledging) {
+      if (!options.findingDigest || !options.reason) {
+        throw new SyncoraError(
+          "CLI002",
+          "check --acknowledge-current requires --finding-digest and --reason.",
+        );
+      }
+      if (!/^sha256:[0-9a-f]{64}$/u.test(options.findingDigest)) {
+        throw new SyncoraError(
+          "CLI004",
+          "--finding-digest must be a lowercase tagged SHA-256 value.",
+        );
+      }
+    } else if (options.rebaseline) {
+      if (!options.reason) {
+        throw new SyncoraError("CLI002", "check --rebaseline requires --reason.");
+      }
+      if (options.findingDigest !== undefined) {
+        throw new SyncoraError(
+          "CLI005",
+          "--finding-digest is only valid with check --acknowledge-current.",
+        );
+      }
+    } else if (
+      options.findingDigest !== undefined ||
+      options.reason !== undefined
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        "--finding-digest and --reason are only valid with check --acknowledge-current.",
+      );
+    }
+  } else if (
+    options.changed ||
+    options.rebaseline ||
+    options.acknowledgeCurrent !== undefined ||
+    options.findingDigest !== undefined
+  ) {
+    throw new SyncoraError(
+      "CLI005",
+      "--changed, --rebaseline, --acknowledge-current, and --finding-digest are only valid with check.",
+    );
+  }
+
   const governedOptions = [
     options.input,
     options.proposal,
@@ -371,7 +445,10 @@ export function parseArgv(argv) {
         "apply accepts a reviewed --proposal only; create approval with review.",
       );
     }
-  } else if (governedOptions.some((value) => value !== undefined)) {
+  } else if (
+    governedOptions.some((value, index) =>
+      value !== undefined && !(command === "check" && index === 5))
+  ) {
     throw new SyncoraError(
       "CLI005",
       "--input, --proposal, --proposal-digest, --decision, --reviewed-by, and --reason are only valid with capture, propose, review, or apply.",
@@ -679,6 +756,27 @@ export function helpText(topic = undefined) {
     ].join("\n");
   }
 
+  if (topic === "check") {
+    return [
+      "Usage:",
+      "  syncora check --changed --workspace <absolute-path> [options]",
+      "  syncora check --changed --acknowledge-current <finding-id> --finding-digest <sha256> --reason <text> --workspace <absolute-path> [options]",
+      "  syncora check --changed --rebaseline --reason <text> --workspace <absolute-path> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--changed  (foreground changed-source observation)",
+      "--acknowledge-current <finding-id>  (derived no-repair disposition)",
+      "--finding-digest <sha256>  (exact immutable finding artifact digest)",
+      "--rebaseline  (after DRIFT_POLICY_MISMATCH, retire prior state and establish the current policy baseline)",
+      "--reason <text>  (required for an acknowledgement or rebaseline)",
+      "--dry-run  (compute without publishing derived state)",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Detects potentially stale knowledge from exact source fingerprints. Canonical Markdown is never changed.",
+    ].join("\n");
+  }
+
   if (topic === "backlinks") {
     return [
       "Usage: syncora backlinks --workspace <absolute-path> --note <path-or-alias> [options]",
@@ -832,6 +930,7 @@ export function helpText(topic = undefined) {
     "  backlinks       Resolve one note and list bounded reverse links",
     "  checkpoint      Run a foreground preflight or paired postflight",
     "  capture         Prepare an immutable governed knowledge proposal",
+    "  check           Detect changed sources bound to project knowledge",
     "  context         Compile bounded task-specific project context",
     "  doctor          Inspect workspace readiness and safety",
     "  init            Compatibility alias for setup",
@@ -961,7 +1060,149 @@ export const GOVERNED_OUTPUT_POLICY = Object.freeze({
   maximumFallbackStringCharacters: 2_048,
 });
 
+export const DRIFT_OUTPUT_POLICY = Object.freeze({
+  maximumCharacters: 65_536,
+  maximumReturnedFindings: 16,
+  maximumReturnedWarnings: 16,
+  maximumPathCharacters: 1_024,
+  maximumStringCharacters: 512,
+});
+
 const GOVERNED_COMMANDS = new Set(["capture", "propose", "review", "apply"]);
+
+function compactDriftString(value, maximum = DRIFT_OUTPUT_POLICY.maximumStringCharacters) {
+  if (typeof value !== "string") return value ?? null;
+  const characters = [...value];
+  if (characters.length <= maximum) return value;
+  return `${characters.slice(0, Math.max(0, maximum - 24)).join("")}...[output truncated]`;
+}
+
+function compactDriftFinding(finding) {
+  return {
+    id: compactDriftString(finding?.id),
+    digest: compactDriftString(finding?.digest),
+    artifactPath: compactDriftString(
+      finding?.artifactPath,
+      DRIFT_OUTPUT_POLICY.maximumPathCharacters,
+    ),
+    refreshArtifactPath: compactDriftString(
+      finding?.refreshArtifactPath,
+      DRIFT_OUTPUT_POLICY.maximumPathCharacters,
+    ),
+    note: finding?.note && typeof finding.note === "object"
+      ? {
+          path: compactDriftString(
+            finding.note.path,
+            DRIFT_OUTPUT_POLICY.maximumPathCharacters,
+          ),
+          sha256: compactDriftString(finding.note.sha256),
+          kind: compactDriftString(finding.note.kind),
+          scope: compactDriftString(finding.note.scope),
+        }
+      : null,
+    changedSources: finding?.changedSources && typeof finding.changedSources === "object"
+      ? {
+          previewLimit: Number(finding.changedSources.previewLimit ?? 0),
+          total: Number(finding.changedSources.total ?? 0),
+        }
+      : { previewLimit: 0, total: 0 },
+    recommendedOperation: compactDriftString(finding?.recommendedOperation),
+    afterTextRequired: finding?.afterTextRequired === true,
+    nextCommand: compactDriftString(finding?.nextCommand),
+  };
+}
+
+function compactDriftSummary(summary) {
+  const source = summary && typeof summary === "object" ? summary : {};
+  return {
+    changedPaths: Number(source.changedPaths ?? 0),
+    renames: Number(source.renames ?? 0),
+    affectedNotes: Number(source.affectedNotes ?? 0),
+    activeFindings: Number(source.activeFindings ?? 0),
+    newFindings: Number(source.newFindings ?? 0),
+    resolvedFindings: Number(source.resolvedFindings ?? 0),
+    trackedNotes: Number(source.trackedNotes ?? 0),
+    trackedBindings: Number(source.trackedBindings ?? 0),
+    trackedFiles: Number(source.trackedFiles ?? 0),
+  };
+}
+
+function compactDriftResult(result) {
+  const findings = Array.isArray(result.findings) ? result.findings : [];
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const omittedFindings = Math.max(
+    Number(result.omittedFindings ?? 0),
+    findings.length - DRIFT_OUTPUT_POLICY.maximumReturnedFindings,
+  );
+  const omittedWarnings = Math.max(
+    Number(result.omittedWarnings ?? 0),
+    warnings.length - DRIFT_OUTPUT_POLICY.maximumReturnedWarnings,
+  );
+  return {
+    ok: result.ok === true,
+    command: "check",
+    mode: compactDriftString(result.mode),
+    state: compactDriftString(result.state),
+    dryRun: result.dryRun === true,
+    workspace: compactDriftString(
+      result.workspace,
+      DRIFT_OUTPUT_POLICY.maximumPathCharacters,
+    ),
+    graph: result.graph && typeof result.graph === "object"
+      ? {
+          root: compactDriftString(
+            result.graph.root,
+            DRIFT_OUTPUT_POLICY.maximumPathCharacters,
+          ),
+          revision: compactDriftString(result.graph.revision),
+        }
+      : null,
+    provider: result.provider && typeof result.provider === "object"
+      ? {
+          kind: compactDriftString(result.provider.kind),
+          baseline: compactDriftString(result.provider.baseline),
+          baselineInitialized: result.provider.baselineInitialized === true,
+          gitHintsAvailable: result.provider.gitHintsAvailable === true,
+        }
+      : null,
+    summary: compactDriftSummary(result.summary),
+    findings: findings
+      .slice(0, DRIFT_OUTPUT_POLICY.maximumReturnedFindings)
+      .map(compactDriftFinding),
+    omittedFindings,
+    warnings: warnings
+      .slice(0, DRIFT_OUTPUT_POLICY.maximumReturnedWarnings)
+      .map((warning) => ({
+        code: compactDriftString(warning?.code),
+        message: compactDriftString(warning?.message),
+      })),
+    omittedWarnings,
+    disposition: result.disposition && typeof result.disposition === "object"
+      ? {
+          id: compactDriftString(result.disposition.id),
+          digest: compactDriftString(result.disposition.digest),
+          findingId: compactDriftString(result.disposition.findingId),
+      }
+      : null,
+    rebaseline: result.rebaseline && typeof result.rebaseline === "object"
+      ? {
+          previousPolicyRevision: compactDriftString(
+            result.rebaseline.previousPolicyRevision,
+          ),
+          currentPolicyRevision: compactDriftString(
+            result.rebaseline.currentPolicyRevision,
+          ),
+          retiredFindings: Number(result.rebaseline.retiredFindings ?? 0),
+          recordId: compactDriftString(result.rebaseline.recordId),
+          recordDigest: compactDriftString(result.rebaseline.recordDigest),
+        }
+      : null,
+    output: {
+      filtered: true,
+      truncated: omittedFindings > 0 || omittedWarnings > 0,
+    },
+  };
+}
 
 function boundedGovernedOutputString(value, maximum) {
   if (typeof value !== "string") return value ?? null;
@@ -1106,7 +1347,9 @@ function assertGovernedResultBound(command, rendered, format) {
 
 export function renderResult(result, format = "text") {
   if (format === "json") {
-    let rendered = `${stringifyJson(result)}\n`;
+    let rendered = result.command === "check"
+      ? `${stringifyJson(compactDriftResult(result))}\n`
+      : `${stringifyJson(result)}\n`;
     if (
       GOVERNED_COMMANDS.has(result.command) &&
       [...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters
@@ -1114,6 +1357,16 @@ export function renderResult(result, format = "text") {
       rendered = `${stringifyJson(compactGovernedResult(result))}\n`;
     }
     assertGovernedResultBound(result.command, rendered, format);
+    if (
+      result.command === "check" &&
+      [...rendered].length > DRIFT_OUTPUT_POLICY.maximumCharacters
+    ) {
+      throw new SyncoraError(
+        "DRIFT006",
+        "The compact drift result exceeds its output ceiling.",
+        { format, maximumCharacters: DRIFT_OUTPUT_POLICY.maximumCharacters },
+      );
+    }
     return rendered;
   }
 
@@ -1126,6 +1379,51 @@ export function renderResult(result, format = "text") {
       ? "SYNCORA_DEGRADED"
       : "SYNCORA_OK";
     return `${prefix} phase=${result.checkpoint.phase} profile=${result.checkpoint.profile} sequence=${result.checkpoint.sequence} validation=${result.validation.mode} revision=${result.graph.revision} checkpoint=${terminalSafe(result.checkpoint.id)}${result.checkpoint.disposition ? ` disposition=${result.checkpoint.disposition}` : ""}${result.checkpoint.idempotent ? " idempotent=true" : ""}\n`;
+  }
+
+  if (result.command === "check") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    if (result.graph?.revision) lines.push(`Revision: ${terminalSafe(result.graph.revision)}`);
+    lines.push(`State: ${terminalSafe(result.state ?? "completed")}`);
+    lines.push(`Provider: ${terminalSafe(result.provider?.kind ?? "fingerprint")}`);
+    const summary = result.summary ?? {};
+    lines.push(
+      `Changes: ${Number(summary.changedPaths ?? 0)} paths, ${Number(summary.renames ?? 0)} renames; findings: ${Number(summary.activeFindings ?? 0)} active, ${Number(summary.newFindings ?? 0)} new, ${Number(summary.resolvedFindings ?? 0)} resolved`,
+    );
+    for (const finding of (result.findings ?? []).slice(
+      0,
+      DRIFT_OUTPUT_POLICY.maximumReturnedFindings,
+    )) {
+      lines.push(
+        `finding ${terminalSafe(finding.id)}: ${terminalSafe(finding.note?.path ?? "unknown note")} (${terminalSafe(finding.recommendedOperation ?? "review")})`,
+      );
+      if (finding.artifactPath) {
+        lines.push(`  evidence: ${terminalSafe(finding.artifactPath)}`);
+      }
+      if (finding.refreshArtifactPath) {
+        lines.push(`  refresh: ${terminalSafe(finding.refreshArtifactPath)}`);
+      }
+    }
+    for (const warning of (result.warnings ?? []).slice(
+      0,
+      DRIFT_OUTPUT_POLICY.maximumReturnedWarnings,
+    )) {
+      lines.push(`warning ${terminalSafe(warning.code)}: ${terminalSafe(warning.message)}`);
+    }
+    let rendered = `${lines.join("\n")}\n`;
+    if ([...rendered].length > DRIFT_OUTPUT_POLICY.maximumCharacters) {
+      const compact = compactDriftResult(result);
+      const compactLines = [
+        `Syncora check: ${compact.ok ? "ok" : "failed"}`,
+        `Workspace: ${terminalSafe(compact.workspace)}`,
+        `State: ${terminalSafe(compact.state ?? "completed")}`,
+        `Changes: ${Number(compact.summary.changedPaths ?? 0)} paths; findings: ${Number(compact.summary.activeFindings ?? 0)} active`,
+        "Output: compacted; inspect the local finding artifacts for complete evidence.",
+      ];
+      rendered = `${compactLines.join("\n")}\n`;
+    }
+    return rendered;
   }
 
   if (result.command === "capture" || result.command === "propose") {
@@ -1331,6 +1629,9 @@ export function renderResult(result, format = "text") {
       `Phases: ${result.summary.completedPhases.length > 0 ? result.summary.completedPhases.join(" -> ") : "already complete"}`,
     );
     lines.push("Rollback retained: true");
+    if (result.driftBaseline?.state) {
+      lines.push(`Drift baseline: ${terminalSafe(result.driftBaseline.state)}`);
+    }
     for (const warning of result.warnings ?? []) {
       lines.push(`warning ${warning.code}: ${terminalSafe(warning.message)}`);
     }
@@ -1412,6 +1713,9 @@ export function renderResult(result, format = "text") {
 
   if (result.workspace) lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
   if (result.dryRun) lines.push("Mode: dry-run");
+  if (result.driftBaseline?.state) {
+    lines.push(`Drift baseline: ${terminalSafe(result.driftBaseline.state)}`);
+  }
 
   for (const change of result.changes ?? []) {
     lines.push(`${change.action.padEnd(9)} ${terminalSafe(change.path)}`);

@@ -67,6 +67,24 @@ gates. Use a maintenance checkpoint only for maintenance-oriented project work
 that lacks its own gate.
 Operation-specific validation remains mandatory for authority-sensitive writes.
 
+## Foreground drift trigger
+
+`check --changed` is event-driven maintenance, not a per-turn gate. Run it when
+the current foreground task substantively creates, changes, moves, or deletes
+project source files, or when the user explicitly asks for drift inspection.
+Run it before the final durable-capture decision, while the agent can still
+inspect findings and prepare any warranted governed proposal. Do not run it for
+`none` routes, read-only tasks, trivial metadata reads, every fixed number of
+turns, or after the final response. Syncora has no watcher, daemon, timer, or
+background worker.
+
+A finding means only that exact bytes covered by a typed file, module, or path
+glob binding changed. It does not prove the note is wrong and never grants
+permission to edit canonical Markdown. Symbol and component bindings report
+incomplete drift coverage unless a real versioned symbol index is available.
+Repair remains the governed flow in [capture.md](capture.md); a harmless
+finding may instead receive an exact-digest acknowledgment with a reason.
+
 ## Requests that stay `none`
 
 Keep Syncora inactive for requests such as:
