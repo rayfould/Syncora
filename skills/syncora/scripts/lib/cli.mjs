@@ -744,12 +744,12 @@ export function helpText(topic = undefined) {
       "--output <absolute-path>  (optional descriptor path; defaults beside the manifest)",
       "--expected-bundle-digest <sha256:digest>  (required for final reviewed-pack adoption)",
       "--bundle <absolute-path>  (compatibility path for an already sealed descriptor)",
-      "--dry-run  (validate and return a bounded approval summary without mutation)",
+      "--dry-run  (validate and return a bounded internal preview without mutation)",
       "--confirm-predecessor-reviewed  (only after reviewing custom or unmarked predecessor instructions)",
       "--format <text|json>",
       "--allow-external-graph-root <absolute-path>",
       "",
-      "Dry-run seals the reviewed pack in memory and returns a bounded approval summary; JSON also carries the internal digest. Final adoption rechecks that digest, writes the descriptor, then runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
+      "Dry-run validates the reviewed pack and returns a bounded internal preview; JSON also carries the internal digest. An explicit adoption request authorizes the agent to bind that digest and continue with the final operation without another confirmation. Rollback evidence is retained.",
     ].join("\n");
   }
 
@@ -894,11 +894,13 @@ export function helpText(topic = undefined) {
       ...(topic === "propose"
         ? ["--proposal <id>  (inspect one immutable proposal without note bodies)"]
         : []),
-      "--dry-run  (creation only; validate without storing a proposal)",
+      `--dry-run  (${topic === "capture" ? "validate without saving canonical Markdown" : "creation only; validate without storing a proposal"})`,
       "--format <text|json>",
       "--allow-external-graph-root <absolute-path>",
       "",
-      "Seals a validated proposal. Canonical Markdown remains byte-identical.",
+      topic === "capture"
+        ? "Validates and transactionally saves project knowledge without asking for a separate confirmation."
+        : "Seals a validated proposal. Canonical Markdown remains byte-identical.",
     ].join("\n");
   }
 
@@ -983,7 +985,7 @@ export function helpText(topic = undefined) {
     "  apply           Transactionally apply one approved proposal",
     "  backlinks       Resolve one note and list bounded reverse links",
     "  checkpoint      Run a foreground preflight or paired postflight",
-    "  capture         Prepare an immutable governed knowledge proposal",
+    "  capture         Validate and transactionally save project knowledge",
     "  check           Detect changed sources bound to project knowledge",
     "  context         Compile bounded task-specific project context",
     "  doctor          Inspect workspace readiness and safety",
@@ -1429,6 +1431,8 @@ function compactGovernedResult(result) {
     idempotent: result.idempotent,
     reviewArtifact: compactReviewArtifact(artifact),
     approvalSummary: compactApprovalSummary(result.approvalSummary),
+    changeSummary: compactApprovalSummary(result.changeSummary),
+    previewSummary: compactApprovalSummary(result.previewSummary),
     summary: compactGovernedSummary(result.summary),
     omittedChanges:
       (result.omittedChanges ?? 0) + (Array.isArray(result.changes) ? result.changes.length : 0),
@@ -1465,7 +1469,7 @@ function governedTextFallback(result) {
   return `${lines.join("\n")}\n`;
 }
 
-function appendApprovalSummary(lines, rawSummary) {
+function appendChangeSummary(lines, rawSummary) {
   const summary = compactApprovalSummary(rawSummary);
   if (!summary) return;
   if (summary.title) lines.push(terminalSafe(summary.title));
@@ -1537,7 +1541,7 @@ function appendApprovalSummary(lines, rawSummary) {
   if (!summary.canonicalMarkdownChanged) {
     lines.push("No canonical knowledge has changed yet.");
   }
-  lines.push("Reply with Yes, Approved, or No.");
+  lines.push("No separate user confirmation is required.");
 }
 
 function assertGovernedResultBound(command, rendered, format) {
@@ -1637,9 +1641,13 @@ export function renderResult(result, format = "text") {
     lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
     if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
     lines.push(`State: ${terminalSafe(proposal.state ?? result.state ?? (result.dryRun ? "validated-dry-run" : "proposed"))}`);
+    if (result.command === "capture" && result.autonomous && !result.dryRun) {
+      lines.push("Saved automatically: yes");
+    }
     const state = proposal.state ?? result.state;
-    if (result.approvalSummary && (result.dryRun || state === "proposed")) {
-      appendApprovalSummary(lines, result.approvalSummary);
+    const reportingSummary = result.changeSummary ?? result.approvalSummary;
+    if (reportingSummary && (result.dryRun || state === "proposed")) {
+      appendChangeSummary(lines, reportingSummary);
     } else if (result.summary) {
       lines.push(`Operations: ${result.summary.operations ?? 0}; file changes: ${result.summary.changes ?? 0}`);
     }
@@ -1806,7 +1814,7 @@ export function renderResult(result, format = "text") {
     lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
     lines.push(`State: ${terminalSafe(result.status)}`);
     if (result.dryRun) {
-      appendApprovalSummary(lines, result.approvalSummary);
+      appendChangeSummary(lines, result.previewSummary);
       return `${lines.join("\n")}\n`;
     }
     lines.push(

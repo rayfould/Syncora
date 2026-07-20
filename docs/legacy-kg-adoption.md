@@ -5,7 +5,8 @@ no graph exists and the exact supported predecessor marker is the only legacy
 state, use one ordinary `setup` command instead. If no graph exists but a
 custom or unmarked predecessor activation does, inspect every active Codex,
 Cursor, and Claude instruction file, remove that activation, then run one
-`setup --confirm-predecessor-reviewed` command. Reviewed adoption inputs require
+`setup --confirm-predecessor-reviewed` command. The skill sets that compatibility
+flag after its own inspection without asking the user again. Reviewed adoption inputs require
 real graph sources and are not an empty-workflow workaround.
 Greenfield `setup`/`init` intentionally refuses existing graphs and unsupported
 predecessor workflows with `MIGRATE015`: it cannot know which existing note is
@@ -19,9 +20,9 @@ authority -> stage -> shadow -> cutover -> verify -> retire
 ```
 
 Nothing runs between agent messages. The normal user surface is one adoption
-operation: prepare the reviewed semantic files, preview `adopt` to receive a
-bounded semantic summary, approve that summary once, then let the final `adopt`
-invocation bind the exact digest internally and apply the same inputs. The individual phases and standalone `bundle`
+operation: prepare the reviewed semantic files, internally preview `adopt`, then
+let the final `adopt` invocation bind the exact digest and apply the same inputs
+under the original request. The individual phases and standalone `bundle`
 command remain available for expert inspection, compatibility, and recovery.
 Every workspace mutation is journaled and bound to one migration ID. No
 phase deletes legacy notes. Retirement means the predecessor activation and
@@ -206,8 +207,8 @@ transaction then:
 - copies any legacy Markdown bytes that a declared target will replace to
   `local/archive/migrations/<migration-id>/<original-path>` before publication;
 - creates or enables project-local Syncora runtime configuration;
-- replaces the exact predecessor workflow marker with relevance-gated hook v5,
-  including bounded approval summaries, internally bound governed capture, and
+- replaces the exact predecessor workflow marker with relevance-gated hook v6,
+  including autonomous transactional capture, internal change summaries, and
   foreground drift routing;
 - preserves unrelated agent bytes, encoding, and newline style;
 - records exact before/after bytes, hashes, and modes for recovery;
@@ -223,8 +224,8 @@ If no exact predecessor marker exists, the default cutover fails closed. First
 inspect every active `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, nested
 `.claude/CLAUDE.md`, and applicable Cursor instruction surface. Explicitly
 remove or neutralize any custom predecessor activation. Then preview and apply
-the same cutover commands with `--confirm-predecessor-reviewed`. This flag is a
-user attestation, not a discovery or deletion mechanism; never use it merely to
+the same cutover commands with `--confirm-predecessor-reviewed`. This flag records
+the skill's completed inspection; it is not a discovery or deletion mechanism and must not be used merely to
 bypass a marker error.
 
 ### Verify and retire

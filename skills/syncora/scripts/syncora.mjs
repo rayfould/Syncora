@@ -9,6 +9,7 @@ import {
   verifyAgentPatchPlans,
 } from "./lib/agent-patcher.mjs";
 import { inventoryAuthority } from "./lib/authority-inventory.mjs";
+import { captureKnowledge } from "./lib/autonomous-capture.mjs";
 import { readBacklinks } from "./lib/backlinks.mjs";
 import { checkpointWorkspace } from "./lib/checkpoint.mjs";
 import {
@@ -157,10 +158,7 @@ async function main() {
     } else if (parsed.command === "bundle") {
       result = await buildAdoptionBundle(parsed.options);
     } else if (parsed.command === "capture") {
-      result = await createGovernedProposal({
-        ...parsed.options,
-        command: "capture",
-      });
+      result = await captureKnowledge(parsed.options);
     } else if (parsed.command === "check") {
       result = await checkChangedWorkspace(parsed.options);
     } else if (parsed.command === "doctor") {

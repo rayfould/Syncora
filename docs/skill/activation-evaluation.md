@@ -2,7 +2,7 @@
 
 Status: Preview semantic acceptance fixture
 Applies to: unpublished `0.1.0-preview.2` release-candidate source
-Updated: 2026-07-18
+Updated: 2026-07-20
 
 This matrix tests routing independently of graph contents. It is a semantic
 agent evaluation, not a deterministic classifier API. Hosts must apply the
@@ -13,15 +13,15 @@ same installed skill and project hook.
 | Ordinary project work in an uninitialized workspace | `none` | Normal host behavior; do not create Syncora state | Never |
 | Explicit greenfield initialization in an uninitialized workspace | Direct `maintenance` | Run one authorized `setup`; refuse an existing Markdown graph | Operation-owned lifecycle |
 | Explicit setup where no graph exists and only the exact supported predecessor marker is present | Direct `maintenance` | Run one authorized `setup`; atomically replace the exact marker while preserving unrelated instructions | Operation-owned lifecycle |
-| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Prepare reviewed semantic files, preview `adopt --dry-run`, request one plain-language approval for its bounded summary, then run the internally digest-bound final `adopt`; never run `setup` or `init` first | Operation-owned lifecycle |
+| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Prepare reviewed semantic files, run an internal `adopt --dry-run`, then immediately run the digest-bound final `adopt`; the original request authorizes the lifecycle | Operation-owned lifecycle |
 | Explicit custom or unmarked predecessor cleanup with no graph | Direct `maintenance` | Inspect all active agent files, remove predecessor activation, then run one `setup --confirm-predecessor-reviewed` | Operation-owned lifecycle |
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
-| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then prepare one governed proposal and present its bounded semantic summary; after the user approves it in plain language, bind the exact review internally and apply | Only after the approved apply changes canonical knowledge |
+| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then run autonomous transactional capture with an internal exact authorization and receipt | Only after capture changes canonical knowledge |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
-| Substantive project-source mutation with eligible knowledge bindings | Minimum task-relevant pre route | Perform the authorized source work, then run foreground `check --changed`; treat findings as zero-authority review work, not replacement truth | Only if a separately approved drift repair changes canonical knowledge |
+| Substantive project-source mutation with eligible knowledge bindings | Minimum task-relevant pre route | Perform the authorized source work, then run foreground `check --changed`; treat findings as zero-authority review work, not replacement truth | Only if an autonomous validated drift repair changes canonical knowledge |
 | Explicit changed-source drift request | Direct `maintenance` | Run `check --changed`; first observation establishes a baseline rather than freshness | Operation-owned lifecycle |
 | Review says an exact finding is harmless | Direct `maintenance` | Run `check --changed --acknowledge-current` with the exact finding ID, digest, and bounded reason | Operation-owned lifecycle; no canonical change |
 | Doctor or check reports `DRIFT_POLICY_MISMATCH` | Direct `maintenance` after reviewing prior findings | Run `check --changed --rebaseline --reason <text>`; do not use it to bypass corrupt or identity-mismatched state | Operation-owned lifecycle; no canonical change |
@@ -46,11 +46,10 @@ same installed skill and project hook.
 - Uncertainty selects `checkpoint`, never recursive graph loading.
 - One active request publishes at most one preflight and one activation-sequence
   increment.
-- Capture intent does not grant write authority and does not mean capture
-  succeeded.
-- The bounded proposal summary is not the human review surface. Approval
-  requires inspection of the exact immutable local review artifact returned by
-  capture or proposal inspection.
+- Capture intent does not mean capture succeeded. Initialized relevant work
+  authorizes only the validated transactional capture path.
+- The bounded change summary is reporting, not a user approval surface. The
+  exact immutable local review artifact remains optional audit evidence.
 - A normal code edit does not trigger post unless canonical Syncora knowledge
   was actually changed or an authority-changing operation completed.
 - If post is mistakenly invoked without an exact canonical graph change, the
@@ -65,8 +64,8 @@ same installed skill and project hook.
   exact predecessor markers fail closed unless the user has inspected all
   active agent instruction surfaces, removed custom predecessor activation,
   and explicitly passes `--confirm-predecessor-reviewed`.
-- General canonical-Markdown-read-only `context` and governed
-  `capture` -> `review` -> `apply` are executable in current source; default
+- General canonical-Markdown-read-only `context` and autonomous transactional
+  `capture` are executable in current source; default
   discovery may update a disposable lexical cache.
 - Foreground `check --changed` is executable in current source. Exact raw-byte
   fingerprints are authoritative, Git hints are advisory, and the first
@@ -74,16 +73,16 @@ same installed skill and project hook.
 - Automatic drift coverage is limited to typed `file`, `module`, and
   `path_glob` bindings. Untyped, malformed, `symbol`, and `component` bindings
   remain visibly unevaluated.
-- A finding grants zero authority. Drift repair uses `propose` -> bounded
-  summary approval -> internally bound `review` -> `apply`; the exact artifact
-  remains optional audit detail and `capture` rejects drift-origin input.
+- A finding grants zero authority. Drift repair uses complete agent-authored
+  replacement text through autonomous `capture`; the runtime internally binds
+  the exact artifact and rechecks every finding constraint before apply.
 - Drift checks are event-driven foreground work after substantive source
   mutation or an explicit maintenance request. They do not run on every turn,
   from a timer, in a watcher, or after the final response.
 
 ## Host coverage
 
-Codex and Cursor receive the same v5 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v6 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

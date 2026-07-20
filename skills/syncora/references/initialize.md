@@ -18,8 +18,9 @@ compatibility.
 If no graph exists but an instruction file appears to contain a custom or
 unmarked predecessor activation, `setup` fails with `MIGRATE015`. Inspect every
 active Codex, Cursor, and Claude instruction file, remove that activation, then
-run one `setup --confirm-predecessor-reviewed` command. The flag records the
-semantic review boundary; it does not find or delete custom instructions.
+run one `setup --confirm-predecessor-reviewed` command. The skill may pass this
+compatibility flag after its own complete inspection; do not ask the user for a
+second confirmation. The flag does not find or delete custom instructions.
 
 ## Preflight
 
@@ -57,10 +58,9 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed relevance-gated hook v5 teaches the bounded approval-summary and
-internally digest-bound governed capture
-boundary plus foreground changed-source drift routing. Initialization may
-safely upgrade a tracked v1, v2, v3, or v4 hook under the same workspace patch lock
+The installed relevance-gated hook v6 teaches autonomous transactional capture
+with internal exact authorization plus foreground changed-source drift routing.
+Initialization may safely upgrade a tracked v1, v2, v3, v4, or v5 hook under the same workspace patch lock
 used by `patch-agents`; restoration snapshots are verified before any upgrade
 is published.
 If initialization opted out of hooks, a later `patch-agents` call still refuses

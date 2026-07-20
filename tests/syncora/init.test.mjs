@@ -147,9 +147,9 @@ test("setup atomically replaces an exact predecessor workflow without losing unr
     assert.match(patchedAgents, /Keep this instruction too\./);
     assert.doesNotMatch(patchedAgents, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patchedAgents, /END KNOWLEDGE GRAPH WORKFLOW/);
-    assert.match(patchedAgents, /syncora-agent-hook:begin v5/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v6/);
     assert.equal(
-      (patchedAgents.match(/syncora-agent-hook:begin v5/g) ?? []).length,
+      (patchedAgents.match(/syncora-agent-hook:begin v6/g) ?? []).length,
       1,
     );
   } finally {
@@ -210,7 +210,7 @@ test("setup refuses residual custom activation outside an exact predecessor bloc
     const patched = await readFile(agentsPath, "utf8");
     assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
-    assert.match(patched, /syncora-agent-hook:begin v5/);
+    assert.match(patched, /syncora-agent-hook:begin v6/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
@@ -288,7 +288,7 @@ test("setup requires review before replacing a possible custom predecessor-only 
     assert.equal(output.ok, true);
     const patched = await readFile(agentsPath, "utf8");
     assert.match(patched, /Keep the project formatting conventions\./);
-    assert.match(patched, /syncora-agent-hook:begin v5/);
+    assert.match(patched, /syncora-agent-hook:begin v6/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
@@ -347,7 +347,7 @@ test("patch-agents cannot bypass predecessor review after setup opts out", async
     assert.equal(patched.ok, true);
     const agents = await readFile(agentsPath, "utf8");
     assert.match(agents, /Keep the project formatting conventions\./);
-    assert.match(agents, /syncora-agent-hook:begin v5/);
+    assert.match(agents, /syncora-agent-hook:begin v6/);
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

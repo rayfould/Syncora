@@ -1,29 +1,27 @@
-# Governed capture contract
+# Autonomous transactional capture contract
 
 Status: Implemented in the unpublished `0.1.0-preview.2` release candidate.
 
-Syncora agents may interpret project work and prepare a proposed knowledge
-change. Only the deterministic local runtime may validate and publish that
-change to canonical Markdown.
+Syncora agents may interpret relevant project work and prepare a proposed
+knowledge change. Only the deterministic local runtime may validate, authorize,
+and publish that change to canonical Markdown.
 
-## User flow
+## Normal flow
 
-The normal flow has one review boundary:
+The normal flow has no save-confirmation boundary:
 
 1. The agent prepares a bounded JSON draft and runs `syncora capture`.
-2. Syncora returns an immutable proposal ID and digest plus a local immutable
-   review artifact and a bounded semantic `approvalSummary`. Canonical Markdown
-   is still byte-identical.
-3. The agent presents the summary: purpose, change counts, operation kinds,
-   authority impact, affected areas, at most eight representative paths,
-   omission counts, and warnings. A large proposal never becomes a large
-   user-facing diff. The full artifact is optional audit detail.
-4. After the user answers Yes, Approved, or No, the agent binds that decision
-   to the exact proposal and artifact digests internally. An approval may then
-   proceed to `syncora apply`.
+2. Syncora validates and seals an immutable proposal and exact local review
+   artifact without changing canonical Markdown.
+3. The runtime records an automatic internal authorization bound to the exact
+   proposal and artifact digests.
+4. The runtime applies the change transactionally, revalidates concurrency and
+   policy, and publishes an immutable receipt.
+5. The agent may mention a short saved summary when useful, but never asks the
+   user whether Syncora should save routine project memory.
 
-The commands are internal skill machinery. A user should normally be asked to
-approve one proposal, not to operate a multi-stage transaction manually.
+The commands are internal skill machinery. A user should not operate a
+multi-stage transaction or answer a memory-save prompt.
 
 ```text
 syncora capture --workspace ABS --input ABS_JSON [--dry-run]
@@ -34,24 +32,23 @@ syncora review --workspace ABS --proposal ID --proposal-digest SHA256 \
 syncora apply --workspace ABS --proposal ID [--dry-run]
 ```
 
-`capture` is the approachable proposal-creation command. `propose` exposes the
-same sealing path plus expert inspection. Neither command may write canonical
-Markdown. `review` creates a separate immutable disposition. `apply` is the
-only ordinary capture command allowed to publish canonical note bytes.
+`capture` is the normal autonomous command and completes sealing, internal
+authorization, and transactional apply. `propose`, `review`, and `apply` expose
+the same boundaries separately for expert inspection, testing, and recovery.
 
 ## Trust boundary
 
 - Proposal input, Markdown, links, evidence, and model output are untrusted
   data.
-- A checkpoint, capture intent, note field, or sentence inside a proposal
-  cannot authorize a write.
+- A checkpoint, note field, or sentence inside a proposal cannot authorize a
+  write. Initialized relevant work grants the runtime authority to capture
+  project memory under this policy.
 - The runtime recomputes authority impact from the complete before/after graph.
-- Automatic canonical apply is disabled. The runtime still requires and
-  verifies the exact immutable local review artifact and binds the recorded
-  decision to its proposal digest, but users authorize the bounded summary and
-  never need to see or copy hashes.
-- Reviewer identity is attribution, not authentication. A local skill cannot
-  prove which human typed an approval.
+- Routine canonical apply is automatic after all deterministic checks pass. The
+  runtime still requires the exact immutable local review artifact and binds an
+  internal authorization record to its proposal digest.
+- The automatic reviewer identity is machine attribution, not human
+  authentication.
 
 ## Proposal package
 
@@ -90,7 +87,7 @@ Ordinary proposals are bounded to 64 semantic operations, 256 file changes,
 proposal, 64 MiB of verified local source bytes, the canonical 256 KiB note
 limit, and 16 MiB of sealed content. Every local `file`, `note`, or
 `drift-finding` provenance reference carries an exact source hash. Successful
-JSON output contains the bounded approval summary and internal hashes, never
+JSON output contains the bounded change summary and internal hashes, never
 complete note bodies. Default text output omits hashes and full changed-path
 lists. The separately bounded local review artifact carries the exact
 before/after text and is capped at 8 MiB.
@@ -99,9 +96,8 @@ before/after text and is capped at 8 MiB.
 
 A changed-source finding has zero authority and contains no replacement truth.
 When source review proves the affected note needs repair, the agent must author
-complete resulting note text and use `propose --input` with `origin: "drift"`.
-`capture` intentionally rejects drift-origin input so the approachable capture
-surface cannot blur the evidence-specific contract.
+complete resulting note text and use `capture --input` with `origin: "drift"`.
+The same autonomous transaction enforces the evidence-specific contract.
 
 Each drift-origin operation must:
 

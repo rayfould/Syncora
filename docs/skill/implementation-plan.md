@@ -62,7 +62,7 @@ Deliverables:
   profiles;
 - foreground pre/post checkpoint orchestration with event triggers and bounded
   cadence backstops;
-- safe older-marker to marker-v5 activation-policy migration;
+- safe older-marker to marker-v6 activation-policy migration;
 - external graph-root allowlisting.
 
 Exit gate:
@@ -255,8 +255,8 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v5 is implemented in the
-unpublished `0.1.0-preview.2` release candidate
+Status: Core included in `0.1.0-preview.1`; hook v6 is implemented in current
+development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
       routing labels with positive dependency and durability tests.
@@ -267,10 +267,10 @@ unpublished `0.1.0-preview.2` release candidate
 - [x] Separate pre-work mode from the fail-closed post-work change disposition.
 - [x] Replace the broad v1 agent hook with a concise relevance-gated hook; v4
       adds foreground drift routing to the established governed-capture and
-      relevance policy, and v5 makes bounded summaries the human approval
-      surface while retaining internal digest binding.
+      relevance policy, v5 introduced bounded human summaries, and v6 makes
+      routine capture autonomous while retaining internal digest binding.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v5.
+      changing-target upgrades from older markers to hook v6.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint
@@ -324,7 +324,7 @@ The migration shadow compiler remains an adoption-specific gate for exact
 required, evidence, and forbidden identities. It is deliberately separate from
 the general canonical-Markdown-read-only task-context command.
 
-### Milestone 4: Governed write path
+### Milestone 4: Transactional write path
 
 Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
@@ -332,13 +332,13 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 - [x] Implement immutable content-derived proposals, idempotency bindings, and
       optimistic graph, source, and target concurrency.
 - [x] Publish an immutable exact before/after review artifact and require its
-      proposal binding to verify before approval.
-- [x] Derive a deterministic bounded approval summary with capped path and area
+      proposal binding to verify before authorization.
+- [x] Derive a deterministic bounded change summary with capped path and area
       examples; keep the exact artifact optional for user audit.
 - [x] Implement projected-graph validation, duplicate signals, and
       kernel-derived authority impact.
-- [x] Implement explicit approval or rejection bound to the exact proposal
-      digest; no proposal class auto-applies.
+- [x] Implement automatic internal authorization bound to the exact proposal
+      digest for routine capture; retain explicit review for expert recovery.
 - [x] Implement content-addressed file transactions, immutable receipts,
       foreground process-interruption resume, exact pre-commit rollback,
       irreversible receipt-bound commit, and recovery-required outcomes.
@@ -348,15 +348,14 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
       fixtures.
 - [x] Introduce generated agent hook v3 so installed workspaces route durable
       changes through exact review and transactional apply; Milestone 5
-      subsequently upgraded it to v4 for foreground drift routing and v5 for
-      human-summary approval with internal digest binding.
+      subsequently upgraded it to v4 for foreground drift routing, v5 for
+      human summaries, and v6 for autonomous capture with internal binding.
 
 Legacy cutover now has a dedicated exact-byte recovery transaction. General
-capture uses a separate graph-scoped transaction: `capture` and `propose` leave
-canonical Markdown unchanged, the human reviews the bounded semantic summary
-while the exact local artifact remains optional audit detail, `review` records
-the exact internally bound disposition, and only
-approved `apply` may publish canonical note bytes. Publication reaches
+capture uses a separate graph-scoped transaction: normal `capture` seals the
+proposal, records the exact internal authorization, and applies it without a
+save prompt. `propose`, `review`, and `apply` retain those stages separately for
+expert inspection and recovery. Publication reaches
 `awaiting-finalization`; irreversible commit binds the receipt in
 `finalized-pending-receipt`; receipt publication precedes `finalized` marker
 release. Recovery runs only when a later foreground request reruns `apply`.
@@ -379,7 +378,7 @@ release candidate; integration and stable-release evidence remain in progress
       graph-local state.
 - [x] Route every actual drift repair through complete agent-authored resulting
       text, exact active-finding and note provenance, complete live binding
-      rechecks, bounded summary approval, internally bound exact review, and
+      rechecks, automatic internally bound authorization, and
       transactional apply.
 - [x] Normalize shared observation catalogs, preserve one cumulative active
       finding per note, surface degraded source coverage, and provide an
@@ -456,23 +455,22 @@ migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
 ```
 
 Normal greenfield or exact predecessor-marker-only setup is one `setup`
-command. Normal existing-graph adoption is one user-level operation after
-semantic review: preview `adopt`, present and approve its bounded summary once,
-then rerun the same reviewed-pack invocation with the internally retained
+command. Normal existing-graph adoption is one user-level operation: internally
+preview `adopt`, then immediately rerun the same reviewed-pack invocation with the retained
 digest. It seals the inputs and applies the full lifecycle. The standalone
 bundle and advanced phase
 surfaces remain executable for compatibility, diagnostics, and exact recovery.
 
 Current source provides general canonical-Markdown-read-only context
-compilation and an explicit governed capture surface. Default discovery may
+compilation and an autonomous transactional capture surface. Default discovery may
 update a disposable lexical cache. A context pack never authorizes a write;
-`capture` and `propose` only create derived proposal state, and `apply` requires
-an exact internally digest-bound review following summary approval. Current
+`capture` completes the internally authorized transaction; `propose`, `review`,
+and `apply` expose its stages for expert inspection and recovery. Current
 source also provides foreground changed-source detection for exact `file`,
 `module`, and `path_glob` bindings.
 Its first observation is only a baseline, Git is advisory, findings grant zero
-authority, and repairs use `propose` -> bounded summary approval -> internally
-digest-bound `review` -> `apply`. Background monitoring and automatic
+authority, and repairs use autonomous `capture` with exact evidence binding and
+transactional apply. Background monitoring and automatic
 symbol/component coverage must not be presented as runtime behavior.
 
 ## 6. Predecessor component disposition

@@ -142,7 +142,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(policy, /explicit user request to skip Syncora selects `none`/i);
   assert.match(policy, /pre-work mode/);
   assert.match(policy, /independent post-work change disposition/);
-  assert.match(policy, /selecting `capture` never grants/);
+  assert.match(policy, /relevant foreground task grants Syncora authority\s+to save its own durable memory/);
   assert.match(policy, /Project-local code-only tasks/);
   assert.match(policy, /Reuse the existing checkpoint ID/);
   assert.match(checkpoint, /50 completed pre-work activations/);
@@ -156,14 +156,13 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v5/);
+  assert.match(hook, /syncora-agent-hook:begin v6/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
-  assert.match(hook, /bounded plain-language approval summary/);
-  assert.match(hook, /Keep exact proposal and artifact digests internal/);
-  assert.match(hook, /Yes,\s+Approved, or No/);
-  assert.match(hook, /full local\s+review artifact only when the user asks for details/);
+  assert.match(hook, /validates, internally authorizes, and\s+applies the exact transaction automatically/);
+  assert.match(hook, /Never ask whether to save Syncora\s+memory/);
+  assert.match(hook, /never expose its\s+proposal or artifact digests/);
   assert.match(hook, /check --changed/);
   assert.match(hook, /Do not run drift checks for `none` routes, on every turn, or as\s+background work/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);
@@ -212,11 +211,12 @@ test("legacy adoption documentation and release gates stay bundled", async () =>
   assert.match(skill, /explicit setup request authorizes one normal `setup`/);
   assert.match(normalizedSkill, /Run `adopt --dry-run`/);
   assert.match(normalizedSkill, /`--expected-bundle-digest`/);
-  assert.match(normalizedSkill, /Keep the returned digest internal/);
-  assert.match(adoption, /bounded `approvalSummary`/);
-  assert.match(adoption, /Never dump the complete\s+manifest or ask the user to copy the digest/);
-  assert.match(adoption, /one approval request/i);
-  assert.match(adoption, /internal phases/);
+  assert.match(normalizedSkill, /keep the returned digest internal/);
+  assert.match(normalizedSkill, /Never ask whether to save Syncora memory/);
+  assert.match(adoption, /non-mutating internal preview/);
+  assert.match(adoption, /Do not turn that preview into a\s+second approval request/);
+  assert.match(adoption, /immediately bind the\s+final `adopt` invocation/);
+  assert.match(adoption, /internal\s+phases/);
   assert.doesNotMatch(adoption, /approval before each non-dry-run/i);
 
   const packageJson = JSON.parse(

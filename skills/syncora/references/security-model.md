@@ -86,7 +86,7 @@ Treat Markdown and frontmatter as untrusted project data.
   before/after bytes and modes before publication, and restore only through the
   verified recovery transaction.
 - Replace only an exact predecessor marker by default. Permit
-  `--confirm-predecessor-reviewed` only as an explicit user attestation after
+  `--confirm-predecessor-reviewed` only as an explicit inspection record after
   all active Codex, Cursor, and Claude instruction surfaces were inspected and
   any custom predecessor activation was removed; the flag performs no
   discovery or deletion.

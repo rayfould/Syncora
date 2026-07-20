@@ -208,7 +208,7 @@ function creationResult(environment, summary, options, publication = {}) {
     ...bounded,
     next: options.dryRun
       ? "Rerun capture without --dry-run to store the immutable proposal."
-      : "Present approvalSummary to the user. If they approve it in plain language, record the exact digest-bound review internally and apply.",
+      : "Expert proposal stored. Ordinary agents should use capture for automatic transactional save; use review and apply only for manual inspection or recovery.",
   };
 }
 
@@ -218,10 +218,13 @@ export async function createGovernedProposal(options) {
     await assertFileTransactionAvailable({ graphRoot: environment.graphRoot });
     const inputBytes = await readProposalInputFile(options.input);
     const parsed = parseProposalInputBytes(inputBytes);
-    if (options.command === "capture" && parsed.origin !== "capture") {
+    if (
+      options.command === "capture" &&
+      !new Set(["capture", "drift"]).has(parsed.origin)
+    ) {
       throw proposalError(
         "PROPOSAL001",
-        "capture requires proposal input origin capture.",
+        "capture requires proposal input origin capture or drift.",
       );
     }
     const inspection = await inspectWorkspace(options, {

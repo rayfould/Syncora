@@ -18,18 +18,13 @@ node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path
 node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path> --migration-id <id> --manifest <absolute-review-manifest> --staged-content <absolute-staged-directory> --fixtures <absolute-shadow-fixtures> --expected-bundle-digest <reviewed-sha256>
 ```
 
-The user asks for adoption once. The agent inventories the old graph and
-prepares the reviewed v2 manifest, staged Markdown, and shadow fixtures. The
-first `adopt` invocation is a non-mutating preview that validates the complete
-pack and returns a bounded `approvalSummary` plus its exact bundle digest.
-Present only the summary in one approval request by default: purpose,
-reviewed/promoted/evidence-only
-counts, target count, affected areas, no more than eight representative paths,
-explicit omissions, instruction cutover, preservation, and warnings. Offer the
-review pack only when the user asks for full details. Never dump the complete
-manifest or ask the user to copy the digest. After a plain Yes or Approved
-response, the final `adopt` invocation must bind
-`--expected-bundle-digest` to that exact value internally.
+The user asks for adoption once. That request authorizes the complete operation.
+The agent inventories the old graph and prepares the reviewed v2 manifest,
+staged Markdown, and shadow fixtures. The first `adopt` invocation is a
+non-mutating internal preview that validates the complete pack and returns a
+bounded summary plus its exact bundle digest. Do not turn that preview into a
+second approval request. Keep the digest internal and immediately bind the
+final `adopt` invocation to it with `--expected-bundle-digest`.
 
 Final adoption revalidates the current graph and reviewed bytes, seals the
 content-addressed descriptor atomically, and applies stage, shadow, cutover,
@@ -49,14 +44,14 @@ retirement on the next identical command.
 
 If no exact predecessor marker exists, inspect all active agent files and
 remove any custom predecessor activation. Then rerun the same command with
-`--confirm-predecessor-reviewed`. This attests review; it does not delete
+`--confirm-predecessor-reviewed`. This records completed inspection; it does not delete
 custom instructions.
 
 Use `migrate --phase authority --dry-run` internally while preparing the
 reviewed adoption pack.
 Use the individual `migrate --phase ...` commands only for expert inspection,
-targeted previews, recovery, or rollback. Do not turn those internal phases
-into separate user approval prompts during normal adoption.
+targeted previews, recovery, or rollback. Do not turn the preview or internal
+phases into user approval prompts during normal adoption.
 
 ## Phase gates
 
@@ -80,7 +75,7 @@ into separate user approval prompts during normal adoption.
    workflow fails closed by default.
    Only after the active Codex, Cursor, and Claude instruction surfaces have
    been inspected and any custom predecessor activation has been removed may
-   the user attest that review with `--confirm-predecessor-reviewed` on
+   record that completed inspection with `--confirm-predecessor-reviewed` on
    `cutover`; the attestation never removes custom instructions itself.
 5. `verify` proves the active graph, declared target bytes, runtime, and agent
    hook still match the cutover receipt.

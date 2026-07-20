@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. It loads bounded task-specific context, records reviewed knowledge, and detects potentially stale notes. Stay inactive for self-contained requests.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. It loads bounded task-specific context, saves durable knowledge automatically, and detects potentially stale notes. Stay inactive for self-contained requests.
 ---
 
 # Syncora
@@ -44,11 +44,11 @@ Converting an older Markdown knowledge graph is an advanced, explicit workflow:
 Adopt this existing knowledge graph into Syncora.
 ```
 
-One adoption request owns the complete conversion: inventory the old graph,
-prepare and preview the reviewed replacement, ask one plain-language approval
-from a bounded summary,
-then migrate, verify, switch agent instructions, and retire the predecessor
-workflow. Adoption preserves the source notes and keeps rollback evidence.
+One adoption request authorizes the complete conversion: inventory the old
+graph, validate the replacement internally, migrate, verify, switch agent
+instructions, and retire the predecessor workflow. Adoption preserves the
+source notes and keeps rollback evidence. Do not interrupt the user with a
+second save or approval prompt.
 Ordinary README and documentation files are not, by themselves, a reason to
 use it.
 
@@ -61,11 +61,11 @@ use it.
   truth.
 - Compiles bounded task-specific context with mandatory, working, and evidence
   lanes plus a source map.
-- Captures durable knowledge through immutable proposals, bounded approval
-  summaries, optional exact local audit artifacts, and
-  process-interruption-recoverable transactional apply.
-- Detects potentially stale notes after bound project sources change, while
-  keeping every repair behind the same exact proposal and review boundary.
+- Saves durable knowledge automatically through validated immutable proposals,
+  exact local audit artifacts, and process-interruption-recoverable
+  transactional apply.
+- Detects potentially stale notes after bound project sources change, then
+  saves warranted repairs through the same autonomous transaction boundary.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
 - Runs only during an active agent request; it has no background worker.
 
@@ -104,14 +104,14 @@ external-root allowlist.
   uninstall Syncora, and never imply that uninstalling deletes project memory.
 - **Existing knowledge:** use adoption only when the user explicitly wants to
   convert a pre-Syncora Markdown graph or predecessor workflow. Treat that one
-  request as authorization to inventory and prepare the reviewed conversion;
-  pause once with a bounded plain-language summary before canonical cutover.
-  Keep the exact reviewed digest internal.
+  request as authorization for the full reviewed conversion. Validate its
+  bounded preview internally, keep the exact digest internal, and continue
+  through cutover without a second confirmation.
 
 Treat these as conversational intents. The bundled CLI is internal machinery,
-not the public workflow. Ask for another confirmation only when the agent's
-host requires permission or a repair would make an ambiguous or destructive
-change.
+not the public workflow. Never ask whether to save Syncora memory. Ask only
+when the underlying project fact or requested action is genuinely ambiguous,
+or when the agent host itself requires permission.
 
 ### Route before loading context
 
@@ -138,18 +138,18 @@ change.
    typed targets. It may update a disposable lexical cache unless `--no-cache`
    is used. Consume only its bounded pack; never recursively load `local/`.
 6. When durable knowledge should change, read
-   [capture.md](references/capture.md). Prepare one immutable proposal and show
-   the user only its bounded `approvalSummary` by default: purpose, counts,
-   authority impact, affected areas, representative paths, omissions, and
-   warnings. Never dump a large diff or ask the user to copy a digest. Offer the
-   exact local review artifact only when they ask for details. After the user
-   answers Yes, Approved, or No, bind that decision to the exact proposal and
-   artifact digests internally. Run transactional `apply` only after approval.
+   [capture.md](references/capture.md), prepare one bounded proposal input, and
+   run non-dry `capture`. It validates, records its exact internal authorization,
+   and applies transactionally in one operation. Do not present a proposal,
+   diff, hash, or save question. Mention the saved result briefly only when it
+   helps the user understand the completed work.
 7. After substantive project-source mutation, or for an explicit drift request,
    read [drift.md](references/drift.md) and run the foreground `check --changed`
    command before deciding whether knowledge capture is warranted. A finding
-   proves potential staleness only. Do not run it for `none` routes, every turn,
-   on a timer, in the background, or after the final response.
+   proves potential staleness only. If repair is warranted, use autonomous
+   `capture` with `origin: "drift"`; ask about project truth only when it is
+   genuinely unclear. Do not run it for `none` routes, every turn, on a timer,
+   in a separate background process, or after the final response.
 8. Load only the other reference needed for the task. Never recursively load
    `local/`.
 9. Run the paired post-work checkpoint only after canonical knowledge or
@@ -158,10 +158,11 @@ change.
    final response.
 
 The `context` checkpoint profile records routing intent; the separate
-`context` command performs compilation. Capture intent alone never authorizes a
-write: `capture` and `propose` leave canonical Markdown unchanged, and `apply`
-requires an explicit review bound to the exact proposal digest. Do not replace
-either workflow with direct note writes, recursive graph loading,
+`context` command performs compilation. In an initialized project, a relevant
+foreground task authorizes Syncora to save its own durable memory
+automatically. `capture` is the ordinary transactional write path; `propose`,
+`review`, and `apply` remain expert inspection and recovery surfaces. Do not
+replace capture with direct note writes, recursive graph loading,
 unconditional `doctor`, or unconditional full-graph validation.
 
 ### Use the smallest internal command surface
@@ -169,10 +170,9 @@ unconditional `doctor`, or unconditional full-graph validation.
 - For existing knowledge, read
   [legacy-adoption.md](references/legacy-adoption.md), inventory the complete
   old graph, and prepare the reviewed manifest, staged Markdown, and shadow
-  fixtures. Run `adopt --dry-run` with those inputs, present its bounded
-  `approvalSummary`, and ask once whether to proceed. Keep the returned digest
-  internal; after approval rerun the same `adopt` input with that value as
-  `--expected-bundle-digest`. The final command seals the pack, stages it,
+  fixtures. Run `adopt --dry-run` with those inputs as an internal validation,
+  keep the returned digest internal, then immediately rerun the same `adopt`
+  input with that value as `--expected-bundle-digest`. The final command seals the pack, stages it,
   shadow-tests it, cuts over, verifies it, retires the predecessor workflow,
   and retains rollback evidence. Do not expose `bundle` or internal phases
   unless a gate fails or the user requests diagnostics.
@@ -181,16 +181,14 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Use `search --query <text>` and `backlinks --note <path-or-alias>` only for
   bounded discovery. Neither ranking nor link count grants authority.
 - Use `check --changed` after substantive source mutation. Inspect immutable
-  finding evidence; route a real repair through `propose`, a bounded approval
-  summary, internally digest-bound `review`, and `apply`, or record an exact-digest still-current
-  acknowledgment for a harmless change. Never let a finding rewrite Markdown.
-- Use `capture` for normal proposal preparation, `propose --proposal` for
-  bounded inspection and optional review-artifact discovery, `review` to bind
-  the user's plain-language approval or rejection to the exact sealed proposal
-  internally, and `apply` only after approval. Treat rejection and stale
-  baselines as terminal; create a corrected
-  proposal instead of forcing or rebasing. Resume interrupted transactions only
-  in a later foreground request; no recovery runs in the background.
+  finding evidence; save a real repair through autonomous `capture`, or record
+  an exact-digest still-current acknowledgment for a harmless change. Never let
+  a finding invent replacement knowledge.
+- Use `capture` for normal autonomous saves. Use `propose`, `review`, and
+  `apply` only for expert inspection, manual dispositions, and recovery. A
+  stale baseline or semantic conflict must produce a corrected proposal rather
+  than a force or rebase. Resume interrupted transactions only in a later
+  foreground request; no recovery runs after the response.
 - Keep `bundle`, `migrate --phase authority --dry-run`, and the individual
   migration phases as expert compatibility, inspection, recovery, and rollback
   tools.

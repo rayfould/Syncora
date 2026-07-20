@@ -38,6 +38,7 @@ const requiredPaths = [
   "skills/syncora/references/legacy-adoption.md",
   "skills/syncora/scripts/lib/adoption-bundle.mjs",
   "skills/syncora/scripts/lib/adopt.mjs",
+  "skills/syncora/scripts/lib/autonomous-capture.mjs",
   "skills/syncora/scripts/lib/file-transaction.mjs",
   "skills/syncora/scripts/lib/drift-check.mjs",
   "skills/syncora/scripts/lib/drift-governance.mjs",
@@ -280,23 +281,23 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v5",
-  "governed capture",
-  "bounded plain-language approval summary",
-  "digests internal",
-  "apply it transactionally",
+  "syncora-agent-hook:begin v6",
+  "internally authorizes",
+  "applies the exact transaction automatically",
+  "Never ask whether to save Syncora",
+  "autonomous `capture`",
   "check --changed",
   "do not run drift checks",
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v5 approval-summary, governed-capture, and drift guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v6 autonomous-capture and drift guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v5")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v6")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v5 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v6 hook",
   );
 }
 
@@ -305,17 +306,18 @@ const agentPatchingReference = await readFile(
   "utf8",
 );
 for (const [description, pattern] of [
-  ["current hook v5 declaration", /Hook v5 is current\./u],
+  ["current hook v6 declaration", /Hook v6 is current\./u],
+  ["autonomous capture declaration", /makes capture\s+autonomous/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v4 snapshot preservation",
-    /exact tracked v1, v2, v3, or v4 hook retains its original pre-Syncora restoration\s+snapshot/u,
+    "exact tracked v1-v5 snapshot preservation",
+    /exact tracked v1, v2, v3, v4, or v5 hook retains its original pre-Syncora restoration\s+snapshot/u,
   ],
   [
-    "diverged or untracked v1-v4 baseline refresh",
-    /diverged or untracked v1,\s+v2, v3, or v4 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
+    "diverged or untracked v1-v5 baseline refresh",
+    /diverged or untracked v1,\s+v2, v3, v4, or v5 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
   ],
-  ["future hook fail-closed behavior", /hook newer than v5 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /hook newer than v6 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -345,9 +347,9 @@ const implementationPlan = await readFile(
   path.join(repositoryRoot, "docs", "skill", "implementation-plan.md"),
   "utf8",
 );
-if (!/v5 for\s+human-summary approval/u.test(implementationPlan)) {
+if (!/v6 makes\s+routine capture autonomous/u.test(implementationPlan)) {
   errors.push(
-    "docs/skill/implementation-plan.md: hook history must identify v5 as the current approval-summary upgrade",
+    "docs/skill/implementation-plan.md: hook history must identify v6 as the current autonomous-capture upgrade",
   );
 }
 
@@ -364,8 +366,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v5/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v5`);
+  if (!/hook v6/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v6`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,
@@ -376,7 +378,7 @@ for (const [displayPath, source] of [
     /automatic drift detection remains unavailable/iu,
   ]) {
     if (stalePattern.test(source)) {
-      errors.push(`${displayPath}: contains stale pre-v5 operational hook guidance`);
+      errors.push(`${displayPath}: contains stale pre-v6 operational hook guidance`);
     }
   }
 }
@@ -400,7 +402,7 @@ for (const requiredText of [
   "npx skills add",
   "Set up Syncora in this project.",
   "context compilation",
-  "governed capture",
+  "autonomous transactional capture",
   "drift detection",
 ]) {
   if (!readme.toLowerCase().includes(requiredText.toLowerCase())) {

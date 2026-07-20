@@ -38,8 +38,9 @@
 - [ ] Cutover and retirement retain legacy source notes, and recovery evidence
       restores exact pre-cutover graph, runtime, and agent bytes.
 - [ ] Capture documentation, skill routing, runtime help, and release status
-      agree on `capture` -> bounded summary approval -> internally digest-bound
-      `review` -> `apply`; the full artifact remains optional audit detail.
+      agree that normal `capture` validates, authorizes internally, applies
+      transactionally, and never asks whether to save; the full artifact remains
+      optional audit detail.
 - [ ] Proposal fixtures enforce mandatory prior-state bindings, exact hashes for
       local file/note sources, 256 source references per operation, 512 per
       proposal, and 64 MiB of verified local source bytes.
@@ -71,8 +72,8 @@
       or diff hunk in CLI output, and cannot change canonical Markdown.
 - [ ] Drift repairs require a matching active finding, complete resulting note
       text, a matching canonical note snapshot, complete live binding
-      fingerprints, bounded summary approval, internal digest binding, and
-      transactional apply; `capture` rejects drift-origin input.
+      fingerprints, internal digest binding, and transactional apply through
+      autonomous `capture`.
 - [ ] Exact-digest still-current acknowledgment, exact source reversion,
       cumulative finding supersession, explicit reasoned policy rebaseline of
       incompatible retained state, and a matching applied proposal are the only

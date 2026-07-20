@@ -6,19 +6,18 @@ All notable changes to Syncora are documented here.
 
 #### Changed
 
-- Existing-graph adoption is now one user-level operation: reviewed semantic
-  inputs are previewed by `adopt --dry-run`, one plain-language authorization
-  is bound internally to the exact digest, and the final `adopt` invocation seals, stages, shadows,
-  cuts over, verifies, and retires the predecessor workflow. Standalone
-  `bundle` and `adopt --bundle` remain supported for compatibility and recovery.
-- Governed capture and adoption now return deterministic bounded approval
-  summaries. Default text and agent prompts show purpose, counts, authority
-  impact, affected areas, no more than eight representative paths, omissions,
-  and warnings instead of hashes or unbounded diffs. Full immutable artifacts
-  remain optional audit detail; JSON retains exact bindings for internal use.
-- Upgraded the generated project instruction hook to v5 so Yes, Approved, or No
-  is the public decision surface while proposal and artifact digests remain
-  internal.
+- Routine knowledge capture and drift repair now validate, authorize internally,
+  and apply transactionally without asking the user whether to save. Exact
+  artifacts, receipts, recovery, and rollback evidence remain available.
+- Existing-graph adoption now treats the original adoption request as authority
+  for the complete lifecycle; its dry-run summary and digest binding are
+  internal checks rather than another user confirmation.
+- Upgraded the generated project instruction hook to v6 so Codex, Cursor, and
+  Claude save relevant durable project memory autonomously.
+- Default text reports only bounded change summaries: purpose, counts,
+  authority impact, affected areas, representative paths, omissions, and
+  warnings. Full immutable artifacts and exact bindings remain internal audit
+  and recovery evidence.
 
 ## [0.1.0-preview.2] - 2026-07-18
 

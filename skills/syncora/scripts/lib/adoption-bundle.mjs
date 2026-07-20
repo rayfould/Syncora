@@ -4,7 +4,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 
 import { loadAndValidateAuthorityManifest } from "./authority-manifest.mjs";
 import { verifyAuthoritySnapshot } from "./authority-inventory.mjs";
-import { adoptionApprovalSummary } from "./approval-summary.mjs";
+import { adoptionPreviewSummary } from "./approval-summary.mjs";
 import { SyncoraError } from "./cli.mjs";
 import {
   CONTEXT_COMPILER_POLICY,
@@ -914,7 +914,7 @@ export async function buildAdoptionBundle(options, hooks = {}) {
       sha256: descriptor.fixtures.sha256,
       caseCount: fixtures.cases.length,
     }),
-    approvalSummary: adoptionApprovalSummary(validatedManifest.manifest, {
+    previewSummary: adoptionPreviewSummary(validatedManifest.manifest, {
       fixtureCount: fixtures.cases.length,
       reviewPackPath: root,
       sourceInventory: validatedManifest.snapshot.queue,

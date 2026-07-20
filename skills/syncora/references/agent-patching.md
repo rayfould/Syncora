@@ -48,31 +48,30 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v5 is current. It keeps relevance-gated activation and the governed capture
-boundary: prepare an immutable proposal, present its bounded semantic summary,
-keep proposal and artifact digests internal, then publish only through
-transactional `apply` after a plain-language approval. The exact local artifact
-remains optional audit detail. It also routes substantive source
+Hook v6 is current. It keeps relevance-gated activation and makes capture
+autonomous: prepare the bounded input, validate and internally authorize it,
+then publish transactionally without a save prompt. Exact proposal, artifact,
+authorization, and receipt details remain internal audit evidence. It also routes substantive source
 mutation to the foreground `check --changed` operation while explicitly
 forbidding checks on every turn, background work, and after-final work.
 
-An exact tracked v1, v2, v3, or v4 hook retains its original pre-Syncora restoration
-snapshot while its owned marker is upgraded to v5. A diverged or untracked v1,
-v2, v3, or v4 hook instead refreshes the restoration baseline from current
+An exact tracked v1, v2, v3, v4, or v5 hook retains its original pre-Syncora restoration
+snapshot while its owned marker is upgraded to v6. A diverged or untracked v1,
+v2, v3, v4, or v5 hook instead refreshes the restoration baseline from current
 user-owned bytes with only the old marker removed, so a later unpatch cannot
-erase intervening edits. A hook newer than v5 fails closed before target writes.
+erase intervening edits. A hook newer than v6 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
 `patch-agents` adds or upgrades Syncora-owned markers; it is not authority to
-remove an unrelated broad knowledge-graph workflow. Normal existing-graph
-adoption previews a bounded summary with `adopt --dry-run`, requests one
-plain-language approval, then seals and applies those inputs with the internally
-digest-bound final `adopt`. Its internal cutover gate
+remove an unrelated broad knowledge-graph workflow. One explicit existing-graph
+adoption request authorizes its full lifecycle: `adopt --dry-run` validates the
+pack internally, then the digest-bound final `adopt` seals and applies it
+without another approval prompt. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v5, and records a predecessor-free restoration baseline in the
+with hook v6, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 
@@ -85,7 +84,7 @@ gate.
 A custom, unmarked, malformed, or concurrently changed predecessor workflow
 fails the cutover gate by default. Inspect all active Codex, Cursor, and Claude
 instruction surfaces and remove any custom predecessor activation explicitly.
-Only then may the user pass `--confirm-predecessor-reviewed` to attest that no
+Only then may the skill pass `--confirm-predecessor-reviewed` to record that no
 exact marker remains. The flag does not find or delete custom instructions.
 Later `unpatch-agents` cannot reactivate the retired predecessor block.
 

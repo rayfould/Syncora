@@ -193,7 +193,49 @@ function reviewArgs(workspace, proposal, decision) {
   ];
 }
 
-test("capture, inspect, review, and apply preserve the approval boundary and exact bytes", async () => {
+test("capture saves valid project knowledge autonomously and keeps transaction evidence", async () => {
+  const workspace = await initializedWorkspace();
+  const target = join(workspace, "local", ...TARGET_NOTE.split("/"));
+  const durableText = "Authenticated deletion acceptance is fully complete.";
+  try {
+    const before = await readFile(target, "utf8");
+    const after = updatedProjectHub(before, durableText);
+    const input = await writeProposalInput(
+      workspace,
+      "autonomous-capture",
+      proposalInput({
+        idempotencyKey: "autonomous-capture-primary",
+        beforeText: before,
+        afterText: after,
+      }),
+    );
+
+    const captured = runJson([
+      "capture",
+      "--workspace",
+      workspace,
+      "--input",
+      input,
+    ]);
+    assert.equal(captured.output.ok, true);
+    assert.equal(captured.output.autonomous, true);
+    assert.equal(captured.output.proposal.state, "applied");
+    assert.equal(captured.output.proposal.authorizationMode, "automatic");
+    assert.equal(captured.output.review.decision, "approve");
+    assert.equal(captured.output.review.reviewedBy, "syncora:auto-capture");
+    assert.equal(captured.output.summary.changed, 1);
+    assert.equal(captured.output.changeSummary.title, "Syncora knowledge saved");
+    assert.equal(captured.output.changeSummary.canonicalMarkdownChanged, true);
+    assert.equal("approvalSummary" in captured.output, false);
+    assert.equal(await readFile(target, "utf8"), after);
+    assert.doesNotMatch(captured.result.stdout, /Save this knowledge update/u);
+    assert.doesNotMatch(captured.result.stdout, /Yes, Approved, or No/u);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("expert propose, inspect, review, and apply preserve the manual recovery boundary", async () => {
   const workspace = await initializedWorkspace();
   const target = join(workspace, "local", ...TARGET_NOTE.split("/"));
   const secretBody = "GOVERNED-NOTE-BODY-MUST-NOT-LEAK-4f922d";
@@ -211,7 +253,7 @@ test("capture, inspect, review, and apply preserve the approval boundary and exa
     );
 
     const captured = runJson([
-      "capture",
+      "propose",
       "--workspace",
       workspace,
       "--input",
@@ -222,7 +264,7 @@ test("capture, inspect, review, and apply preserve the approval boundary and exa
     assert.equal(captured.output.summary.changes, 1);
     assert.equal(
       captured.output.approvalSummary.title,
-      "Save this knowledge update to Syncora?",
+      "Syncora knowledge update summary",
     );
     assert.equal(captured.output.approvalSummary.changes.total, 1);
     assert.equal(captured.output.approvalSummary.representativePaths.length, 1);
@@ -337,7 +379,7 @@ test("a rejection is terminal and never mutates canonical Markdown", async () =>
       }),
     );
     const captured = runJson([
-      "capture",
+      "propose",
       "--workspace",
       workspace,
       "--input",
@@ -393,7 +435,7 @@ test("approved proposals fail closed when their target and graph revision become
       }),
     );
     const proposal = runJson([
-      "capture",
+      "propose",
       "--workspace",
       workspace,
       "--input",
@@ -605,7 +647,7 @@ test("the governed CLI composes all eight semantic operation kinds into one exac
     });
 
     const proposal = runJson([
-      "capture",
+      "propose",
       "--workspace",
       workspace,
       "--input",
@@ -655,7 +697,7 @@ test("apply resumes a durable prepared journal when a crash preceded its active 
       }),
     );
     const proposal = runJson([
-      "capture",
+      "propose",
       "--workspace",
       workspace,
       "--input",

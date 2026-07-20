@@ -511,14 +511,12 @@ resets a baseline.
 
 The detector cannot author the corrected knowledge. After inspecting the exact
 finding and current source, the agent supplies complete resulting note text to
-`propose --input` with `origin: "drift"`, the exact active `drift-finding`
+`capture --input` with `origin: "drift"`, the exact active `drift-finding`
 artifact, the affected note's prior hash, and complete resulting text. Focused
 file references are optional human evidence, not the completeness boundary.
-`capture` intentionally rejects drift-origin input.
-The user then approves or rejects a bounded semantic repair summary. The agent
-records that decision against the exact sealed proposal internally, and only an
-approved `apply` may publish the repair. The immutable exact before/after
-artifact remains available as optional audit detail.
+The runtime seals the exact repair, records an internal automatic authorization,
+and applies it transactionally without a save prompt. The immutable exact
+before/after artifact remains available as optional audit detail.
 
 An active finding remains until the runtime proves exactly one of:
 
@@ -588,13 +586,13 @@ Syncora uses five semantic profiles:
 | `none` | Do not activate Syncora, inspect its state, or increment its cadence. |
 | `checkpoint` | Run only the cheap foreground pre-work checkpoint for project-local work or uncertain relevance. |
 | `context` | Run the checkpoint, then compile bounded task context. |
-| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; when a durable change is needed, prepare an immutable proposal, obtain plain-language approval from its bounded summary, bind that decision internally, and apply transactionally. Run post only after canonical change. |
+| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; when a durable change is needed, validate, internally authorize, and apply it transactionally without a save prompt. Run post only after canonical change. |
 | `maintenance` | Run the explicitly requested initialization, validation, migration, repair, upgrade, or patch operation. |
 
 The pre-work mode is `none`, `checkpoint`, `context`, or `maintenance`; capture
 intent is independent. Runtime profile `capture` is checkpoint-level pre-work
 plus planned capture intent. A context-bearing task that may also change durable
-knowledge uses pre `context`, then the same governed proposal path, and post
+knowledge uses pre `context`, then the same autonomous transaction path, and post
 only after a successful canonical apply. For compound prompts,
 classify every clause: precedence can select a shared checkpoint gate, but it
 cannot erase a direct maintenance operation or a separate context requirement.
@@ -694,10 +692,10 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v5 keeps relevance-gated activation and the governed capture boundary,
-then adds event-driven foreground drift routing: context and proposal
-preparation do not authorize direct canonical writes, a bounded summary is the
-user approval surface while exact digest binding remains internal, and
+Hook v6 keeps relevance-gated activation and adds autonomous transactional
+capture plus event-driven foreground drift routing: context and proposal
+preparation do not authorize direct canonical writes, exact validation and
+authorization binding remain internal, and
 `check --changed` runs only after substantive
 source mutation, for explicit maintenance, or when relevant observation
 maintenance is due. It never runs on every turn or in the background. An
@@ -707,12 +705,12 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v5 beside a broad
+Legacy adoption does not use ordinary patching to append hook v6 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
-exact marker remains, cutover fails closed unless the user has inspected every
+exact marker remains, cutover fails closed until the skill has inspected every
 active agent instruction surface, removed custom predecessor activation, and
-explicitly attests that review with `--confirm-predecessor-reviewed`. The flag
+records that inspection with `--confirm-predecessor-reviewed`. The flag
 does not discover or delete custom instructions.
 
 Unpatching removes only Syncora-owned marker content. It deletes a
@@ -930,7 +928,7 @@ These controls mitigate prompt injection; they do not claim to eliminate it.
 Migration is note-preserving, foreground-only, and reversible:
 
 1. `authority` inventories exact source bytes without assigning authority;
-2. human review records one disposition per review-required source in an
+2. semantic review records one disposition per review-required source in an
    actionable v2 manifest and supplies exact staged target Markdown;
 3. `stage` revalidates the complete source snapshot, prior targets, target
    schema, relations, provenance, and virtual authority graph;
@@ -943,7 +941,7 @@ Migration is note-preserving, foreground-only, and reversible:
 8. `rollback` restores exact pre-cutover graph, runtime, and agent bytes after
    an interrupted or applied cutover, verification, or retirement.
 
-Inventory and approval are separate. The generated inventory contains exactly
+Inventory and promotion authority are separate. The generated inventory contains exactly
 one metadata-only row per discovered Markdown path, zero proposed targets, and
 zero selection authority. Its pages are ordered only by portable path and bind
 their opaque cursor to the inventory policy, resolved graph identity, graph
@@ -988,9 +986,10 @@ A pre-existing broad agent workflow may require excessive operational-file
 reads. Appending a new hook does not constitute a context-efficiency cutover.
 After stage and shadow pass, cutover replaces the exact predecessor marker and
 retains both pre-cutover agent bytes and a predecessor-free future-unpatch
-baseline. Without an exact marker, default cutover fails closed. A user may
-attest `--confirm-predecessor-reviewed` only after inspecting every active agent
-instruction surface and explicitly removing custom predecessor activation.
+baseline. Without an exact marker, default cutover fails closed. The skill may
+pass `--confirm-predecessor-reviewed` only after inspecting every active agent
+instruction surface and explicitly removing custom predecessor activation; it
+does not ask the user for a second confirmation.
 
 Recursive indexing must exclude agent-created worktrees such as
 `.claude/worktrees/`.
@@ -1038,9 +1037,9 @@ The first stable release must prove:
   before cutover publication;
 - every shadow fixture passes its required, evidence, forbidden, provenance,
   and hard-budget checks before cutover;
-- migration cutover either replaces an exact predecessor marker or requires a
-  user attestation after all active agent instructions were reviewed and custom
-  predecessor activation removed;
+- migration cutover either replaces an exact predecessor marker or requires an
+  internal inspection record after all active agent instructions were reviewed
+  and custom predecessor activation removed;
 - verification and retirement preserve every legacy source live or in exact
   recovery, and rollback after retirement restores pre-cutover graph, runtime,
   and agent bytes;

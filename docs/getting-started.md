@@ -53,10 +53,11 @@ work receives bounded context from current project knowledge. Trivial or
 self-contained requests bypass it. Nothing runs between messages or after the
 agent's response.
 
-When work creates a durable decision or changes a source-bound truth, the agent
-handles the governed capture or drift workflow. You see one exact review
-artifact before any canonical note changes; internal proposal, checkpoint, and
-apply commands are not part of the public workflow.
+When work creates a durable decision or changes a source-bound truth, Syncora
+validates and saves it automatically before the agent finishes. It keeps exact
+review artifacts, receipts, and rollback evidence internally without asking
+whether to save. Internal proposal, checkpoint, and apply commands are expert
+inspection and recovery tools, not part of the public workflow.
 
 ## 4. Update, repair, or remove
 
@@ -81,9 +82,9 @@ memory workflow, do not initialize over it. Say:
 Adopt this existing knowledge graph into Syncora.
 ```
 
-That single request owns the complete reviewed conversion. Syncora inventories
-the old graph, prepares and previews the replacement, pauses once for approval,
-then migrates, verifies, switches agent instructions, and retires the old
+That single request authorizes the complete reviewed conversion. Syncora inventories
+the old graph, validates and seals the replacement internally, then migrates,
+verifies, switches agent instructions, and retires the old
 workflow while preserving source notes and rollback evidence. See
 [Legacy knowledge graph adoption](legacy-kg-adoption.md).
 

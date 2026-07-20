@@ -1,11 +1,10 @@
 # Authority inventory and promotion artifacts
 
 This reference defines the semantic inputs and the expert phase surface. The
-normal path is one user-level adoption operation: preview the complete reviewed
-pack with `adopt --dry-run`, obtain one plain-language approval from its bounded
-summary, then rerun `adopt` with the internally retained
-`--expected-bundle-digest`. Do not expose hashes or a series of user-driven
-phase approvals. The internal content-addressed bundle uses
+normal path is one user-level adoption operation: internally preview the complete reviewed
+pack with `adopt --dry-run`, then immediately rerun `adopt` with the retained
+`--expected-bundle-digest`. The original adoption request authorizes the whole
+lifecycle. Do not expose hashes or user-driven phase confirmations. The internal content-addressed bundle uses
 `assets/schemas/adoption-bundle-v1.schema.json` and binds its migration ID,
 reviewed manifest, fixtures, and every staged target byte.
 

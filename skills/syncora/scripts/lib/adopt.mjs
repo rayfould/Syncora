@@ -146,7 +146,7 @@ async function prepareReviewedPack(options, hooks = {}) {
       command: "adopt",
       workspace: prepared.workspace,
       migrationId: prepared.migrationId,
-      status: "review-required",
+      status: "ready",
       dryRun: true,
       review: {
         bundleOutput: prepared.output,
@@ -155,11 +155,11 @@ async function prepareReviewedPack(options, hooks = {}) {
         stagedContent: prepared.stagedContent,
         fixtures: prepared.fixtures,
       },
-      approvalSummary: prepared.approvalSummary,
+      previewSummary: prepared.previewSummary,
       summary: {
         bundleSha256: prepared.descriptor.sha256,
         completedPhases: [],
-        finalStatus: "review-required",
+        finalStatus: "ready",
         rollbackRetained: false,
         idempotent: false,
       },
@@ -229,7 +229,7 @@ export async function adoptWorkspace(
           stagedContent: prepared.stagedContent,
           fixtures: prepared.fixtures,
         },
-        approvalSummary: prepared.approvalSummary,
+        previewSummary: prepared.previewSummary,
       }
     : result;
 }

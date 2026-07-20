@@ -78,7 +78,7 @@ When the request depends on project decisions, constraints, status, or history,
 Syncora supplies a bounded task-specific context pack. Self-contained requests,
 such as asking the date or translating supplied text, bypass Syncora.
 
-During relevant work it can find authoritative notes, capture reviewed durable
+During relevant work it can find authoritative notes, save durable
 changes, flag knowledge that may be stale after source changes, and recover an
 interrupted Syncora write on a later foreground request. There is no timer,
 watcher, daemon, or background worker.
@@ -112,8 +112,8 @@ Adopt this existing knowledge graph into Syncora.
 ```
 
 This one request owns the complete conversion. Syncora inventories the old
-graph, prepares and previews the reviewed replacement, asks once for approval,
-then migrates the notes, verifies the new authority graph, switches the agent
+graph, internally validates and seals the replacement, then migrates the notes,
+verifies the new authority graph, switches the agent
 instructions, and retires the predecessor workflow. Source notes and rollback
 evidence are preserved. See
 [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
@@ -121,7 +121,7 @@ evidence are preserved. See
 ## Current boundaries
 
 The preview includes setup, reversible agent patching, validation, search,
-backlinks, task-specific context compilation, governed capture, foreground
+backlinks, task-specific context compilation, autonomous transactional capture, foreground
 drift detection, legacy adoption, rollback, and transaction recovery.
 
 Automatic drift coverage supports exact `file`, `module`, and `path_glob`

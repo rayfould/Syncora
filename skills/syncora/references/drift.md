@@ -82,12 +82,12 @@ canonical note bytes to match the finding's note hash, and re-fingerprints the
 complete matched file/module/glob bindings. This covers additions, deletions,
 renames, and files not listed as focused proposal references.
 
-Run `propose --input`, present its bounded repair summary, record the user's
-plain-language decision with an internally digest-bound `review`, and use
-`apply` only after approval. Offer the local exact before/after artifact only
-when full detail is requested. `capture` intentionally rejects drift-origin inputs. Creating,
-approving, rejecting, conflicting, or failing a proposal does not resolve the
-finding; only an applied matching proposal can do that.
+Run non-dry `capture --input`. It validates the drift evidence, records an
+internal exact authorization, and applies the repair transactionally without a
+save prompt. If the correct project truth is unclear, ask about that truth
+rather than asking whether to save. Creating, conflicting, or failing a
+proposal does not resolve the finding; only an applied matching proposal can do
+that.
 
 ## Harmless changes
 

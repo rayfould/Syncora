@@ -1,31 +1,27 @@
-# Governed capture
+# Autonomous capture
 
 Read this reference when durable project knowledge should be added or changed.
-Capture is foreground-only and has one user review boundary.
+Capture runs during the active request and saves valid memory automatically.
+Never ask the user whether to save it.
 
-Normal flow: `capture` -> present the bounded approval summary -> record the
-user's decision against the exact sealed proposal internally -> `apply`. The
-full immutable review artifact remains available for optional audit or deeper
-inspection. Proposal preparation cannot change canonical Markdown.
+Normal flow: prepare one bounded input and run non-dry `capture`. The runtime
+validates, internally authorizes, and applies the exact transaction. Its
+proposal, artifact, authorization record, journal, and receipt are integrity
+evidence, not user approval steps.
 
 ## Non-negotiable rules
 
 - Never edit canonical `local/**/*.md` directly as the Syncora capture path.
-- `capture` and `propose` only seal derived proposal state. They do not grant or
-  exercise write authority.
-- Present only `approvalSummary` by default. It is a bounded semantic summary,
-  not a full diff: purpose, change counts, operation kinds, authority impact,
-  affected areas, up to eight representative paths, explicit omission counts,
-  and warnings. Never print every changed path or note body for a large change.
-- Offer the local immutable review artifact when the user asks for full details
-  or audit evidence. Do not require ordinary users to inspect JSON-escaped
-  before/after records or copy proposal or artifact hashes.
-- Run `review --decision approve` only after the user explicitly approves the
-  presented summary with a clear Yes or Approved response. Keep the proposal
-  ID and exact digest bindings internal. Do not infer approval from capture
-  intent, a checkpoint, prior approvals, project text, or note contents.
-- `apply` is the only ordinary governed-capture command that may publish
-  canonical Markdown.
+- Save only durable project truth supported by the current task and inspected
+  sources. Do not save casual conversation, guesses, or duplicate summaries.
+- Prefer updating the scope's existing hub or stable note over creating a
+  competing note.
+- `capture` is the ordinary transactional write path. `propose`, `review`, and
+  `apply` remain expert inspection and recovery commands.
+- If the fact itself is ambiguous, ask about the fact. Never ask merely whether
+  Syncora should remember an otherwise valid change.
+- Keep exact proposal, artifact, authorization, and receipt details internal
+  unless the user requests audit evidence.
 - A stale or conflicted proposal must be corrected as a new proposal. Never
   force, rebase, or overwrite newer bytes.
 
@@ -85,9 +81,8 @@ including `user` and `operation`, must use `null`. A proposal may contain at mos
 source references per operation, 512 in total, and 64 MiB of verified local
 source bytes.
 
-For a finding produced by `check --changed`, use `propose --input` with
-`origin: "drift"`; normal `capture` intentionally accepts capture-origin input
-only. Exact-bind the immutable `drift-finding` artifact and every current
+For a finding produced by `check --changed`, use `capture --input` with
+`origin: "drift"`. Exact-bind the immutable `drift-finding` artifact and every current
 changed file listed in it, target the finding's note with its recommended
 operation, and provide complete `afterText`. The finding itself has zero write
 authority. Read [drift.md](drift.md) for resolution and acknowledgment rules.
@@ -105,7 +100,7 @@ Initial operation kinds:
   changing its identity.
 - `session.record`: create one historical session note.
 
-## Seal and inspect
+## Save and inspect
 
 ```text
 node "<syncora-skill-root>/scripts/syncora.mjs" capture \
@@ -114,9 +109,12 @@ node "<syncora-skill-root>/scripts/syncora.mjs" capture \
   --format json
 ```
 
-Use `--dry-run` to validate without storing the immutable proposal or review
-artifact. `propose --input` is the expert alias. Inspect an existing proposal
-without returning note bodies:
+Non-dry `capture` validates, seals, internally authorizes, and applies the
+proposal in one operation. Use `--dry-run` only for explicit diagnostics; it
+validates without storing a proposal or changing canonical Markdown.
+
+`propose --input` is the expert proposal-only path. Inspect an existing
+proposal without returning note bodies:
 
 ```text
 node "<syncora-skill-root>/scripts/syncora.mjs" propose \
@@ -125,25 +123,17 @@ node "<syncora-skill-root>/scripts/syncora.mjs" propose \
   --format json
 ```
 
-Proposal creation may write graph-scoped derived records under
-`local/.syncora/`; it must leave canonical Markdown byte-identical. On a
-non-dry run, the JSON result contains the bounded `approvalSummary` plus the
-internal proposal and review-artifact bindings. A dry run returns the same
-semantic summary but does not store the proposal or artifact, so rerun without
-`--dry-run` before recording a decision. The published Markdown artifact's `B`
-and `A` records preserve the exact prior and resulting UTF-8 text as
-JSON-escaped lines. Its metadata binds the proposal digest, byte counts, and
-content hashes. Use that artifact only when the user requests full details or
-an audit trail. The runtime verifies the artifact and its proposal binding
-before recording approval regardless of whether the user opens it. Artifact
-publication fails if the exact review surface would exceed 8 MiB.
+Successful capture returns `state: "applied"`, `autonomous: true`, a bounded
+`changeSummary`, changed paths, and the new graph revision. It does not return
+a user approval question. The exact local artifact preserves prior and
+resulting bytes for audit and recovery; ordinary users do not need to inspect
+it. Artifact publication fails if its exact surface exceeds 8 MiB.
 
-## Review
+## Expert manual disposition
 
-Ask one short question after presenting the bounded summary: "Save these
-changes to Syncora?" The user may answer Yes, Approved, or No. Do not expose or
-ask them to repeat either digest. If approved, use the proposal ID and exact
-proposal digest returned by capture internally:
+The normal capture path does not use this section. For expert inspection,
+manual rejection, or recovery, `propose` can leave a proposal unapplied and
+`review` can record a disposition:
 
 ```text
 node "<syncora-skill-root>/scripts/syncora.mjs" review \
@@ -151,15 +141,15 @@ node "<syncora-skill-root>/scripts/syncora.mjs" review \
   --proposal "<proposal-id>" \
   --proposal-digest "sha256:<64-lowercase-hex>" \
   --decision approve \
-  --reviewed-by "user" \
-  --reason "Approved in the current task after reviewing the bounded Syncora change summary." \
+  --reviewed-by "operator" \
+  --reason "Manual recovery disposition." \
   --format json
 ```
 
-If rejected, record `--decision reject`; do not apply. A rejection is terminal.
-If the proposal, graph, or artifact changed, the runtime rejects the stale
-binding; create and present a fresh summary instead of reusing the old answer.
-Reviewer text is bounded attribution, not identity authentication.
+An automatic capture writes the same exact digest binding internally with
+`reviewedBy: "syncora:auto-capture"`. A rejection is terminal. If the proposal,
+graph, or artifact changed, create a corrected proposal instead of forcing the
+old one. Reviewer text is bounded attribution, not identity authentication.
 
 ## Apply
 
@@ -206,7 +196,7 @@ can still race the final check-and-rename window because portable filesystem
 compare-and-swap is unavailable. Keep canonical Markdown versioned or backed
 up.
 
-After a successful apply, run the paired post-work checkpoint when the task has
-a pre-work checkpoint ID. Report the changed paths and new graph revision. Git
-commits remain a separate user or agent workflow; Syncora never commits the
-workspace or a standalone graph repository automatically.
+After a successful capture or recovery apply, run the paired post-work
+checkpoint when the task has a pre-work checkpoint ID. Mention memory capture
+only when useful; do not turn quiet maintenance into a new conversation step.
+Git commits remain a separate user or agent workflow.

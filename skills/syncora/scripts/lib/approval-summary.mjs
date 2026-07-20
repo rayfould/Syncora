@@ -131,8 +131,8 @@ export function governedApprovalSummary(summary, artifact, { dryRun = false } = 
     APPROVAL_SUMMARY_POLICY.maximumAuthorityReasons,
   );
   return Object.freeze({
-    kind: "syncora.knowledge-change-approval-summary",
-    title: "Save this knowledge update to Syncora?",
+    kind: "syncora.knowledge-change-summary",
+    title: "Syncora knowledge update summary",
     purpose: boundedText(summary.reason, APPROVAL_SUMMARY_POLICY.maximumPurposeCharacters),
     changes: Object.freeze({
       total: summary.changeCount,
@@ -170,11 +170,11 @@ export function governedApprovalSummary(summary, artifact, { dryRun = false } = 
       optional: true,
     }),
     canonicalMarkdownChanged: false,
-    approvalResponse: "The user may answer Yes, Approved, or No; digest binding stays internal.",
+    automatic: true,
   });
 }
 
-export function adoptionApprovalSummary(manifest, {
+export function adoptionPreviewSummary(manifest, {
   fixtureCount,
   reviewPackPath,
   sourceInventory = [],
@@ -201,8 +201,8 @@ export function adoptionApprovalSummary(manifest, {
     );
   }
   return Object.freeze({
-    kind: "syncora.adoption-approval-summary",
-    title: "Adopt this existing knowledge into Syncora?",
+    kind: "syncora.adoption-preview-summary",
+    title: "Syncora adoption preview",
     purpose: boundedText(
       manifest.review.reason,
       APPROVAL_SUMMARY_POLICY.maximumPurposeCharacters,
@@ -234,7 +234,7 @@ export function adoptionApprovalSummary(manifest, {
       optional: true,
     }),
     canonicalMarkdownChanged: false,
-    approvalResponse: "The user may answer Yes, Approved, or No; digest binding stays internal.",
+    automatic: true,
   });
 }
 

@@ -4,7 +4,7 @@ Current package version: **0.1.0-preview.2**
 
 Latest public tag: **0.1.0-preview.2**
 
-Current source status: **published development preview.2 with adoption, context, governed capture, and foreground changed-source drift detection**
+Current source status: **development source with adoption, context, autonomous transactional capture, and foreground changed-source drift detection**
 
 The public preview establishes the portable and safety-critical foundation. It
 is intended for collaborators who are comfortable testing pre-stable software
@@ -22,8 +22,8 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v5 with bounded human approval summaries,
-  internally bound governed capture, and foreground drift routing;
+- relevance-gated agent hook v6 with autonomous transactional capture,
+  internal change summaries, and foreground drift routing;
 - ownership-aware unpatch and rollback;
 - bounded doctor, validate, search, and backlinks commands;
 - foreground checkpoint policy and state;
@@ -32,10 +32,11 @@ expected to memorize.
   mandatory/working/evidence lanes, and a provenance-bearing source map;
   the default path may update a disposable derived lexical cache, while
   `--no-cache` prevents that cache write;
-- immutable governed proposal creation, bounded inspection, and an exact local
+- immutable proposal creation, bounded inspection, and an exact local
   review artifact containing the complete before/after text;
-- explicit approval or rejection bound to the exact proposal digest after
-  artifact inspection;
+- automatic internal authorization bound to the exact proposal and artifact
+  digests for routine capture, with explicit review commands retained for
+  expert inspection and recovery;
 - projected-graph and authority-impact validation, source provenance checks,
   and optimistic graph and target concurrency;
 - graph-scoped transactional apply with content-addressed before/after bytes,
@@ -54,8 +55,8 @@ expected to memorize.
   sharing an external graph do not share observations or baselines;
 - zero-authority, dry-run migration inventory;
 - reviewed v2 promotion-manifest validation and exact staged target bundles;
-- one reviewed-pack `adopt` operation that previews a bounded human summary,
-  seals the exact content after one internally digest-bound authorization, and runs the resumable
+- one reviewed-pack `adopt` operation that internally previews a bounded summary,
+  seals the exact content under the original adoption request, and runs the resumable
   lifecycle; standalone bundle adoption remains compatible;
 - bounded pre-cutover shadow fixtures;
 - graph-root-scoped migration state, locking, artifacts, and recovery journal;
@@ -66,12 +67,12 @@ expected to memorize.
   and replaced bytes are retained in an inactive, non-authoritative archive;
 - cross-platform Node 22 and 24 test suite.
 
-The legacy-adoption lifecycle, task-context compiler, governed capture path,
+The legacy-adoption lifecycle, task-context compiler, transactional capture path,
 and foreground changed-source detector above are included in the published
 `v0.1.0-preview.2` release.
 See the
 [adoption runbook](legacy-kg-adoption.md) and
-[governed capture contract](skill/governed-capture-contract.md). The bundled
+[capture contract](skill/governed-capture-contract.md). The bundled
 [drift reference](../skills/syncora/references/drift.md) defines the operational
 finding and repair flow.
 
@@ -90,9 +91,8 @@ finding and repair flow.
 Foreground drift detection does not mean background monitoring: no watcher,
 daemon, timer, or after-response worker exists. Findings prove only potential
 staleness and grant zero authority. Repairs still require complete resulting
-Markdown through `propose` -> bounded summary approval -> internally bound
-`review` -> `apply`;
-`capture` rejects drift-origin inputs. Proposal and apply recheck the active
+Markdown, but routine repairs use autonomous `capture` with internal exact
+authorization and transactional apply. Proposal and apply recheck the active
 finding, canonical note hash, and complete live binding fingerprints.
 
 The remaining items are accepted gates or explicit gaps, not hidden preview
@@ -105,15 +105,13 @@ passes.
 ## Preview safety expectations
 
 - Test in a Git repository or another recoverable workspace.
-- An explicit setup request authorizes ordinary greenfield or exact
-  predecessor-marker-only setup. Legacy graph adoption requires one
-  consolidated review and authorization for the exact content-addressed digest
-  returned by its preview.
+- An explicit setup or adoption request authorizes that complete operation.
+  Internal validation, sealing, and rollback checkpoints do not create more
+  user prompts.
 - Keep canonical `local/` Markdown under your own backup or version control.
-- Open and inspect the immutable local review artifact before approving
-  governed capture. The digest, impact, paths, and compact summary are not a
-  substitute for its exact before/after text. Proposal creation alone never
-  grants write authority.
+- Immutable local review artifacts remain available for optional audit and
+  recovery. Routine capture authorizes and publishes through the trusted local
+  runtime automatically; proposal creation alone still never grants authority.
 - Keep `local/.syncora/migrations/<migration-id>/` recovery evidence while a
   migration is active or rollback is still required.
 - Report containment, rollback, or marker-ownership failures privately.

@@ -81,7 +81,7 @@ test("governed output compacts maximum-shape results without reporting post-writ
   assert.match(text, /State: applied/u);
 });
 
-test("approval text shows a bounded summary and keeps hashes and full diffs internal", () => {
+test("bounded previews keep hashes and full diffs internal without asking for confirmation", () => {
   const digest = `sha256:${"d".repeat(64)}`;
   const proposalId = `proposal_${"e".repeat(64)}`;
   const representativePaths = Array.from(
@@ -89,8 +89,8 @@ test("approval text shows a bounded summary and keeps hashes and full diffs inte
     (_, index) => `knowledge/decisions/example-${index}.md`,
   );
   const approvalSummary = {
-    kind: "syncora.knowledge-change-approval-summary",
-    title: "Save this knowledge update to Syncora?",
+    kind: "syncora.knowledge-change-summary",
+    title: "Syncora knowledge update summary",
     purpose: "Record the accepted architecture direction.",
     changes: { total: 256, creates: 20, updates: 235, deletes: 1 },
     operations: {
@@ -137,7 +137,7 @@ test("approval text shows a bounded summary and keeps hashes and full diffs inte
   assert.ok([...text].length < 4_000);
   assert.match(text, /Changes: 256 note\(s\)/u);
   assert.match(text, /248 more path\(s\) omitted/u);
-  assert.match(text, /Reply with Yes, Approved, or No/u);
+  assert.match(text, /No separate user confirmation is required/u);
   assert.doesNotMatch(text, /sha256:/u);
   assert.equal(text.includes(proposalId), false);
   assert.doesNotMatch(text, /PRIVATE-FULL-DIFF/u);
@@ -148,13 +148,13 @@ test("approval text shows a bounded summary and keeps hashes and full diffs inte
     workspace: "C:/workspace",
     graph: { root: "C:/workspace/local" },
     migrationId: "legacy-adoption",
-    status: "review-required",
+    status: "ready",
     dryRun: true,
     review: { bundleSha256: digest },
-    approvalSummary: {
+    previewSummary: {
       ...approvalSummary,
-      kind: "syncora.adoption-approval-summary",
-      title: "Adopt this existing knowledge into Syncora?",
+      kind: "syncora.adoption-preview-summary",
+      title: "Syncora adoption preview",
       changes: undefined,
       operations: undefined,
       authorityImpact: undefined,
@@ -173,7 +173,7 @@ test("approval text shows a bounded summary and keeps hashes and full diffs inte
     },
   }, "text");
   assert.match(adoptionText, /Legacy notes: 724 total/u);
-  assert.match(adoptionText, /Reply with Yes, Approved, or No/u);
+  assert.match(adoptionText, /No separate user confirmation is required/u);
   assert.doesNotMatch(adoptionText, /sha256:/u);
 });
 
@@ -336,8 +336,9 @@ test("setup and adopt are primary help surfaces while bundle remains compatible"
   assert.match(helpText(), /\n  adopt\s+Preview or apply one reviewed legacy graph/u);
   assert.match(helpText(), /\n  bundle\s+Advanced compatibility tool/u);
   assert.match(helpText("bundle"), /content-addressed descriptor consumed by syncora adopt/u);
-  assert.match(helpText("adopt"), /Dry-run seals the reviewed pack in memory/u);
-  assert.match(helpText("adopt"), /stage, shadow, cutover, verify, and retire/u);
+  assert.match(helpText("adopt"), /Dry-run validates the reviewed pack/u);
+  assert.match(helpText("adopt"), /without another confirmation/u);
+  assert.match(helpText("adopt"), /Rollback evidence is retained/u);
 });
 
 test("context exposes bounded repeatable task inputs without mutation flags", () => {
@@ -634,7 +635,7 @@ test("check rendering is bounded and never emits note bodies or diff hunks", () 
   assert.doesNotMatch(text, /PRIVATE_(?:NOTE_BODY|DIFF_HUNK|BEFORE_TEXT|AFTER_TEXT)/u);
 });
 
-test("governed capture exposes a proposal, digest-bound review, and reviewed apply", () => {
+test("capture is autonomous while propose, review, and apply remain recovery tools", () => {
   const workspace = resolve("workspace");
   const input = resolve("review", "capture-draft.json");
   const proposal = "prp_" + "a".repeat(64);
@@ -687,9 +688,9 @@ test("governed capture exposes a proposal, digest-bound review, and reviewed app
   ]);
   assert.equal(applied.options.proposal, proposal);
 
-  assert.match(helpText(), /\n  capture\s+Prepare an immutable governed knowledge proposal/u);
+  assert.match(helpText(), /\n  capture\s+Validate and transactionally save project knowledge/u);
   assert.match(helpText(), /\n  review\s+Record an approval or rejection for a sealed proposal/u);
-  assert.match(helpText("capture"), /Canonical Markdown remains byte-identical/u);
+  assert.match(helpText("capture"), /without asking for a separate confirmation/u);
   assert.match(helpText("apply"), /process-interruption recovery/u);
 });
 
