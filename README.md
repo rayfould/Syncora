@@ -3,16 +3,14 @@
 [![Syncora Skill CI](https://github.com/rayfould/Syncora/actions/workflows/syncora-skill.yml/badge.svg)](https://github.com/rayfould/Syncora/actions/workflows/syncora-skill.yml)
 [![skills.sh](https://skills.sh/b/rayfould/syncora)](https://skills.sh/rayfould/syncora)
 
-Syncora is a local-first Agent Skill for durable, bounded project context. It
-keeps plain Markdown as the source of truth while helping Codex, Cursor, and
-Claude load the right project knowledge without pulling an entire knowledge
-graph into every conversation.
+Syncora gives Codex, Cursor, and Claude durable project memory without stuffing
+every old note into every conversation. It keeps project knowledge in local
+Markdown, loads only what a task needs, and gives each project or work area one
+clear home for current truth.
 
 > **Development preview.** The current public release is
-> `v0.1.0-preview.2`. Preview.2 adds reviewed reversible
-> adoption, task-specific context compilation, governed capture, and
-> foreground changed-source drift detection. Stable-release acceptance and
-> predecessor-system reconciliation remain incomplete.
+> `v0.1.0-preview.2`. Use it in a Git repository or another recoverable
+> workspace while stable-release acceptance remains in progress.
 
 ## Why Syncora
 
@@ -23,12 +21,9 @@ Long-running agent work usually fails in one of two directions:
 - **Over-compression:** summaries become so small that decisions, provenance,
   conflicts, and required constraints disappear.
 
-Syncora's architecture uses one authoritative hub per scope, explicit note
-authority, bounded retrieval, and visible provenance to balance those failure
-modes. Current source implements the safe canonical read path and an explicit,
-reviewed write path. A foreground drift check can identify source-bound notes
-that may need review without granting a finding authority or rewriting the
-note. Stable-release acceptance work is still pending.
+Syncora uses one authoritative hub per scope, typed note authority, bounded
+retrieval, and visible provenance. Mandatory context must fit or fail visibly;
+optional material is omitted whole and reported rather than silently chopped.
 
 ## Requirements
 
@@ -52,142 +47,101 @@ location directly; Claude Code receives the agent-specific link at
 Or omit `--global` to install into the current project. If your environment
 cannot create shared links, add `--copy`.
 
-Installation is inert: it only installs the skill. For a new workspace without
-an existing knowledge graph or predecessor agent workflow, ask your agent:
+Installation is inert. It does not touch any project until you ask.
+
+## Use Syncora
+
+You use Syncora by talking to your coding agent. The agent handles the bundled
+runtime internally.
+
+### Set it up
+
+Open a project and say:
 
 ```text
-Use $syncora to set up this workspace.
+Set up Syncora in this project.
 ```
 
-That explicit request authorizes the normal greenfield setup. Syncora runs one
-`setup` command and patches supported project-level agent instruction files by
-default; it does not add a mandatory preview-and-confirm cycle. Agent patching
-is reversible and can be disabled during initialization.
+That single request creates the local Markdown graph and patches the supported
+project agent instructions. Setup is idempotent and does not add a mandatory
+preview-and-confirm ceremony.
 
-For a workspace with existing Markdown knowledge that needs semantic authority
-migration, do **not** initialize over it. Ask:
+### Work normally
+
+After setup, just ask for project work:
 
 ```text
-Use $syncora to adopt this existing knowledge graph with the reversible migration workflow.
+Review the authentication flow and fix the session expiry bug.
 ```
 
-The skill prepares reviewed semantic files, seals them with one `bundle`
-command, then applies the exact descriptor with one authorized `adopt` command.
-No handwritten hashing script is required. Adoption stages exact v2 targets,
-shadow-tests bounded fixtures, cuts over, verifies, and retires the predecessor
-workflow. It resumes safely after interruption and retains rollback.
-See [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
+When the request depends on project decisions, constraints, status, or history,
+Syncora supplies a bounded task-specific context pack. Self-contained requests,
+such as asking the date or translating supplied text, bypass Syncora.
 
-If there is no existing graph and only the exact supported predecessor marker
-is present, ordinary `setup` replaces that marker atomically; no empty
-migration bundle is required.
+During relevant work it can find authoritative notes, capture reviewed durable
+changes, flag knowledge that may be stale after source changes, and recover an
+interrupted Syncora write on a later foreground request. There is no timer,
+watcher, daemon, or background worker.
 
-## What current source can do
+### Maintain it
 
-- diagnose workspace and graph preconditions;
-- initialize a hub-first Markdown knowledge graph;
-- patch and unpatch Codex, Cursor, and Claude project instructions;
-- validate frontmatter, graph structure, authority, containment, and state;
-- search with bounded deterministic output;
-- inspect backlinks without granting authority;
-- run foreground checkpoint decisions and maintain bounded local state;
-- compile task-specific context with typed targets, explicit modes, hard
-  character budgets, mandatory/working/evidence lanes, and a source map;
-- prepare immutable knowledge proposals without changing canonical Markdown;
-- record an explicit approval or rejection bound to the exact proposal digest;
-- apply approved proposals with optimistic concurrency, projected-graph
-  validation, full-lifecycle graph serialization, exact receipts, foreground
-  transaction recovery, and exact rollback before the irreversible commit
-  boundary;
-- detect foreground changes to exact `file`, `module`, and `path_glob` source
-  bindings with raw-byte fingerprints in Git and non-Git workspaces;
-- publish immutable, zero-authority stale findings and refresh work items,
-  retain one cumulative actionable finding per note, recheck complete live
-  bindings and note bytes, and record exact acknowledgments or policy
-  rebaselines without changing canonical Markdown;
-- inventory legacy Markdown in a dry-run, zero-authority migration phase;
-- stage a reviewed v2 promotion manifest and exact target Markdown;
-- shadow-test the proposed authority graph before canonical mutation;
-- cut over, verify, retire predecessor activation, or restore exact
-  pre-cutover bytes through a journaled migration lifecycle.
-
-Drift detection is foreground-only: there is no watcher, timer, daemon, or work
-after the agent's response. The first complete observation with eligible
-sources establishes a baseline; it does not certify historical freshness. Git supplies advisory
-change and rename hints when available, while exact raw-byte fingerprints
-remain authoritative. Automatic coverage is limited to `file`, `module`, and
-`path_glob` bindings. `symbol` and `component` bindings remain explicitly
-unevaluated until a real versioned symbol index exists.
-
-A drift finding means only “potentially stale.” It contains no replacement
-truth and cannot authorize a write. If the note needs repair, the agent must
-author complete resulting text and use the same exact-artifact
-`propose` -> `review` -> `apply` path as other governed changes; `capture`
-intentionally rejects drift-origin inputs. If review proves the note is still
-current, an exact finding-digest acknowledgment closes only that derived
-finding after the note and complete source fingerprints are rechecked. Later
-source evolution supersedes the prior finding with one cumulative actionable
-head. Policy changes fail with one explicit, reasoned foreground rebaseline
-command. See the [foreground drift reference](skills/syncora/references/drift.md).
-
-The task-context compiler remains read-only with respect to canonical Markdown
-and authority; compiling a pack never authorizes a note write. Governed capture
-has one explicit user approval boundary. Its default discovery path may update
-a disposable derived lexical cache, and `--no-cache` prevents that cache
-write. The [release status](docs/release-status.md) tracks the remaining gates.
-
-To record a durable decision, you can simply tell your agent:
+Use the same plain language for maintenance:
 
 ```text
-Use $syncora to record this decision in the project knowledge graph.
+Update Syncora.
+Repair Syncora in this project.
+Remove Syncora from this project.
 ```
 
-The agent prepares a proposal and gives you the path and digest of an immutable
-local review artifact containing the exact before/after text. Open that
-artifact before answering the one approval question. The compact path and
-impact summary is only a guide; nothing canonical changes until you approve the
-artifact-bound proposal digest and the transactional apply succeeds.
+- **Update** installs the newest compatible skill release. It is not a graph
+  migration.
+- **Repair** diagnoses the workspace and fixes only the affected Syncora
+  subsystem while preserving canonical Markdown.
+- **Remove from this project** removes Syncora-owned agent instructions but
+  preserves `local/` and version-control history.
 
-## Direct runtime use
+To uninstall the global skill as well, say `Uninstall Syncora globally.`
 
-Agent Skills should normally invoke the bundled runtime. Maintainers and
-advanced users can call it directly from the installed skill root:
+## Existing project knowledge
+
+If a project already has a Markdown knowledge graph or a predecessor agent
+memory workflow, ask:
+
+```text
+Adopt this existing knowledge graph into Syncora.
+```
+
+This is an advanced conversion path, not ordinary setup. Syncora preserves the
+source notes, verifies the proposed authority graph, and keeps rollback
+evidence. See [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
+
+## Current boundaries
+
+The preview includes setup, reversible agent patching, validation, search,
+backlinks, task-specific context compilation, governed capture, foreground
+drift detection, legacy adoption, rollback, and transaction recovery.
+
+Automatic drift coverage supports exact `file`, `module`, and `path_glob`
+bindings. `symbol` and `component` bindings remain explicitly unevaluated until
+Syncora has a real versioned symbol index. A finding means only "potentially
+stale" and cannot rewrite a note or grant authority.
+
+The [release status](docs/release-status.md) tracks the remaining stable-release
+acceptance gates.
+
+## Maintainers and advanced use
+
+Normal users should not need Syncora's command surface. Maintainers can inspect
+the bundled runtime with:
 
 ```bash
 node <installed-syncora-skill>/scripts/syncora.mjs --help
-node <installed-syncora-skill>/scripts/syncora.mjs doctor --workspace /absolute/path/to/project
-node <installed-syncora-skill>/scripts/syncora.mjs setup --workspace /absolute/path/to/project
-node <installed-syncora-skill>/scripts/syncora.mjs bundle --help
-node <installed-syncora-skill>/scripts/syncora.mjs adopt --workspace /absolute/path/to/project --bundle /absolute/path/to/review/adoption-bundle-v1.json
-node <installed-syncora-skill>/scripts/syncora.mjs validate --workspace /absolute/path/to/project
-node <installed-syncora-skill>/scripts/syncora.mjs context --workspace /absolute/path/to/project --intent "implement session expiry" --mode implement --target file:src/auth/session.ts --budget standard --format json
-node <installed-syncora-skill>/scripts/syncora.mjs check --changed --workspace /absolute/path/to/project --format json
-node <installed-syncora-skill>/scripts/syncora.mjs capture --workspace /absolute/path/to/project --input /absolute/path/to/proposal-input.json --format json
-node <installed-syncora-skill>/scripts/syncora.mjs propose --workspace /absolute/path/to/project --proposal PROPOSAL_ID --format json
-node <installed-syncora-skill>/scripts/syncora.mjs review --workspace /absolute/path/to/project --proposal PROPOSAL_ID --proposal-digest sha256:DIGEST --decision approve --reviewed-by user --reason "Approved after inspecting the exact immutable review artifact." --format json
-node <installed-syncora-skill>/scripts/syncora.mjs apply --workspace /absolute/path/to/project --proposal PROPOSAL_ID --format json
-node <installed-syncora-skill>/scripts/syncora.mjs migrate --help
 ```
 
-Use an absolute workspace path for every mutating command. See the
-[getting-started guide](docs/getting-started.md) for the full workflow.
-
-## Update and uninstall
-
-```bash
-npx skills update syncora --global
-```
-
-Before removing the skill, ask Syncora to unpatch the workspace so its owned
-agent-instruction markers are removed safely. Then uninstall it:
-
-```bash
-npx skills remove syncora --global --agent '*' --yes
-```
-
-Removing the skill never deletes a workspace's canonical `local/` Markdown.
-Resolve or intentionally retain any migration recovery journal before removal.
-See [upgrade and uninstall](docs/upgrade-and-uninstall.md) for details.
+The installed skill's references define setup, activation, context, capture,
+drift, recovery, validation, and agent-patching contracts. See the
+[getting-started guide](docs/getting-started.md) for the public workflow and
+[upgrade and uninstall](docs/upgrade-and-uninstall.md) for manual fallbacks.
 
 ## Safety model
 

@@ -10,6 +10,11 @@ The public preview establishes the portable and safety-critical foundation. It
 is intended for collaborators who are comfortable testing pre-stable software
 in version-controlled workspaces.
 
+The public interface is conversational: setup, ordinary work, update, repair,
+and removal are user intents. The detailed runtime commands below those intents
+are internal agent machinery or advanced recovery tools, not steps users are
+expected to memorize.
+
 ## Implemented in current source
 
 - dependency-free Node runtime;

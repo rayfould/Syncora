@@ -2,11 +2,12 @@
 
 ## Availability gate
 
-An explicit request to initialize, adopt, or diagnose Syncora may run its
-direct maintenance command before initialization. For every other request,
-implicit project routing is available only when the workspace has a
-project-local `.syncora/config.json`. If it does not, select `none`: a global
-skills.sh installation must remain inert in ordinary uninitialized projects.
+An explicit request to set up, update, repair, remove, adopt, or diagnose
+Syncora may run the corresponding maintenance workflow before project
+initialization when its target exists. For every other request, implicit
+project routing is available only when the workspace has a project-local
+`.syncora/config.json`. If it does not, select `none`: a global skills.sh
+installation must remain inert in ordinary uninitialized projects.
 
 Availability is still not activation. The presence of `.syncora/config.json`
 means Syncora can be used in the workspace; it does not prove that the current

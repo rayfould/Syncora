@@ -2,7 +2,17 @@
 
 ## Upgrade
 
-Update a globally installed skill:
+The normal workflow is to tell your agent:
+
+```text
+Update Syncora.
+```
+
+This updates the installed skill. It does not initialize, adopt, or migrate a
+project graph. The agent should diagnose an initialized workspace only when the
+new release or current state requires it.
+
+For manual use, update a globally installed skill with:
 
 ```bash
 npx skills update syncora --global
@@ -12,12 +22,10 @@ Before an upgrade, inspect `migrate --phase status` for any active legacy
 migration and retain its graph-local recovery directory. Do not switch runtime
 versions midway through an unresolved cutover or rollback transaction.
 
-After an upgrade, ask Syncora to run `doctor` and `validate` in each active
-workspace, then run one foreground `check --changed`. A compatible retained
-baseline may continue; future, corrupt, oversized, identity-mismatched, or
-policy-incompatible drift state fails closed. Compatible retained state
-proceeds through the ordinary check and must not be rebaselined merely because
-the runtime was upgraded.
+Do not routinely rerun setup, adoption, migration, full validation, or drift
+rebaselining after an update. Existing compatible project state continues. If
+Syncora reports a compatibility or integrity problem, ask it to repair the
+workspace and let the agent select the smallest relevant recovery path.
 
 Only when the check or doctor reports `DRIFT_POLICY_MISMATCH`, review the
 retained baseline and every active finding, then run this explicit foreground
@@ -42,6 +50,15 @@ an empty adoption bundle.
 
 ## Unpatch a workspace
 
+The normal workflow is:
+
+```text
+Remove Syncora from this project.
+```
+
+This removes Syncora-owned project instruction markers while preserving the
+Markdown graph. The commands below are manual fallbacks for maintainers.
+
 Before uninstalling, remove Syncora-owned project instruction markers:
 
 ```bash
@@ -53,6 +70,14 @@ The first command previews the change. The second removes or restores only
 content owned by Syncora's patch transaction.
 
 ## Remove the installed skill
+
+To remove the global installation as well, tell the agent:
+
+```text
+Uninstall Syncora globally.
+```
+
+Or run:
 
 ```bash
 npx skills remove syncora --global --agent '*' --yes

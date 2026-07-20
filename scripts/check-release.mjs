@@ -237,11 +237,18 @@ if (quickStartIndex > agentInstructionsIndex) {
   );
 }
 const quickStart = skillSource.slice(quickStartIndex, agentInstructionsIndex);
-if (!/```text\r?\nUse \$syncora to set up\b[^\r\n]*\r?\n```/iu.test(quickStart)) {
-  errors.push("skills/syncora/SKILL.md: quick start must include a Syncora setup prompt");
+for (const publicIntent of [
+  "Set up Syncora in this project.",
+  "Update Syncora.",
+  "Repair Syncora in this project.",
+  "Remove Syncora from this project.",
+]) {
+  if (!quickStart.includes(publicIntent)) {
+    errors.push(`skills/syncora/SKILL.md: quick start is missing the public intent (${publicIntent})`);
+  }
 }
-if (!/```text\r?\nUse \$syncora to adopt\b[^\r\n]*\r?\n```/iu.test(quickStart)) {
-  errors.push("skills/syncora/SKILL.md: quick start must include a Syncora adoption prompt");
+if (!/Adopt this existing knowledge graph into Syncora\./u.test(quickStart)) {
+  errors.push("skills/syncora/SKILL.md: quick start must keep advanced existing-graph adoption discoverable");
 }
 
 const openAiMetadata = await readFile(path.join(skillRoot, "agents", "openai.yaml"), "utf8");
@@ -389,7 +396,7 @@ for (const requiredText of [
   packageJson.version,
   "development preview",
   "npx skills add",
-  "$syncora",
+  "Set up Syncora in this project.",
   "context compilation",
   "governed capture",
   "drift detection",

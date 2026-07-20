@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. This development preview sets up or adopts a bounded Markdown knowledge graph, compiles task-specific context, detects changed-source drift, and captures reviewed knowledge transactionally. Use before initialization for explicit setup, adoption, or diagnostics; in initialized projects, use for context, decisions, handoffs, drift, recovery, validation, or agent patching. Stay inactive for self-contained requests.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. It loads bounded task-specific context, records reviewed knowledge, and detects potentially stale notes. Stay inactive for self-contained requests.
 ---
 
 # Syncora
@@ -16,27 +16,36 @@ competing with active decisions.
 
 ## Quick start
 
-After installing Syncora, tell your coding agent what you need. You normally do
-not run the bundled commands yourself.
-
-For a new workspace:
+Install the skill once, then talk to your coding agent normally. You do not need
+to learn Syncora's bundled commands.
 
 ```text
-Use $syncora to set up this workspace.
+Set up Syncora in this project.
 ```
 
-For a workspace with an existing knowledge graph or an older agent-memory
-workflow built from Markdown notes:
+After setup, ordinary project requests automatically use Syncora when project
+memory is relevant. Self-contained questions bypass it.
 
 ```text
-Use $syncora to adopt this existing knowledge graph.
+Review the authentication flow and fix the session expiry bug.
+Update Syncora.
+Repair Syncora in this project.
+Remove Syncora from this project.
 ```
 
 Setup creates the local Markdown structure and patches supported project agent
-instructions by default. Adoption reviews the existing knowledge first,
-preserves the original notes, and keeps exact rollback evidence. Installing the
-skill alone does not change a project. Ordinary README and documentation files
-are not, by themselves, a reason to use adoption.
+instructions by default. Removal unpatches those instructions but preserves the
+project's Markdown knowledge. Installing the skill alone does not change a
+project.
+
+Converting an older Markdown knowledge graph is an advanced, explicit workflow:
+
+```text
+Adopt this existing knowledge graph into Syncora.
+```
+
+Adoption preserves the source notes and keeps rollback evidence. Ordinary
+README and documentation files are not, by themselves, a reason to use it.
 
 ## What the development preview does
 
@@ -66,13 +75,42 @@ every workspace to an absolute real path before a command. If `local/` resolves
 outside the workspace, require its exact resolved path through the command's
 external-root allowlist.
 
+### Route the public intent
+
+- **Setup:** an explicit setup request authorizes one normal `setup` run with
+  agent patching enabled. Do not add a mandatory dry run or confirmation.
+- **Normal work:** apply the activation policy. If project memory is relevant,
+  compile bounded context and handle capture or drift internally. Do not teach
+  the user the command sequence unless they ask.
+- **Update:** an explicit update request means updating the installed skill to
+  the newest compatible release through the Skills CLI. For the normal global
+  installation run `npx skills update syncora --global`; for a project-local
+  installation, run it from that project without `--global`. It does not mean
+  `setup`, `adopt`, or `migrate`. After the update, diagnose an initialized
+  workspace only as needed; do not run migration merely because the version
+  changed.
+- **Repair:** start with `doctor`, then use only the failing subsystem's
+  validation, recovery, drift, or agent-patching operation. Preserve canonical
+  `local/` Markdown. Do not reinstall, reinitialize, migrate, delete state, or
+  reset Git by default.
+- **Remove:** for a project, unpatch Syncora-owned agent instructions and retain
+  `local/`. Remove the globally installed skill only when the user asks to
+  uninstall Syncora, and never imply that uninstalling deletes project memory.
+- **Existing knowledge:** use adoption only when the user explicitly wants to
+  convert a pre-Syncora Markdown graph or predecessor workflow.
+
+Treat these as conversational intents. The bundled CLI is internal machinery,
+not the public workflow. Ask for another confirmation only when the agent's
+host requires permission or a repair would make an ambiguous or destructive
+change.
+
 ### Route before loading context
 
 1. Apply [activation-policy.md](references/activation-policy.md). Explicit
-   setup, adoption, and diagnostics may run before initialization. Every
-   implicit project route requires a project-local `.syncora/config.json`;
-   without it, select `none`; ordinary work in an uninitialized workspace stays
-   inactive.
+   setup, update, repair, removal, adoption, and diagnostics may run before
+   initialization when their target exists. Every implicit project route
+   requires a project-local `.syncora/config.json`; without it, select `none`;
+   ordinary work in an uninitialized workspace stays inactive.
 2. Do not invoke merely because `.syncora/config.json` exists. Keep
    self-contained date/time, arithmetic, translation, casual conversation, and
    supplied-content tasks inactive.
@@ -115,10 +153,8 @@ requires an explicit review bound to the exact proposal digest. Do not replace
 either workflow with direct note writes, recursive graph loading,
 unconditional `doctor`, or unconditional full-graph validation.
 
-### Use the smallest command surface
+### Use the smallest internal command surface
 
-- Treat an explicit request to set up Syncora as authorization for one normal
-  `setup` run. Do not add a mandatory dry-run or second confirmation.
 - For existing knowledge, read
   [legacy-adoption.md](references/legacy-adoption.md), prepare the reviewed
   artifacts, run `bundle`, present one consolidated approval, then run one
