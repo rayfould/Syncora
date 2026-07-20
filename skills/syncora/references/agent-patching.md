@@ -65,8 +65,9 @@ erase intervening edits. A hook newer than v4 fails closed before target writes.
 
 `patch-agents` adds or upgrades Syncora-owned markers; it is not authority to
 remove an unrelated broad knowledge-graph workflow. Normal existing-graph
-adoption seals reviewed files with `bundle`, then applies them with one
-`adopt --bundle` command. Its internal cutover gate
+adoption previews reviewed files with `adopt --dry-run`, requests one approval
+for the exact digest, then seals and applies those inputs with the digest-bound
+final `adopt`. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it

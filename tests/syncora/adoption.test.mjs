@@ -365,6 +365,62 @@ test("one adopt command runs the reviewed lifecycle and safely resumes as idempo
   }
 });
 
+test("one adopt command previews, seals, migrates, verifies, and retires a reviewed graph", async () => {
+  const fixture = await adoptionFixture({ migrationId: "integrated-adoption" });
+  await rm(fixture.descriptorPath, { force: true });
+  const reviewedPack = {
+    workspace: fixture.workspace,
+    migrationId: fixture.migrationId,
+    manifest: fixture.manifestPath,
+    stagedContent: fixture.staged,
+    fixtures: fixture.fixturesPath,
+    allowExternalGraphRoot: undefined,
+    confirmPredecessorReviewed: false,
+  };
+  try {
+    const preview = await adoptWorkspace({ ...reviewedPack, dryRun: true });
+    assert.equal(preview.status, "review-required");
+    assert.match(preview.review.bundleSha256, /^sha256:[0-9a-f]{64}$/u);
+    await assert.rejects(
+      access(fixture.descriptorPath),
+      (error) => error?.code === "ENOENT",
+    );
+
+    await assert.rejects(
+      adoptWorkspace({
+        ...reviewedPack,
+        dryRun: false,
+        expectedBundleDigest: `sha256:${"0".repeat(64)}`,
+      }),
+      (error) =>
+        error?.code === "MIGRATE016" &&
+        /does not match the current manifest/i.test(error.message),
+    );
+    await assert.rejects(
+      access(fixture.descriptorPath),
+      (error) => error?.code === "ENOENT",
+    );
+
+    const adopted = await adoptWorkspace({
+      ...reviewedPack,
+      dryRun: false,
+      expectedBundleDigest: preview.review.bundleSha256,
+    });
+    assert.equal(adopted.status, "retired");
+    assert.equal(adopted.review.bundleSha256, preview.review.bundleSha256);
+    assert.deepEqual(adopted.summary.completedPhases, [
+      "stage",
+      "shadow",
+      "cutover",
+      "verify",
+      "retire",
+    ]);
+    await access(fixture.descriptorPath);
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
 test("external-graph adoption persists the exact allowlist used after retirement", async (t) => {
   let fixture;
   try {

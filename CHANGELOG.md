@@ -4,6 +4,14 @@ All notable changes to Syncora are documented here.
 
 ## [Unreleased]
 
+#### Changed
+
+- Existing-graph adoption is now one user-level operation: reviewed semantic
+  inputs are previewed by `adopt --dry-run`, one authorization is bound to the
+  returned digest, and the final `adopt` invocation seals, stages, shadows,
+  cuts over, verifies, and retires the predecessor workflow. Standalone
+  `bundle` and `adopt --bundle` remain supported for compatibility and recovery.
+
 ## [0.1.0-preview.2] - 2026-07-18
 
 #### Added

@@ -5,8 +5,8 @@ no graph exists and the exact supported predecessor marker is the only legacy
 state, use one ordinary `setup` command instead. If no graph exists but a
 custom or unmarked predecessor activation does, inspect every active Codex,
 Cursor, and Claude instruction file, remove that activation, then run one
-`setup --confirm-predecessor-reviewed` command. Adoption bundles require real
-graph sources and are not an empty-workflow workaround.
+`setup --confirm-predecessor-reviewed` command. Reviewed adoption inputs require
+real graph sources and are not an empty-workflow workaround.
 Greenfield `setup`/`init` intentionally refuses existing graphs and unsupported
 predecessor workflows with `MIGRATE015`: it cannot know which existing note is
 authoritative or which custom instructions are safe to remove.
@@ -18,11 +18,12 @@ authority -> stage -> shadow -> cutover -> verify -> retire
                               \-> rollback <-/
 ```
 
-Nothing runs between agent messages. After the semantic files are reviewed,
-the normal direct-runtime surface is two commands: `bundle` seals their exact
-bytes, then `adopt` applies that immutable descriptor. The individual phases
-remain available for expert inspection and recovery. Every workspace mutation
-is journaled and bound to one migration ID. No
+Nothing runs between agent messages. The normal user surface is one adoption
+operation: prepare the reviewed semantic files, preview `adopt` to receive their
+exact digest, approve that digest once, then let the final `adopt` invocation
+seal and apply the same inputs. The individual phases and standalone `bundle`
+command remain available for expert inspection, compatibility, and recovery.
+Every workspace mutation is journaled and bound to one migration ID. No
 phase deletes legacy notes. Retirement means the predecessor activation and
 default authority have been retired, not that historical Markdown was erased.
 
@@ -61,7 +62,7 @@ inventory ends; restart from page one if the graph or policy changes.
 Remediate every blocked source before staging. Preserve unreadable, malformed,
 or oversized bytes as evidence; do not silently recode or discard them.
 
-## Review one bundle and adopt
+## Review and adopt once
 
 Create a human-reviewed `syncora.authority-promotion` manifest with
 `manifestSchemaVersion: 2` and `status: reviewed`. It must bind the inventory
@@ -87,37 +88,33 @@ Place the three reviewed inputs together beneath one review directory:
 
 ```text
 review/
-  adoption-bundle-v1.json
   authority-promotion-manifest-v2.json
   staged-content/
   shadow-fixtures-v1.json
 ```
 
-Seal those reviewed files with one command; no handwritten hash glue is
-required:
+Preview the complete adoption. This validates every reviewed input and returns
+the exact bundle digest without writing the descriptor or changing the
+workspace:
 
 ```text
-<runtime> bundle --workspace /absolute/project --migration-id syncora-adoption-2026 --manifest /absolute/review/authority-promotion-manifest-v2.json --staged-content /absolute/review/staged-content --fixtures /absolute/review/shadow-fixtures-v1.json --output /absolute/review/adoption-bundle-v1.json
+<runtime> adopt --workspace /absolute/project --migration-id syncora-adoption-2026 --manifest /absolute/review/authority-promotion-manifest-v2.json --staged-content /absolute/review/staged-content --fixtures /absolute/review/shadow-fixtures-v1.json --output /absolute/review/adoption-bundle-v1.json --dry-run
 ```
 
-`bundle` revalidates the manifest against the current graph, validates every
-fixture and staged target, and atomically writes a no-clobber descriptor that
-binds every input by SHA-256. All inputs must be below the descriptor's parent
-directory. Rerunning it is byte-idempotent; changing reviewed bytes requires a
-new output path or migration ID rather than overwriting the sealed descriptor.
-
-After reviewing the returned descriptor hash and summary, authorize one apply
-command:
+After reviewing the returned digest and summary, authorize the same operation
+once by binding the final invocation to that digest:
 
 ```text
-<runtime> adopt --workspace /absolute/project --bundle /absolute/review/adoption-bundle-v1.json
+<runtime> adopt --workspace /absolute/project --migration-id syncora-adoption-2026 --manifest /absolute/review/authority-promotion-manifest-v2.json --staged-content /absolute/review/staged-content --fixtures /absolute/review/shadow-fixtures-v1.json --output /absolute/review/adoption-bundle-v1.json --expected-bundle-digest sha256:<reviewed-digest>
 ```
 
-`adopt` runs stage, shadow, cutover, verify, and retire synchronously. A failed gate
-stops the command; rerun the exact command after correcting the reported issue
-to resume from durable state. One authorization covers this declared composite
-operation. An explicit rollback command remains available for operator-driven
-recovery.
+The final `adopt` invocation revalidates the current graph and reviewed bytes,
+refuses any digest mismatch before publishing the descriptor, then runs stage,
+shadow, cutover, verify, and retire synchronously. All inputs must be below the
+descriptor's parent directory. A failed gate stops the command; rerun the exact
+command after correcting the reported issue to resume from durable state. One
+authorization covers this declared composite operation. An explicit rollback
+command remains available for operator-driven recovery.
 After a successful non-dry-run adoption, the same user-level command makes one
 foreground changed-source observation for the adopted bindings. Its
 `baseline-established` result, when eligible sources exist, is only the
@@ -134,6 +131,10 @@ concurrent user edit is never overwritten; the command instead reports
 
 The phase commands below are the advanced inspection and recovery surface, not
 the default user workflow.
+
+The standalone `bundle` command and `adopt --bundle <absolute-path>` remain
+supported for existing automation and expert recovery. They expose the same
+sealed descriptor boundary but are not the normal conversational workflow.
 
 ## Advanced phase diagnostics (optional)
 

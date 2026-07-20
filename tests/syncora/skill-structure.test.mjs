@@ -51,16 +51,16 @@ test("skill frontmatter and progressive references are self-contained", async ()
     (match) => match[1].trim(),
   );
   assert.ok(
-    prompts.some((prompt) => /^Use \$syncora to set up\b/iu.test(prompt)),
+    prompts.some((prompt) => /^Set up Syncora\b/iu.test(prompt)),
   );
   assert.ok(
-    prompts.some((prompt) => /^Use \$syncora to adopt\b/iu.test(prompt)),
+    prompts.some((prompt) => /^Adopt this existing knowledge graph\b/iu.test(prompt)),
   );
-  assert.match(quickStart, /new workspace/iu);
-  assert.match(quickStart, /existing knowledge graph|agent-memory workflow/iu);
+  assert.match(quickStart, /Setup creates the local Markdown structure/iu);
+  assert.match(quickStart, /existing knowledge graph|older Markdown knowledge graph/iu);
   assert.match(
     quickStart,
-    /README and documentation files[\s\S]{0,80}not[\s\S]{0,40}reason to use adoption/iu,
+    /README and documentation files[\s\S]{0,80}not[\s\S]{0,50}reason to\s+use it/iu,
   );
 
   const references = [
@@ -137,7 +137,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
     assert.match(policy, new RegExp("\\| `" + profile + "` \\|"));
   }
   assert.match(policy, /uncertain, select `checkpoint`/);
-  assert.match(policy, /global\s+skills\.sh installation must remain inert/);
+  assert.match(policy, /global skills\.sh\s+installation must remain inert/);
   assert.match(policy, /If it does not, select `none`/);
   assert.match(policy, /explicit user request to skip Syncora selects `none`/i);
   assert.match(policy, /pre-work mode/);
@@ -186,7 +186,7 @@ test("optional OpenAI metadata stays presentation-only", async () => {
   assert.ok(defaultPrompt, "OpenAI metadata needs a default prompt");
   assert.match(defaultPrompt, /\$syncora/);
   assert.match(defaultPrompt, /set up/i);
-  assert.match(defaultPrompt, /adopt/i);
+  assert.match(defaultPrompt, /maintain/i);
   assert.match(defaultPrompt, /project|workspace/i);
   assert.doesNotMatch(metadata, /dependencies:/);
 });
@@ -208,9 +208,10 @@ test("legacy adoption documentation and release gates stay bundled", async () =>
     join(skillRoot, "references", "legacy-adoption.md"),
     "utf8",
   );
-  assert.match(skill, /explicit request to set up Syncora/);
-  assert.match(normalizedSkill, /one `adopt --bundle`/);
-  assert.match(adoption, /One explicit authorization/);
+  assert.match(skill, /explicit setup request authorizes one normal `setup`/);
+  assert.match(normalizedSkill, /Run `adopt --dry-run`/);
+  assert.match(normalizedSkill, /`--expected-bundle-digest`/);
+  assert.match(adoption, /one approval request/i);
   assert.match(adoption, /internal phases/);
   assert.doesNotMatch(adoption, /approval before each non-dry-run/i);
 

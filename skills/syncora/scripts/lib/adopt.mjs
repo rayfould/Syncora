@@ -1,4 +1,9 @@
-import { loadAndValidateAdoptionBundle } from "./adoption-bundle.mjs";
+import { dirname, join } from "node:path";
+
+import {
+  buildAdoptionBundle,
+  loadAndValidateAdoptionBundle,
+} from "./adoption-bundle.mjs";
 import { SyncoraError } from "./cli.mjs";
 import {
   cutoverMigration,
@@ -121,20 +126,110 @@ async function readStartingStatus(options, lifecycle, lockCapability) {
   }
 }
 
-export async function adoptWorkspace(options, lifecycle = DEFAULT_LIFECYCLE) {
-  const bundle = await loadAndValidateAdoptionBundle(options.bundle);
+function reviewedPackOutput(options) {
+  return options.output ?? join(dirname(options.manifest), "adoption-bundle-v1.json");
+}
+
+async function prepareReviewedPack(options, hooks = {}) {
+  const prepared = await buildAdoptionBundle(
+    {
+      ...options,
+      output: reviewedPackOutput(options),
+      dryRun: options.dryRun === true,
+      expectedDescriptorSha256: options.expectedBundleDigest,
+    },
+    hooks,
+  );
+  if (options.dryRun) {
+    return {
+      ok: true,
+      command: "adopt",
+      workspace: prepared.workspace,
+      migrationId: prepared.migrationId,
+      status: "review-required",
+      dryRun: true,
+      review: {
+        bundleOutput: prepared.output,
+        bundleSha256: prepared.descriptor.sha256,
+        manifest: prepared.manifest,
+        stagedContent: prepared.stagedContent,
+        fixtures: prepared.fixtures,
+      },
+      summary: {
+        bundleSha256: prepared.descriptor.sha256,
+        completedPhases: [],
+        finalStatus: "review-required",
+        rollbackRetained: false,
+        idempotent: false,
+      },
+      phases: [],
+      warnings: [],
+      changes: [],
+    };
+  }
+  return prepared;
+}
+
+export async function adoptWorkspace(
+  options,
+  lifecycle = DEFAULT_LIFECYCLE,
+  hooks = {},
+) {
+  if (options.bundle && options.dryRun) {
+    throw new SyncoraError(
+      "CLI005",
+      "A sealed adoption bundle is already reviewable and does not support adopt --dry-run.",
+    );
+  }
+  if (!options.bundle && !options.dryRun && !options.expectedBundleDigest) {
+    throw new SyncoraError(
+      "CLI002",
+      "Final reviewed-pack adoption requires --expected-bundle-digest from adopt --dry-run.",
+    );
+  }
+  const prepared = options.bundle
+    ? null
+    : await prepareReviewedPack(options, hooks.bundle);
+  if (prepared?.dryRun) return prepared;
+  const bundlePath = options.bundle ?? prepared.output;
+  const bundle = await loadAndValidateAdoptionBundle(bundlePath, hooks.load);
+  if (
+    options.expectedBundleDigest !== undefined &&
+    options.expectedBundleDigest !== bundle.descriptor.sha256
+  ) {
+    throw new SyncoraError(
+      "MIGRATE016",
+      "The adoption bundle does not match the reviewed digest.",
+      {
+        expected: options.expectedBundleDigest,
+        actual: bundle.descriptor.sha256,
+      },
+    );
+  }
   const runtimeOptions = resolvedArtifactOptions(
-    { ...options, dryRun: false },
+    { ...options, bundle: bundlePath, dryRun: false },
     bundle,
   );
   const lockRoots = await resolveMigrationLockRoots(runtimeOptions);
-  return withMigrationLocks(lockRoots, (lockCapability) =>
+  const result = await withMigrationLocks(lockRoots, (lockCapability) =>
     adoptWorkspaceLocked({
       bundle,
       runtimeOptions,
       lifecycle,
       lockCapability,
     }));
+  return prepared
+    ? {
+        ...result,
+        review: {
+          bundleOutput: prepared.output,
+          bundleSha256: prepared.descriptor.sha256,
+          manifest: prepared.manifest,
+          stagedContent: prepared.stagedContent,
+          fixtures: prepared.fixtures,
+        },
+      }
+    : result;
 }
 
 async function adoptWorkspaceLocked({

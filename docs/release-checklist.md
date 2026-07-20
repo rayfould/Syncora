@@ -17,8 +17,9 @@
        setup, context-profile preflight, bounded context compilation, and
        unpatching. Setup output must include the foreground drift-baseline
        disposition.
-- [ ] `npm run smoke:adoption` exercises one installed-copy `adopt` command,
-      internal stage through retirement, and post-retirement rollback.
+- [ ] `npm run smoke:adoption` exercises one installed-copy adoption operation:
+      digest preview, digest-bound final `adopt`, internal stage through
+      retirement, and post-retirement rollback.
 - [ ] Install remains inert until the user explicitly runs setup (including the
       exact predecessor-marker-only case) or starts legacy graph adoption.
 - [ ] Greenfield initialization refuses existing knowledge and routes it to the
@@ -30,8 +31,8 @@
 - [ ] Mixed exact-marker and residual custom predecessor instructions fail
       closed, and `setup --no-patch-agents` cannot bypass review through a later
       `patch-agents` call.
-- [ ] Adoption documentation and runtime help agree on the bundle contract,
-      installed no-clobber builder, consolidated authorization,
+- [ ] Adoption documentation and runtime help agree on reviewed-pack preview,
+      the digest-bound no-clobber builder, consolidated authorization,
       reviewed-attestation option, resumability, expert phase surface, and
       rollback state.
 - [ ] Cutover and retirement retain legacy source notes, and recovery evidence

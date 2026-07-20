@@ -81,10 +81,11 @@ with overlapping descriptions.
 
 The normal setup surface is also intentionally small: `setup` initializes a
 greenfield workspace, or replaces the exact supported predecessor marker when
-no legacy graph exists, in one command. `adopt` applies one reviewed,
-content-addressed existing-graph bundle in one resumable command. The migration
-state machine remains visible for expert diagnostics and exact recovery, but
-its phases are recovery boundaries rather than user workflow or approval steps.
+no legacy graph exists, in one command. Existing-graph `adopt` previews the
+reviewed semantic inputs, binds one authorization to their exact digest, then
+seals and applies them in one resumable operation. The migration state machine
+and standalone bundle surface remain visible for compatibility, expert
+diagnostics, and exact recovery, but they are not the normal user workflow.
 
 ### 5.2 Markdown owns truth
 
@@ -723,8 +724,8 @@ Normal commands:
 
 ```text
 syncora setup
-syncora bundle --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON
-syncora adopt --bundle ABS
+syncora adopt --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON --dry-run
+syncora adopt --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON --expected-bundle-digest SHA256
 syncora checkpoint --phase pre|post
 syncora context
 syncora capture
@@ -738,6 +739,8 @@ Power-user commands:
 syncora search
 syncora backlinks
 syncora validate
+syncora bundle
+syncora adopt --bundle ABS
 syncora propose
 syncora review
 syncora apply

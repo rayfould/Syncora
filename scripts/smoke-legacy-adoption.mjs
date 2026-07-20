@@ -263,8 +263,8 @@ try {
       },
     ],
   }, null, 2)}\n`);
-  const bundled = runRuntime([
-    "bundle",
+  const adoptArguments = [
+    "adopt",
     "--workspace",
     workspace,
     "--migration-id",
@@ -277,17 +277,20 @@ try {
     fixturesPath,
     "--output",
     bundlePath,
+  ];
+  const previewed = runRuntime([
+    ...adoptArguments,
+    "--dry-run",
   ]);
-  assert.equal(bundled.command, "bundle");
-  assert.equal(bundled.changed, true);
-  assert.equal(bundled.stagedContent.targetCount, targets.length);
+  assert.equal(previewed.command, "adopt");
+  assert.equal(previewed.status, "review-required");
+  assert.deepEqual(previewed.changes, []);
+  assert.equal(previewed.review.stagedContent.targetCount, targets.length);
 
   const adopted = runRuntime([
-    "adopt",
-    "--workspace",
-    workspace,
-    "--bundle",
-    bundlePath,
+    ...adoptArguments,
+    "--expected-bundle-digest",
+    previewed.review.bundleSha256,
   ]);
   assert.equal(adopted.status, "retired");
   assert.deepEqual(adopted.summary.completedPhases, [

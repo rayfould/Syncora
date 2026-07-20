@@ -29,8 +29,8 @@ semantic review boundary; it does not find or delete custom instructions.
 3. Run `setup` once after the user authorizes initialization. Use
    `setup --dry-run` only when the user requests a preview or workspace risk
    warrants one. A legacy-graph finding means this is not greenfield; prepare a
-   reviewed manifest, staged targets, and fixtures, seal them with `bundle`,
-   then switch to `adopt`.
+   reviewed manifest, staged targets, and fixtures, then switch to the
+   reviewed-pack `adopt` preview and digest-bound final invocation.
 
 ## Command
 

@@ -8,25 +8,30 @@ then use one `setup --confirm-predecessor-reviewed` command; do not invent an
 empty adoption bundle. Do not run `setup` or `init` before existing-graph
 adoption. Adoption remains foreground, resumable, and reversible.
 
-## Default two-command application
+## Default single adoption operation
 
 Use one stable lowercase migration ID for the whole operation. Resolve the
 workspace and any external graph root to exact absolute paths.
 
 ```text
-node "<syncora-skill-root>/scripts/syncora.mjs" bundle --workspace <absolute-path> --migration-id <id> --manifest <absolute-review-manifest> --staged-content <absolute-staged-directory> --fixtures <absolute-shadow-fixtures> --output <absolute-bundle-json>
-node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path> --bundle <absolute-bundle-json>
+node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path> --migration-id <id> --manifest <absolute-review-manifest> --staged-content <absolute-staged-directory> --fixtures <absolute-shadow-fixtures> --dry-run
+node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path> --migration-id <id> --manifest <absolute-review-manifest> --staged-content <absolute-staged-directory> --fixtures <absolute-shadow-fixtures> --expected-bundle-digest <reviewed-sha256>
 ```
 
-The first command validates and seals one migration ID, reviewed v2 manifest,
-shadow fixture set, and every staged target by exact path, byte count, and
-SHA-256. All inputs must be contained below the descriptor's directory; the
-builder is atomic, no-clobber, and byte-idempotent. The second command applies
-that exact descriptor. One explicit authorization for `adopt` covers stage,
-shadow, cutover, verify, and retire. Each gate
-still fails closed, the command writes no canonical bytes before cutover,
-rollback evidence remains available, and rerunning the same command resumes
-from the recorded state. Pass
+The user asks for adoption once. The agent inventories the old graph and
+prepares the reviewed v2 manifest, staged Markdown, and shadow fixtures. The
+first `adopt` invocation is a non-mutating preview that validates the complete
+pack and returns its exact bundle digest. Present the review files and that
+digest in one approval request. After approval, the final `adopt` invocation
+must bind `--expected-bundle-digest` to that exact value.
+
+Final adoption revalidates the current graph and reviewed bytes, seals the
+content-addressed descriptor atomically, and applies stage, shadow, cutover,
+verify, and retire. Each gate fails closed, no canonical bytes change before
+cutover, rollback evidence remains available, and rerunning the same final
+command resumes from recorded state. The older standalone `bundle` plus
+`adopt --bundle` form remains supported only for compatibility and expert
+recovery. Pass
 `--allow-external-graph-root <exact-absolute-path>` when the resolved graph root
 is external.
 
@@ -41,7 +46,8 @@ remove any custom predecessor activation. Then rerun the same command with
 `--confirm-predecessor-reviewed`. This attests review; it does not delete
 custom instructions.
 
-Use `migrate --phase authority --dry-run` while preparing the reviewed bundle.
+Use `migrate --phase authority --dry-run` internally while preparing the
+reviewed adoption pack.
 Use the individual `migrate --phase ...` commands only for expert inspection,
 targeted previews, recovery, or rollback. Do not turn those internal phases
 into separate user approval prompts during normal adoption.

@@ -58,6 +58,7 @@ const VALUE_OPTIONS = new Set([
   "--staged-content",
   "--fixtures",
   "--bundle",
+  "--expected-bundle-digest",
   "--output",
   "--intent",
   "--input",
@@ -107,6 +108,7 @@ export function parseArgv(argv) {
     stagedContent: undefined,
     fixtures: undefined,
     bundle: undefined,
+    expectedBundleDigest: undefined,
     output: undefined,
     confirmPredecessorReviewed: false,
     force: false,
@@ -200,6 +202,9 @@ export function parseArgv(argv) {
       if (token === "--staged-content") options.stagedContent = value;
       if (token === "--fixtures") options.fixtures = value;
       if (token === "--bundle") options.bundle = value;
+      if (token === "--expected-bundle-digest") {
+        options.expectedBundleDigest = value;
+      }
       if (token === "--output") options.output = value;
       if (token === "--intent") options.intent = value;
       if (token === "--input") options.input = value;
@@ -464,20 +469,26 @@ export function parseArgv(argv) {
     throw new SyncoraError("CLI005", "--cursor is only valid with migrate.");
   }
   if (
-    !new Set(["migrate", "bundle"]).has(command) &&
+    !new Set(["migrate", "bundle", "adopt"]).has(command) &&
     [options.migrationId, options.manifest, options.stagedContent, options.fixtures]
       .some((value) => value !== undefined)
   ) {
     throw new SyncoraError(
       "CLI005",
-      "--migration-id, --manifest, --staged-content, and --fixtures are only valid with bundle or migrate.",
+      "--migration-id, --manifest, --staged-content, and --fixtures are only valid with adopt, bundle, or migrate.",
     );
   }
   if (command !== "adopt" && options.bundle !== undefined) {
     throw new SyncoraError("CLI005", "--bundle is only valid with adopt.");
   }
-  if (command !== "bundle" && options.output !== undefined) {
-    throw new SyncoraError("CLI005", "--output is only valid with bundle.");
+  if (command !== "adopt" && options.expectedBundleDigest !== undefined) {
+    throw new SyncoraError(
+      "CLI005",
+      "--expected-bundle-digest is only valid with adopt.",
+    );
+  }
+  if (!new Set(["bundle", "adopt"]).has(command) && options.output !== undefined) {
+    throw new SyncoraError("CLI005", "--output is only valid with adopt or bundle.");
   }
   if (command === "migrate") {
     const phases = new Set([
@@ -576,16 +587,49 @@ export function parseArgv(argv) {
       );
     }
   } else if (command === "adopt") {
-    if (options.dryRun) {
+    const reviewedPackOptions = [
+      ["--migration-id", options.migrationId],
+      ["--manifest", options.manifest],
+      ["--staged-content", options.stagedContent],
+      ["--fixtures", options.fixtures],
+    ];
+    const hasReviewedPack = reviewedPackOptions.some(([, value]) => value !== undefined);
+    if (options.bundle && (hasReviewedPack || options.output !== undefined)) {
       throw new SyncoraError(
         "CLI005",
-        "adopt is the authorized end-to-end mutation command and does not support --dry-run; use the low-level migrate phases for previews.",
+        "adopt accepts either --bundle or reviewed-pack inputs, not both.",
+      );
+    }
+    if (options.bundle && options.dryRun) {
+      throw new SyncoraError(
+        "CLI005",
+        "A sealed adoption bundle is already reviewable and does not support adopt --dry-run.",
       );
     }
     if (!options.bundle) {
+      const missing = reviewedPackOptions
+        .filter(([, value]) => !value)
+        .map(([name]) => name);
+      if (missing.length > 0) {
+        throw new SyncoraError(
+          "CLI002",
+          `adopt requires either --bundle <absolute-path> or reviewed-pack inputs; missing ${missing.join(", ")}.`,
+        );
+      }
+      if (!options.dryRun && !options.expectedBundleDigest) {
+        throw new SyncoraError(
+          "CLI002",
+          "Final reviewed-pack adoption requires --expected-bundle-digest from adopt --dry-run.",
+        );
+      }
+    }
+    if (
+      options.expectedBundleDigest !== undefined &&
+      !/^sha256:[0-9a-f]{64}$/u.test(options.expectedBundleDigest)
+    ) {
       throw new SyncoraError(
-        "CLI002",
-        "adopt requires --bundle <absolute-path>.",
+        "CLI004",
+        "--expected-bundle-digest must be a lowercase tagged SHA-256 value.",
       );
     }
   } else if (
@@ -687,15 +731,25 @@ export function helpText(topic = undefined) {
 
   if (topic === "adopt") {
     return [
-      "Usage: syncora adopt --workspace <absolute-path> --bundle <absolute-path> [options]",
+      "Usage:",
+      "  syncora adopt --workspace <absolute-path> --migration-id <id> --manifest <absolute-path> --staged-content <absolute-directory> --fixtures <absolute-path> --dry-run [options]",
+      "  syncora adopt --workspace <absolute-path> --migration-id <id> --manifest <absolute-path> --staged-content <absolute-directory> --fixtures <absolute-path> --expected-bundle-digest <sha256:digest> [options]",
+      "  syncora adopt --workspace <absolute-path> --bundle <absolute-path> [options]",
       "",
       "--workspace <absolute-path>",
-      "--bundle <absolute-path>  (content-addressed reviewed adoption descriptor)",
+      "--migration-id <id>  (reviewed-pack mode)",
+      "--manifest <absolute-path>  (reviewed-pack mode)",
+      "--staged-content <absolute-directory>  (reviewed-pack mode)",
+      "--fixtures <absolute-path>  (reviewed-pack mode)",
+      "--output <absolute-path>  (optional descriptor path; defaults beside the manifest)",
+      "--expected-bundle-digest <sha256:digest>  (required for final reviewed-pack adoption)",
+      "--bundle <absolute-path>  (compatibility path for an already sealed descriptor)",
+      "--dry-run  (validate and return the exact review digest without mutation)",
       "--confirm-predecessor-reviewed  (only after reviewing custom or unmarked predecessor instructions)",
       "--format <text|json>",
       "--allow-external-graph-root <absolute-path>",
       "",
-      "Runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
+      "Dry-run seals the reviewed pack in memory and returns its digest. Final adoption rechecks that digest, writes the descriptor, then runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
     ].join("\n");
   }
 
@@ -924,8 +978,8 @@ export function helpText(topic = undefined) {
     "",
     "Commands:",
     "  setup           Initialize a greenfield workspace and patch agents",
-    "  bundle          Build one reviewed legacy-adoption bundle",
-    "  adopt           Apply one reviewed legacy-adoption bundle end to end",
+    "  adopt           Preview or apply one reviewed legacy graph end to end",
+    "  bundle          Advanced compatibility tool for sealing a reviewed pack",
     "  apply           Transactionally apply one approved proposal",
     "  backlinks       Resolve one note and list bounded reverse links",
     "  checkpoint      Run a foreground preflight or paired postflight",
@@ -1625,6 +1679,16 @@ export function renderResult(result, format = "text") {
     if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
     lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
     lines.push(`State: ${terminalSafe(result.status)}`);
+    if (result.dryRun) {
+      lines.push(`Review digest: ${terminalSafe(result.review.bundleSha256)}`);
+      lines.push(`Manifest: ${terminalSafe(result.review.manifest.path)}`);
+      lines.push(
+        `Targets: ${result.review.stagedContent.targetCount} (${result.review.stagedContent.totalBytes} bytes)`,
+      );
+      lines.push(`Fixtures: ${result.review.fixtures.caseCount} case(s)`);
+      lines.push("Changes: none; inspect the reviewed files before final adoption.");
+      return `${lines.join("\n")}\n`;
+    }
     lines.push(
       `Phases: ${result.summary.completedPhases.length > 0 ? result.summary.completedPhases.join(" -> ") : "already complete"}`,
     );

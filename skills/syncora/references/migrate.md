@@ -1,9 +1,10 @@
 # Authority inventory and promotion artifacts
 
-This reference defines the semantic inputs and the expert phase surface. After
-review, the normal path is one `bundle` command followed by one
-`adopt --bundle <absolute-json>` command, not a series of user-driven phase
-approvals. The content-addressed bundle uses
+This reference defines the semantic inputs and the expert phase surface. The
+normal path is one user-level adoption operation: preview the complete reviewed
+pack with `adopt --dry-run`, obtain one digest-bound approval, then rerun
+`adopt` with `--expected-bundle-digest`. Do not expose a series of user-driven
+phase approvals. The internal content-addressed bundle uses
 `assets/schemas/adoption-bundle-v1.schema.json` and binds its migration ID,
 reviewed manifest, fixtures, and every staged target byte.
 

@@ -81,7 +81,10 @@ memory workflow, do not initialize over it. Say:
 Adopt this existing knowledge graph into Syncora.
 ```
 
-Adoption is an advanced, reviewed, reversible conversion. See
+That single request owns the complete reviewed conversion. Syncora inventories
+the old graph, prepares and previews the replacement, pauses once for approval,
+then migrates, verifies, switches agent instructions, and retires the old
+workflow while preserving source notes and rollback evidence. See
 [Legacy knowledge graph adoption](legacy-kg-adoption.md).
 
 ## Safety notes

@@ -44,8 +44,12 @@ Converting an older Markdown knowledge graph is an advanced, explicit workflow:
 Adopt this existing knowledge graph into Syncora.
 ```
 
-Adoption preserves the source notes and keeps rollback evidence. Ordinary
-README and documentation files are not, by themselves, a reason to use it.
+One adoption request owns the complete conversion: inventory the old graph,
+prepare and preview the reviewed replacement, ask one digest-bound approval,
+then migrate, verify, switch agent instructions, and retire the predecessor
+workflow. Adoption preserves the source notes and keeps rollback evidence.
+Ordinary README and documentation files are not, by themselves, a reason to
+use it.
 
 ## What the development preview does
 
@@ -97,7 +101,9 @@ external-root allowlist.
   `local/`. Remove the globally installed skill only when the user asks to
   uninstall Syncora, and never imply that uninstalling deletes project memory.
 - **Existing knowledge:** use adoption only when the user explicitly wants to
-  convert a pre-Syncora Markdown graph or predecessor workflow.
+  convert a pre-Syncora Markdown graph or predecessor workflow. Treat that one
+  request as authorization to inventory and prepare the reviewed conversion;
+  pause once for exact digest approval before canonical cutover.
 
 Treat these as conversational intents. The bundled CLI is internal machinery,
 not the public workflow. Ask for another confirmation only when the agent's
@@ -156,10 +162,14 @@ unconditional `doctor`, or unconditional full-graph validation.
 ### Use the smallest internal command surface
 
 - For existing knowledge, read
-  [legacy-adoption.md](references/legacy-adoption.md), prepare the reviewed
-  artifacts, run `bundle`, present one consolidated approval, then run one
-  `adopt --bundle`. Do not expose internal phases unless a gate fails or the
-  user requests diagnostics.
+  [legacy-adoption.md](references/legacy-adoption.md), inventory the complete
+  old graph, and prepare the reviewed manifest, staged Markdown, and shadow
+  fixtures. Run `adopt --dry-run` with those inputs, present its exact digest
+  and review files once, then after approval rerun the same `adopt` input with
+  `--expected-bundle-digest`. The final command seals the pack, stages it,
+  shadow-tests it, cuts over, verifies it, retires the predecessor workflow,
+  and retains rollback evidence. Do not expose `bundle` or internal phases
+  unless a gate fails or the user requests diagnostics.
 - Use `doctor` for diagnostics. Use `validate` for explicit maintenance,
   required write gates, or relevant integrity investigations.
 - Use `search --query <text>` and `backlinks --note <path-or-alias>` only for
@@ -174,8 +184,9 @@ unconditional `doctor`, or unconditional full-graph validation.
   approval. Treat rejection and stale baselines as terminal; create a corrected
   proposal instead of forcing or rebasing. Resume interrupted transactions only
   in a later foreground request; no recovery runs in the background.
-- Keep `migrate --phase authority --dry-run` and the individual migration phases
-  as expert inspection, recovery, and rollback tools.
+- Keep `bundle`, `migrate --phase authority --dry-run`, and the individual
+  migration phases as expert compatibility, inspection, recovery, and rollback
+  tools.
 - If custom predecessor instructions remain active, inspect and remove them
   before setup. Never manufacture an empty adoption bundle, and never let a
   confirmation override conflicting active instructions.

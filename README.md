@@ -111,9 +111,12 @@ memory workflow, ask:
 Adopt this existing knowledge graph into Syncora.
 ```
 
-This is an advanced conversion path, not ordinary setup. Syncora preserves the
-source notes, verifies the proposed authority graph, and keeps rollback
-evidence. See [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
+This one request owns the complete conversion. Syncora inventories the old
+graph, prepares and previews the reviewed replacement, asks once for approval,
+then migrates the notes, verifies the new authority graph, switches the agent
+instructions, and retires the predecessor workflow. Source notes and rollback
+evidence are preserved. See
+[legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
 
 ## Current boundaries
 

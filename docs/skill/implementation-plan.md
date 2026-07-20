@@ -422,8 +422,8 @@ The current executable commands are:
 
 ```text
 setup
-bundle --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON
-adopt --bundle ABS_JSON
+adopt --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON --dry-run
+adopt --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON --expected-bundle-digest SHA256
 doctor
 validate
 backlinks
@@ -445,14 +445,17 @@ The advanced compatibility, inspection, and recovery surface is:
 
 ```text
 init
+bundle --migration-id ID --manifest ABS --staged-content ABS_DIR --fixtures ABS --output ABS_JSON
+adopt --bundle ABS_JSON
 migrate --phase authority|stage|shadow|cutover|verify|retire|rollback|status
 ```
 
 Normal greenfield or exact predecessor-marker-only setup is one `setup`
-command. Normal existing-graph adoption is two commands after semantic review:
-`bundle` seals the exact files and `adopt --bundle` applies them. The advanced
-phase surface remains independently executable for diagnostics and exact
-recovery, but it is not a multi-approval installation workflow.
+command. Normal existing-graph adoption is one user-level operation after
+semantic review: preview `adopt`, approve the exact returned digest once, then
+rerun the same reviewed-pack invocation with that digest. It seals the inputs
+and applies the full lifecycle. The standalone bundle and advanced phase
+surfaces remain executable for compatibility, diagnostics, and exact recovery.
 
 Current source provides general canonical-Markdown-read-only context
 compilation and an explicit governed capture surface. Default discovery may

@@ -691,6 +691,12 @@ export async function buildAdoptionBundle(options, hooks = {}) {
   if (options.dryRun !== undefined && typeof options.dryRun !== "boolean") {
     throw bundleError("Adoption bundle dryRun must be a boolean.");
   }
+  if (
+    options.expectedDescriptorSha256 !== undefined &&
+    !HASH_PATTERN.test(options.expectedDescriptorSha256)
+  ) {
+    throw bundleError("Expected adoption bundle digest must be a lowercase tagged SHA-256 value.");
+  }
   if (typeof options.output !== "string" || !isAbsolute(options.output)) {
     throw bundleError("Adoption bundle output path must be absolute.");
   }
@@ -829,6 +835,19 @@ export async function buildAdoptionBundle(options, hooks = {}) {
   if (descriptorBytes.length > ADOPTION_BUNDLE_POLICY.maximumDescriptorBytes) {
     throw bundleError("Generated adoption bundle descriptor exceeds its byte limit.");
   }
+  const descriptorSha256 = taggedSha256(descriptorBytes);
+  if (
+    options.expectedDescriptorSha256 !== undefined &&
+    options.expectedDescriptorSha256 !== descriptorSha256
+  ) {
+    throw bundleError(
+      "The reviewed adoption bundle digest does not match the current manifest, targets, and fixtures.",
+      {
+        expected: options.expectedDescriptorSha256,
+        actual: descriptorSha256,
+      },
+    );
+  }
   const assertInputsCurrent = async () => {
     try {
       await verifyAuthoritySnapshot(
@@ -877,7 +896,7 @@ export async function buildAdoptionBundle(options, hooks = {}) {
     output: outputPath,
     migrationId,
     descriptor: Object.freeze({
-      sha256: taggedSha256(descriptorBytes),
+      sha256: descriptorSha256,
       byteLength: descriptorBytes.length,
     }),
     manifest: Object.freeze({

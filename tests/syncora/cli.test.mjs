@@ -97,7 +97,52 @@ test("adopt accepts one content-addressed reviewed bundle", () => {
   assert.equal(parsed.options.dryRun, false);
 });
 
-test("adopt rejects low-level artifacts and dry-run orchestration", () => {
+test("adopt previews and executes one complete reviewed pack", () => {
+  const workspace = resolve("workspace");
+  const review = resolve("review");
+  const artifacts = [
+    "--migration-id",
+    "legacy-adoption",
+    "--manifest",
+    resolve(review, "manifest.json"),
+    "--staged-content",
+    resolve(review, "staged-content"),
+    "--fixtures",
+    resolve(review, "fixtures.json"),
+  ];
+  const preview = parseArgv([
+    "adopt",
+    "--workspace",
+    workspace,
+    ...artifacts,
+    "--dry-run",
+  ]);
+  assert.equal(preview.options.dryRun, true);
+  assert.equal(preview.options.bundle, undefined);
+
+  assert.throws(
+    () => parseArgv([
+      "adopt",
+      "--workspace",
+      workspace,
+      ...artifacts,
+    ]),
+    (error) => error instanceof SyncoraError && error.code === "CLI002",
+  );
+
+  const final = parseArgv([
+    "adopt",
+    "--workspace",
+    workspace,
+    ...artifacts,
+    "--expected-bundle-digest",
+    `sha256:${"a".repeat(64)}`,
+  ]);
+  assert.equal(final.options.dryRun, false);
+  assert.equal(final.options.expectedBundleDigest, `sha256:${"a".repeat(64)}`);
+});
+
+test("adopt rejects mixed sealed-bundle and reviewed-pack inputs", () => {
   const workspace = resolve("workspace");
   const bundle = resolve("review", "adoption-bundle-v1.json");
   assert.throws(
@@ -109,17 +154,6 @@ test("adopt rejects low-level artifacts and dry-run orchestration", () => {
       bundle,
       "--manifest",
       resolve("manifest.json"),
-    ]),
-    (error) => error instanceof SyncoraError && error.code === "CLI005",
-  );
-  assert.throws(
-    () => parseArgv([
-      "adopt",
-      "--workspace",
-      workspace,
-      "--bundle",
-      bundle,
-      "--dry-run",
     ]),
     (error) => error instanceof SyncoraError && error.code === "CLI005",
   );
@@ -201,11 +235,12 @@ test("setup accepts reviewed predecessor confirmation while init remains a compa
   assert.match(helpText("patch-agents"), /--confirm-predecessor-reviewed/u);
 });
 
-test("setup, bundle, and adopt are first-class help surfaces", () => {
+test("setup and adopt are primary help surfaces while bundle remains compatible", () => {
   assert.match(helpText(), /\n  setup\s+Initialize a greenfield workspace/u);
-  assert.match(helpText(), /\n  bundle\s+Build one reviewed legacy-adoption bundle/u);
-  assert.match(helpText(), /\n  adopt\s+Apply one reviewed legacy-adoption bundle/u);
+  assert.match(helpText(), /\n  adopt\s+Preview or apply one reviewed legacy graph/u);
+  assert.match(helpText(), /\n  bundle\s+Advanced compatibility tool/u);
   assert.match(helpText("bundle"), /content-addressed descriptor consumed by syncora adopt/u);
+  assert.match(helpText("adopt"), /Dry-run seals the reviewed pack in memory/u);
   assert.match(helpText("adopt"), /stage, shadow, cutover, verify, and retire/u);
 });
 

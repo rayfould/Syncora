@@ -54,8 +54,9 @@ expected to memorize.
   sharing an external graph do not share observations or baselines;
 - zero-authority, dry-run migration inventory;
 - reviewed v2 promotion-manifest validation and exact staged target bundles;
-- installed, atomic content-addressed `bundle` construction and one resumable
-  `adopt` command over the reviewed lifecycle;
+- one reviewed-pack `adopt` operation that previews an exact content digest,
+  seals it after one digest-bound authorization, and runs the resumable
+  lifecycle; standalone bundle adoption remains compatible;
 - bounded pre-cutover shadow fixtures;
 - graph-root-scoped migration state, locking, artifacts, and recovery journal;
 - gated cutover, verification, retirement, status, and exact rollback;
@@ -105,8 +106,8 @@ passes.
 - Test in a Git repository or another recoverable workspace.
 - An explicit setup request authorizes ordinary greenfield or exact
   predecessor-marker-only setup. Legacy graph adoption requires one
-  consolidated review and authorization for the exact content-addressed
-  bundle.
+  consolidated review and authorization for the exact content-addressed digest
+  returned by its preview.
 - Keep canonical `local/` Markdown under your own backup or version control.
 - Open and inspect the immutable local review artifact before approving
   governed capture. The digest, impact, paths, and compact summary are not a
