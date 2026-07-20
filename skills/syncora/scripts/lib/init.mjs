@@ -234,7 +234,7 @@ async function initializeWorkspaceUnlocked(options, expectedLockRoots = undefine
         customPredecessorAgentFiles: customPredecessorHooks.map((item) => item.path),
         predecessorReviewConfirmed: options.confirmPredecessorReviewed === true,
         next: graphRequiresAdoption
-          ? "Run syncora adopt with reviewed manifest, staged content, and shadow fixtures; preview the exact digest, approve it once, then rerun adopt with that digest to complete migration and retirement."
+          ? "Run syncora adopt with reviewed manifest, staged content, and shadow fixtures; present the bounded preview summary once, keep its digest internal, then rerun adopt with that digest after approval to complete migration and retirement."
           : customPredecessorReviewRequired
             ? "Inspect every active agent instruction file, remove custom predecessor activation outside the exact predecessor block, then rerun syncora setup --confirm-predecessor-reviewed."
             : "Rerun syncora setup without --no-patch-agents so the exact predecessor marker can be replaced atomically.",

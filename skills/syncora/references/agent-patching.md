@@ -48,30 +48,31 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v4 is current. It keeps relevance-gated activation and the governed capture
-boundary: prepare an immutable proposal, give the user its exact local review
-artifact, obtain explicit approval for the artifact-bound proposal digest, then
-publish only through transactional `apply`. It also routes substantive source
+Hook v5 is current. It keeps relevance-gated activation and the governed capture
+boundary: prepare an immutable proposal, present its bounded semantic summary,
+keep proposal and artifact digests internal, then publish only through
+transactional `apply` after a plain-language approval. The exact local artifact
+remains optional audit detail. It also routes substantive source
 mutation to the foreground `check --changed` operation while explicitly
 forbidding checks on every turn, background work, and after-final work.
 
-An exact tracked v1, v2, or v3 hook retains its original pre-Syncora restoration
-snapshot while its owned marker is upgraded to v4. A diverged or untracked v1,
-v2, or v3 hook instead refreshes the restoration baseline from current
+An exact tracked v1, v2, v3, or v4 hook retains its original pre-Syncora restoration
+snapshot while its owned marker is upgraded to v5. A diverged or untracked v1,
+v2, v3, or v4 hook instead refreshes the restoration baseline from current
 user-owned bytes with only the old marker removed, so a later unpatch cannot
-erase intervening edits. A hook newer than v4 fails closed before target writes.
+erase intervening edits. A hook newer than v5 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
 `patch-agents` adds or upgrades Syncora-owned markers; it is not authority to
 remove an unrelated broad knowledge-graph workflow. Normal existing-graph
-adoption previews reviewed files with `adopt --dry-run`, requests one approval
-for the exact digest, then seals and applies those inputs with the digest-bound
-final `adopt`. Its internal cutover gate
+adoption previews a bounded summary with `adopt --dry-run`, requests one
+plain-language approval, then seals and applies those inputs with the internally
+digest-bound final `adopt`. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v4, and records a predecessor-free restoration baseline in the
+with hook v5, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 

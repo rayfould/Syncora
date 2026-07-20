@@ -2,8 +2,9 @@
 
 This reference defines the semantic inputs and the expert phase surface. The
 normal path is one user-level adoption operation: preview the complete reviewed
-pack with `adopt --dry-run`, obtain one digest-bound approval, then rerun
-`adopt` with `--expected-bundle-digest`. Do not expose a series of user-driven
+pack with `adopt --dry-run`, obtain one plain-language approval from its bounded
+summary, then rerun `adopt` with the internally retained
+`--expected-bundle-digest`. Do not expose hashes or a series of user-driven
 phase approvals. The internal content-addressed bundle uses
 `assets/schemas/adoption-bundle-v1.schema.json` and binds its migration ID,
 reviewed manifest, fixtures, and every staged target byte.

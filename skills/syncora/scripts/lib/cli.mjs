@@ -744,12 +744,12 @@ export function helpText(topic = undefined) {
       "--output <absolute-path>  (optional descriptor path; defaults beside the manifest)",
       "--expected-bundle-digest <sha256:digest>  (required for final reviewed-pack adoption)",
       "--bundle <absolute-path>  (compatibility path for an already sealed descriptor)",
-      "--dry-run  (validate and return the exact review digest without mutation)",
+      "--dry-run  (validate and return a bounded approval summary without mutation)",
       "--confirm-predecessor-reviewed  (only after reviewing custom or unmarked predecessor instructions)",
       "--format <text|json>",
       "--allow-external-graph-root <absolute-path>",
       "",
-      "Dry-run seals the reviewed pack in memory and returns its digest. Final adoption rechecks that digest, writes the descriptor, then runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
+      "Dry-run seals the reviewed pack in memory and returns a bounded approval summary; JSON also carries the internal digest. Final adoption rechecks that digest, writes the descriptor, then runs stage, shadow, cutover, verify, and retire as one resumable foreground operation. Rollback evidence is retained.",
     ].join("\n");
   }
 
@@ -993,7 +993,7 @@ export function helpText(topic = undefined) {
     "  validate        Inspect graph safety and authority read-only",
     "  patch-agents    Add or refresh project-local agent hooks",
     "  propose         Create or inspect a governed proposal",
-    "  review          Approve or reject an exact proposal digest",
+    "  review          Record an approval or rejection for a sealed proposal",
     "  unpatch-agents  Restore or remove Syncora-owned hooks",
     "",
     "Run syncora <command> --help for command options.",
@@ -1298,6 +1298,86 @@ function compactReviewArtifact(artifact) {
   };
 }
 
+function compactApprovalSummary(summary) {
+  if (summary === null || typeof summary !== "object" || Array.isArray(summary)) {
+    return undefined;
+  }
+  const compactCountObject = (value, keys) => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      return undefined;
+    }
+    return Object.fromEntries(keys.map((key) => [key, Number(value[key] ?? 0)]));
+  };
+  const compactNamedCounts = (values, nameKey) => Array.isArray(values)
+    ? values.slice(0, 10).map((value) => ({
+        [nameKey]: boundedGovernedOutputString(value?.[nameKey], 256),
+        count: Number(value?.count ?? 0),
+      }))
+    : [];
+  return {
+    kind: boundedGovernedOutputString(summary.kind, 128),
+    title: boundedGovernedOutputString(summary.title, 256),
+    purpose: boundedGovernedOutputString(summary.purpose, 512),
+    changes: compactCountObject(
+      summary.changes,
+      ["total", "creates", "updates", "deletes"],
+    ),
+    sourceNotes: compactCountObject(
+      summary.sourceNotes,
+      [
+        "total",
+        "currentSchema",
+        "reviewRequired",
+        "blocked",
+        "reviewed",
+        "promoted",
+        "evidenceOnly",
+        "deferred",
+      ],
+    ),
+    targetNotes: Number(summary.targetNotes ?? 0),
+    shadowChecks: Number(summary.shadowChecks ?? 0),
+    operations: summary.operations
+      ? {
+          total: Number(summary.operations.total ?? 0),
+          kinds: compactNamedCounts(summary.operations.kinds, "kind"),
+          omittedKindCount: Number(summary.operations.omittedKindCount ?? 0),
+        }
+      : undefined,
+    authorityImpact: summary.authorityImpact
+      ? {
+          level: boundedGovernedOutputString(summary.authorityImpact.level, 128),
+          reasons: Array.isArray(summary.authorityImpact.reasons)
+            ? summary.authorityImpact.reasons.slice(0, 3).map((reason) =>
+                boundedGovernedOutputString(reason, 512))
+            : [],
+          omittedReasonCount: Number(summary.authorityImpact.omittedReasonCount ?? 0),
+        }
+      : undefined,
+    affectedAreas: compactNamedCounts(summary.affectedAreas, "area").slice(0, 6),
+    omittedAreaCount: Number(summary.omittedAreaCount ?? 0),
+    representativePaths: Array.isArray(summary.representativePaths)
+      ? summary.representativePaths.slice(0, 8).map((path) =>
+          boundedGovernedOutputString(path, 1_024))
+      : [],
+    omittedPathCount: Number(summary.omittedPathCount ?? 0),
+    agentInstructions: boundedGovernedOutputString(summary.agentInstructions, 512),
+    preservation: boundedGovernedOutputString(summary.preservation, 512),
+    warnings: Array.isArray(summary.warnings)
+      ? summary.warnings.slice(0, 4).map((warning) =>
+          boundedGovernedOutputString(warning, 512))
+      : [],
+    fullDetails: summary.fullDetails
+      ? {
+          available: summary.fullDetails.available === true,
+          path: boundedGovernedOutputString(summary.fullDetails.path, 4_096),
+          optional: true,
+        }
+      : undefined,
+    canonicalMarkdownChanged: summary.canonicalMarkdownChanged === true,
+  };
+}
+
 function compactGovernedResult(result) {
   const proposal = result.proposal ?? {};
   const review = result.review ?? {};
@@ -1348,6 +1428,7 @@ function compactGovernedResult(result) {
     created: result.created,
     idempotent: result.idempotent,
     reviewArtifact: compactReviewArtifact(artifact),
+    approvalSummary: compactApprovalSummary(result.approvalSummary),
     summary: compactGovernedSummary(result.summary),
     omittedChanges:
       (result.omittedChanges ?? 0) + (Array.isArray(result.changes) ? result.changes.length : 0),
@@ -1373,10 +1454,6 @@ function governedTextFallback(result) {
   ];
   if (compact.workspace) lines.push(`Workspace: ${terminalSafe(compact.workspace)}`);
   if (compact.graph?.root) lines.push(`Graph: ${terminalSafe(compact.graph.root)}`);
-  const proposalId = proposal.id ?? compact.proposalId;
-  if (proposalId) lines.push(`Proposal: ${terminalSafe(proposalId)}`);
-  const digest = proposal.digest ?? compact.proposalDigest;
-  if (digest) lines.push(`Digest: ${terminalSafe(digest)}`);
   if (compact.state ?? proposal.state) {
     lines.push(`State: ${terminalSafe(compact.state ?? proposal.state)}`);
   }
@@ -1386,6 +1463,81 @@ function governedTextFallback(result) {
   }
   lines.push("Use --format json for the compact machine-readable envelope.");
   return `${lines.join("\n")}\n`;
+}
+
+function appendApprovalSummary(lines, rawSummary) {
+  const summary = compactApprovalSummary(rawSummary);
+  if (!summary) return;
+  if (summary.title) lines.push(terminalSafe(summary.title));
+  if (summary.purpose) lines.push(`Purpose: ${terminalSafe(summary.purpose)}`);
+  if (summary.changes) {
+    lines.push(
+      `Changes: ${summary.changes.total} note(s) — ${summary.changes.creates} create, ${summary.changes.updates} update, ${summary.changes.deletes} delete`,
+    );
+  }
+  if (summary.sourceNotes) {
+    lines.push(
+      `Legacy notes: ${summary.sourceNotes.total} total — ${summary.sourceNotes.currentSchema} already current, ${summary.sourceNotes.reviewRequired} review-required, ${summary.sourceNotes.blocked} blocked`,
+    );
+    lines.push(
+      `Adoption plan: ${summary.sourceNotes.promoted} promoted, ${summary.sourceNotes.evidenceOnly} evidence-only, ${summary.sourceNotes.deferred} deferred`,
+    );
+  }
+  if (summary.targetNotes > 0) {
+    lines.push(`Canonical targets: ${summary.targetNotes}`);
+  }
+  if (summary.shadowChecks > 0) {
+    lines.push(`Shadow checks: ${summary.shadowChecks}`);
+  }
+  if (summary.operations?.kinds.length > 0) {
+    const kinds = summary.operations.kinds
+      .map((item) => `${terminalSafe(item.kind)} (${item.count})`)
+      .join(", ");
+    lines.push(`Kinds: ${kinds}`);
+    if (summary.operations.omittedKindCount > 0) {
+      lines.push(`Kinds omitted: ${summary.operations.omittedKindCount}`);
+    }
+  }
+  if (summary.authorityImpact?.level) {
+    lines.push(`Authority impact: ${terminalSafe(summary.authorityImpact.level)}`);
+    for (const reason of summary.authorityImpact.reasons) {
+      lines.push(`  - ${terminalSafe(reason)}`);
+    }
+  }
+  if (summary.affectedAreas.length > 0) {
+    lines.push(
+      `Areas: ${summary.affectedAreas.map((item) =>
+        `${terminalSafe(item.area)} (${item.count})`).join(", ")}`,
+    );
+    if (summary.omittedAreaCount > 0) {
+      lines.push(`Areas omitted: ${summary.omittedAreaCount}`);
+    }
+  }
+  if (summary.representativePaths.length > 0) {
+    lines.push("Examples:");
+    for (const path of summary.representativePaths) {
+      lines.push(`  - ${terminalSafe(path)}`);
+    }
+    if (summary.omittedPathCount > 0) {
+      lines.push(`  - … ${summary.omittedPathCount} more path(s) omitted`);
+    }
+  }
+  if (summary.agentInstructions) {
+    lines.push(`Agent instructions: ${terminalSafe(summary.agentInstructions)}`);
+  }
+  if (summary.preservation) {
+    lines.push(`Preservation: ${terminalSafe(summary.preservation)}`);
+  }
+  for (const warning of summary.warnings) {
+    lines.push(`Warning: ${terminalSafe(warning)}`);
+  }
+  if (summary.fullDetails?.available && summary.fullDetails.path) {
+    lines.push(`Full audit details (optional): ${terminalSafe(summary.fullDetails.path)}`);
+  }
+  if (!summary.canonicalMarkdownChanged) {
+    lines.push("No canonical knowledge has changed yet.");
+  }
+  lines.push("Reply with Yes, Approved, or No.");
 }
 
 function assertGovernedResultBound(command, rendered, format) {
@@ -1484,37 +1636,13 @@ export function renderResult(result, format = "text") {
     const proposal = result.proposal ?? {};
     lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
     if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
-    lines.push(`Proposal: ${terminalSafe(proposal.id ?? proposal.proposalId ?? "dry-run")}`);
-    if (proposal.digest ?? proposal.proposalDigest) {
-      lines.push(`Digest: ${terminalSafe(proposal.digest ?? proposal.proposalDigest)}`);
-    }
     lines.push(`State: ${terminalSafe(proposal.state ?? result.state ?? (result.dryRun ? "validated-dry-run" : "proposed"))}`);
-    if (proposal.authorityImpact ?? result.authorityImpact) {
-      const impact = proposal.authorityImpact ?? result.authorityImpact;
-      lines.push(`Authority impact: ${terminalSafe(typeof impact === "string" ? impact : impact.level)}`);
-    }
-    if (result.summary) {
+    const state = proposal.state ?? result.state;
+    if (result.approvalSummary && (result.dryRun || state === "proposed")) {
+      appendApprovalSummary(lines, result.approvalSummary);
+    } else if (result.summary) {
       lines.push(`Operations: ${result.summary.operations ?? 0}; file changes: ${result.summary.changes ?? 0}`);
     }
-    const reviewArtifact = result.reviewArtifact ?? proposal.reviewArtifact;
-    if (reviewArtifact?.path) {
-      lines.push(`Review artifact: ${terminalSafe(reviewArtifact.path)}`);
-      if (reviewArtifact.digest) {
-        lines.push(`Review artifact digest: ${terminalSafe(reviewArtifact.digest)}`);
-      }
-    }
-    for (const change of result.changes ?? []) {
-      lines.push(`${String(change.action ?? "change").padEnd(9)} ${terminalSafe(change.path)}`);
-    }
-    for (const candidate of result.duplicateCandidates ?? []) {
-      lines.push(
-        `duplicate ${terminalSafe(candidate.path)} (${Number(candidate.similarity).toFixed(3)})`,
-      );
-    }
-    if ((result.omittedChanges ?? 0) > 0) {
-      lines.push(`... ${result.omittedChanges} additional change(s) omitted`);
-    }
-    if (result.next) lines.push(`Next: ${terminalSafe(result.next)}`);
     let rendered = `${lines.join("\n")}\n`;
     if ([...rendered].length > GOVERNED_OUTPUT_POLICY.maximumCharacters) {
       rendered = governedTextFallback(result);
@@ -1527,8 +1655,6 @@ export function renderResult(result, format = "text") {
     const review = result.review ?? {};
     lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
     if (result.graph?.root) lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
-    lines.push(`Proposal: ${terminalSafe(review.proposalId ?? result.proposalId)}`);
-    lines.push(`Digest: ${terminalSafe(review.proposalDigest ?? result.proposalDigest)}`);
     lines.push(`Decision: ${terminalSafe(review.decision ?? result.decision)}`);
     lines.push(`Reviewer: ${terminalSafe(review.reviewedBy ?? result.reviewedBy)}`);
     lines.push(`State: ${terminalSafe(result.dryRun ? "validated-dry-run" : review.state ?? "recorded")}`);
@@ -1680,13 +1806,7 @@ export function renderResult(result, format = "text") {
     lines.push(`Migration: ${terminalSafe(result.migrationId)}`);
     lines.push(`State: ${terminalSafe(result.status)}`);
     if (result.dryRun) {
-      lines.push(`Review digest: ${terminalSafe(result.review.bundleSha256)}`);
-      lines.push(`Manifest: ${terminalSafe(result.review.manifest.path)}`);
-      lines.push(
-        `Targets: ${result.review.stagedContent.targetCount} (${result.review.stagedContent.totalBytes} bytes)`,
-      );
-      lines.push(`Fixtures: ${result.review.fixtures.caseCount} case(s)`);
-      lines.push("Changes: none; inspect the reviewed files before final adoption.");
+      appendApprovalSummary(lines, result.approvalSummary);
       return `${lines.join("\n")}\n`;
     }
     lines.push(

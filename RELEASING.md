@@ -19,8 +19,9 @@ Syncora uses semantic versions. Preview tags use the form
    graph state, or files outside the documented surface.
 7. Confirm the README, release status, skill reference, and CLI help agree that
    `setup` is the one-command greenfield and exact predecessor-marker-only
-    surface, reviewed-pack `adopt` previews one exact digest and then applies
-    the full legacy-graph lifecycle after one digest-bound authorization,
+   surface, reviewed-pack `adopt` previews one bounded semantic summary and
+   then applies the full legacy-graph lifecycle after one plain-language
+   authorization bound to the exact digest internally,
    lifecycle phases are advanced recovery boundaries, and post-retirement
    `rollback` remains available. Also confirm they agree that `check --changed`
    is foreground-only, first use establishes a baseline rather than freshness,

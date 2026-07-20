@@ -81,6 +81,102 @@ test("governed output compacts maximum-shape results without reporting post-writ
   assert.match(text, /State: applied/u);
 });
 
+test("approval text shows a bounded summary and keeps hashes and full diffs internal", () => {
+  const digest = `sha256:${"d".repeat(64)}`;
+  const proposalId = `proposal_${"e".repeat(64)}`;
+  const representativePaths = Array.from(
+    { length: 8 },
+    (_, index) => `knowledge/decisions/example-${index}.md`,
+  );
+  const approvalSummary = {
+    kind: "syncora.knowledge-change-approval-summary",
+    title: "Save this knowledge update to Syncora?",
+    purpose: "Record the accepted architecture direction.",
+    changes: { total: 256, creates: 20, updates: 235, deletes: 1 },
+    operations: {
+      total: 64,
+      kinds: [{ kind: "decision.accept", count: 64 }],
+      omittedKindCount: 0,
+    },
+    authorityImpact: {
+      level: "authority-changing",
+      reasons: ["Accepted decisions change canonical authority."],
+      omittedReasonCount: 0,
+    },
+    affectedAreas: [{ area: "knowledge/decisions", count: 256 }],
+    omittedAreaCount: 0,
+    representativePaths,
+    omittedPathCount: 248,
+    warnings: [],
+    fullDetails: {
+      available: true,
+      path: "C:/workspace/local/.syncora/review-artifacts/full.md",
+      optional: true,
+    },
+    canonicalMarkdownChanged: false,
+  };
+  const result = {
+    ok: true,
+    command: "capture",
+    workspace: "C:/workspace",
+    graph: { root: "C:/workspace/local" },
+    proposal: {
+      id: proposalId,
+      digest,
+      state: "proposed",
+    },
+    approvalSummary,
+    changes: Array.from({ length: 32 }, (_, index) => ({
+      action: "update",
+      path: `PRIVATE-FULL-DIFF-${index}.md`,
+    })),
+    omittedChanges: 224,
+  };
+
+  const text = renderResult(result, "text");
+  assert.ok([...text].length < 4_000);
+  assert.match(text, /Changes: 256 note\(s\)/u);
+  assert.match(text, /248 more path\(s\) omitted/u);
+  assert.match(text, /Reply with Yes, Approved, or No/u);
+  assert.doesNotMatch(text, /sha256:/u);
+  assert.equal(text.includes(proposalId), false);
+  assert.doesNotMatch(text, /PRIVATE-FULL-DIFF/u);
+
+  const adoptionText = renderResult({
+    ok: true,
+    command: "adopt",
+    workspace: "C:/workspace",
+    graph: { root: "C:/workspace/local" },
+    migrationId: "legacy-adoption",
+    status: "review-required",
+    dryRun: true,
+    review: { bundleSha256: digest },
+    approvalSummary: {
+      ...approvalSummary,
+      kind: "syncora.adoption-approval-summary",
+      title: "Adopt this existing knowledge into Syncora?",
+      changes: undefined,
+      operations: undefined,
+      authorityImpact: undefined,
+      sourceNotes: {
+        total: 724,
+        currentSchema: 33,
+        reviewRequired: 683,
+        blocked: 8,
+        reviewed: 683,
+        promoted: 13,
+        evidenceOnly: 670,
+        deferred: 0,
+      },
+      targetNotes: 16,
+      shadowChecks: 4,
+    },
+  }, "text");
+  assert.match(adoptionText, /Legacy notes: 724 total/u);
+  assert.match(adoptionText, /Reply with Yes, Approved, or No/u);
+  assert.doesNotMatch(adoptionText, /sha256:/u);
+});
+
 test("adopt accepts one content-addressed reviewed bundle", () => {
   const workspace = resolve("workspace");
   const bundle = resolve("review", "adoption-bundle-v1.json");
@@ -592,7 +688,7 @@ test("governed capture exposes a proposal, digest-bound review, and reviewed app
   assert.equal(applied.options.proposal, proposal);
 
   assert.match(helpText(), /\n  capture\s+Prepare an immutable governed knowledge proposal/u);
-  assert.match(helpText(), /\n  review\s+Approve or reject an exact proposal digest/u);
+  assert.match(helpText(), /\n  review\s+Record an approval or rejection for a sealed proposal/u);
   assert.match(helpText("capture"), /Canonical Markdown remains byte-identical/u);
   assert.match(helpText("apply"), /process-interruption recovery/u);
 });

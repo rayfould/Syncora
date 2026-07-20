@@ -30,7 +30,7 @@ semantic review boundary; it does not find or delete custom instructions.
    `setup --dry-run` only when the user requests a preview or workspace risk
    warrants one. A legacy-graph finding means this is not greenfield; prepare a
    reviewed manifest, staged targets, and fixtures, then switch to the
-   reviewed-pack `adopt` preview and digest-bound final invocation.
+   reviewed-pack `adopt` summary and internally digest-bound final invocation.
 
 ## Command
 
@@ -57,9 +57,10 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed relevance-gated hook v4 teaches the governed capture
+The installed relevance-gated hook v5 teaches the bounded approval-summary and
+internally digest-bound governed capture
 boundary plus foreground changed-source drift routing. Initialization may
-safely upgrade a tracked v1, v2, or v3 hook under the same workspace patch lock
+safely upgrade a tracked v1, v2, v3, or v4 hook under the same workspace patch lock
 used by `patch-agents`; restoration snapshots are verified before any upgrade
 is published.
 If initialization opted out of hooks, a later `patch-agents` call still refuses

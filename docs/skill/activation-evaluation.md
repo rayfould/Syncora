@@ -13,13 +13,13 @@ same installed skill and project hook.
 | Ordinary project work in an uninitialized workspace | `none` | Normal host behavior; do not create Syncora state | Never |
 | Explicit greenfield initialization in an uninitialized workspace | Direct `maintenance` | Run one authorized `setup`; refuse an existing Markdown graph | Operation-owned lifecycle |
 | Explicit setup where no graph exists and only the exact supported predecessor marker is present | Direct `maintenance` | Run one authorized `setup`; atomically replace the exact marker while preserving unrelated instructions | Operation-owned lifecycle |
-| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Prepare reviewed semantic files, preview `adopt --dry-run`, request one approval for its exact digest, then run the digest-bound final `adopt`; never run `setup` or `init` first | Operation-owned lifecycle |
+| Explicit legacy-graph adoption in an uninitialized workspace | Direct `maintenance` | Prepare reviewed semantic files, preview `adopt --dry-run`, request one plain-language approval for its bounded summary, then run the internally digest-bound final `adopt`; never run `setup` or `init` first | Operation-owned lifecycle |
 | Explicit custom or unmarked predecessor cleanup with no graph | Direct `maintenance` | Inspect all active agent files, remove predecessor activation, then run one `setup --confirm-predecessor-reviewed` | Operation-owned lifecycle |
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
-| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then prepare one governed proposal and provide its exact local review artifact; after the user inspects and approves that artifact-bound proposal, record the digest-bound review and apply | Only after the approved apply changes canonical knowledge |
+| Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then prepare one governed proposal and present its bounded semantic summary; after the user approves it in plain language, bind the exact review internally and apply | Only after the approved apply changes canonical knowledge |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
 | Substantive project-source mutation with eligible knowledge bindings | Minimum task-relevant pre route | Perform the authorized source work, then run foreground `check --changed`; treat findings as zero-authority review work, not replacement truth | Only if a separately approved drift repair changes canonical knowledge |
 | Explicit changed-source drift request | Direct `maintenance` | Run `check --changed`; first observation establishes a baseline rather than freshness | Operation-owned lifecycle |
@@ -74,15 +74,16 @@ same installed skill and project hook.
 - Automatic drift coverage is limited to typed `file`, `module`, and
   `path_glob` bindings. Untyped, malformed, `symbol`, and `component` bindings
   remain visibly unevaluated.
-- A finding grants zero authority. Drift repair uses `propose` -> exact local
-  artifact review -> `review` -> `apply`; `capture` rejects drift-origin input.
+- A finding grants zero authority. Drift repair uses `propose` -> bounded
+  summary approval -> internally bound `review` -> `apply`; the exact artifact
+  remains optional audit detail and `capture` rejects drift-origin input.
 - Drift checks are event-driven foreground work after substantive source
   mutation or an explicit maintenance request. They do not run on every turn,
   from a timer, in a watcher, or after the final response.
 
 ## Host coverage
 
-Codex and Cursor receive the same v4 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v5 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

@@ -129,6 +129,7 @@ Profile selection grants no mutation authority. Initialization, canonical
 writes, patching, unpatching, committing, and pushing retain their independent
 authorization requirements. In particular, selecting `capture` never grants
 permission to write canonical knowledge. `capture` and `propose` only prepare
-immutable derived state; the user must inspect the exact local review artifact,
-and `review --decision approve` must bind explicit approval to the artifact's
-proposal digest before `apply` may publish.
+immutable derived state; the user approves or rejects the bounded semantic
+summary, and `review` binds that plain-language decision to the exact sealed
+proposal internally before `apply` may publish. The full artifact is optional
+audit detail, not the default approval surface.

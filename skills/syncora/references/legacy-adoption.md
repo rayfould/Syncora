@@ -21,9 +21,15 @@ node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path
 The user asks for adoption once. The agent inventories the old graph and
 prepares the reviewed v2 manifest, staged Markdown, and shadow fixtures. The
 first `adopt` invocation is a non-mutating preview that validates the complete
-pack and returns its exact bundle digest. Present the review files and that
-digest in one approval request. After approval, the final `adopt` invocation
-must bind `--expected-bundle-digest` to that exact value.
+pack and returns a bounded `approvalSummary` plus its exact bundle digest.
+Present only the summary in one approval request by default: purpose,
+reviewed/promoted/evidence-only
+counts, target count, affected areas, no more than eight representative paths,
+explicit omissions, instruction cutover, preservation, and warnings. Offer the
+review pack only when the user asks for full details. Never dump the complete
+manifest or ask the user to copy the digest. After a plain Yes or Approved
+response, the final `adopt` invocation must bind
+`--expected-bundle-digest` to that exact value internally.
 
 Final adoption revalidates the current graph and reviewed bytes, seals the
 content-addressed descriptor atomically, and applies stage, shadow, cutover,

@@ -82,9 +82,10 @@ canonical note bytes to match the finding's note hash, and re-fingerprints the
 complete matched file/module/glob bindings. This covers additions, deletions,
 renames, and files not listed as focused proposal references.
 
-Run `propose --input`, inspect the local exact before/after review artifact,
-record the user's artifact-bound decision with `review`, and use `apply` only
-after approval. `capture` intentionally rejects drift-origin inputs. Creating,
+Run `propose --input`, present its bounded repair summary, record the user's
+plain-language decision with an internally digest-bound `review`, and use
+`apply` only after approval. Offer the local exact before/after artifact only
+when full detail is requested. `capture` intentionally rejects drift-origin inputs. Creating,
 approving, rejecting, conflicting, or failing a proposal does not resolve the
 finding; only an applied matching proposal can do that.
 

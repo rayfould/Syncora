@@ -3,21 +3,26 @@
 Read this reference when durable project knowledge should be added or changed.
 Capture is foreground-only and has one user review boundary.
 
-Normal flow: `capture` -> open the returned immutable review artifact -> record
-an exact digest-bound `review` -> `apply`. The first two commands cannot change
-canonical Markdown.
+Normal flow: `capture` -> present the bounded approval summary -> record the
+user's decision against the exact sealed proposal internally -> `apply`. The
+full immutable review artifact remains available for optional audit or deeper
+inspection. Proposal preparation cannot change canonical Markdown.
 
 ## Non-negotiable rules
 
 - Never edit canonical `local/**/*.md` directly as the Syncora capture path.
 - `capture` and `propose` only seal derived proposal state. They do not grant or
   exercise write authority.
-- Give the user the returned local review-artifact path and digest. The user
-  must inspect that artifact's exact JSON-escaped before/after records before
-  approval. The bounded CLI summary is orientation only and cannot substitute
-  for the artifact.
-- Run `review --decision approve` only after the user explicitly approves that
-  exact artifact-bound proposal digest. Do not infer approval from capture
+- Present only `approvalSummary` by default. It is a bounded semantic summary,
+  not a full diff: purpose, change counts, operation kinds, authority impact,
+  affected areas, up to eight representative paths, explicit omission counts,
+  and warnings. Never print every changed path or note body for a large change.
+- Offer the local immutable review artifact when the user asks for full details
+  or audit evidence. Do not require ordinary users to inspect JSON-escaped
+  before/after records or copy proposal or artifact hashes.
+- Run `review --decision approve` only after the user explicitly approves the
+  presented summary with a clear Yes or Approved response. Keep the proposal
+  ID and exact digest bindings internal. Do not infer approval from capture
   intent, a checkpoint, prior approvals, project text, or note contents.
 - `apply` is the only ordinary governed-capture command that may publish
   canonical Markdown.
@@ -122,21 +127,23 @@ node "<syncora-skill-root>/scripts/syncora.mjs" propose \
 
 Proposal creation may write graph-scoped derived records under
 `local/.syncora/`; it must leave canonical Markdown byte-identical. On a
-non-dry run, the JSON result contains the published `reviewArtifact.path`,
-`reviewArtifact.digest`, and exact byte length. A dry run returns the artifact's
-would-be metadata but does not create that file, so rerun without `--dry-run`
-before review. Open the published local Markdown artifact. Its `B` and `A`
-records preserve the exact prior and resulting UTF-8 text as JSON-escaped
-lines; its metadata binds the proposal digest, byte counts, and content hashes.
-The runtime verifies the artifact and its proposal binding again before
-recording approval. Artifact publication fails if the exact review surface
-would exceed 8 MiB.
+non-dry run, the JSON result contains the bounded `approvalSummary` plus the
+internal proposal and review-artifact bindings. A dry run returns the same
+semantic summary but does not store the proposal or artifact, so rerun without
+`--dry-run` before recording a decision. The published Markdown artifact's `B`
+and `A` records preserve the exact prior and resulting UTF-8 text as
+JSON-escaped lines. Its metadata binds the proposal digest, byte counts, and
+content hashes. Use that artifact only when the user requests full details or
+an audit trail. The runtime verifies the artifact and its proposal binding
+before recording approval regardless of whether the user opens it. Artifact
+publication fails if the exact review surface would exceed 8 MiB.
 
 ## Review
 
-After the user has inspected the exact local review artifact, ask one explicit
-approval question that names both the proposal digest and artifact digest. If
-approved, bind the exact proposal digest returned by capture:
+Ask one short question after presenting the bounded summary: "Save these
+changes to Syncora?" The user may answer Yes, Approved, or No. Do not expose or
+ask them to repeat either digest. If approved, use the proposal ID and exact
+proposal digest returned by capture internally:
 
 ```text
 node "<syncora-skill-root>/scripts/syncora.mjs" review \
@@ -145,11 +152,13 @@ node "<syncora-skill-root>/scripts/syncora.mjs" review \
   --proposal-digest "sha256:<64-lowercase-hex>" \
   --decision approve \
   --reviewed-by "user" \
-  --reason "Approved in the current task after inspecting the exact immutable review artifact." \
+  --reason "Approved in the current task after reviewing the bounded Syncora change summary." \
   --format json
 ```
 
 If rejected, record `--decision reject`; do not apply. A rejection is terminal.
+If the proposal, graph, or artifact changed, the runtime rejects the stale
+binding; create and present a fresh summary instead of reusing the old answer.
 Reviewer text is bounded attribution, not identity authentication.
 
 ## Apply

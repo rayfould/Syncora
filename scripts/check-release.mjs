@@ -280,22 +280,23 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v4",
+  "syncora-agent-hook:begin v5",
   "governed capture",
-  "exact digest",
+  "bounded plain-language approval summary",
+  "digests internal",
   "apply it transactionally",
   "check --changed",
   "do not run drift checks",
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v4 governed-capture and drift guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v5 approval-summary, governed-capture, and drift guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v4")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v5")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v4 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v5 hook",
   );
 }
 
@@ -304,17 +305,17 @@ const agentPatchingReference = await readFile(
   "utf8",
 );
 for (const [description, pattern] of [
-  ["current hook v4 declaration", /Hook v4 is current\./u],
+  ["current hook v5 declaration", /Hook v5 is current\./u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v3 snapshot preservation",
-    /exact tracked v1, v2, or v3 hook retains its original pre-Syncora restoration\s+snapshot/u,
+    "exact tracked v1-v4 snapshot preservation",
+    /exact tracked v1, v2, v3, or v4 hook retains its original pre-Syncora restoration\s+snapshot/u,
   ],
   [
-    "diverged or untracked v1-v3 baseline refresh",
-    /diverged or untracked v1,\s+v2, or v3 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
+    "diverged or untracked v1-v4 baseline refresh",
+    /diverged or untracked v1,\s+v2, v3, or v4 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
   ],
-  ["future hook fail-closed behavior", /hook newer than v4 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /hook newer than v5 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -344,9 +345,9 @@ const implementationPlan = await readFile(
   path.join(repositoryRoot, "docs", "skill", "implementation-plan.md"),
   "utf8",
 );
-if (!/subsequently upgraded it to v4/u.test(implementationPlan)) {
+if (!/v5 for\s+human-summary approval/u.test(implementationPlan)) {
   errors.push(
-    "docs/skill/implementation-plan.md: hook history must identify v4 as the current upgrade",
+    "docs/skill/implementation-plan.md: hook history must identify v5 as the current approval-summary upgrade",
   );
 }
 
@@ -363,10 +364,11 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v4/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v4`);
+  if (!/hook v5/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v5`);
   }
   for (const stalePattern of [
+    /Hook v4 is current/iu,
     /Hook v3 keeps/iu,
     /installed hook is relevance-gated v3/iu,
     /relevance-gated v3\s+hook/iu,
@@ -374,7 +376,7 @@ for (const [displayPath, source] of [
     /automatic drift detection remains unavailable/iu,
   ]) {
     if (stalePattern.test(source)) {
-      errors.push(`${displayPath}: contains stale pre-v4 operational hook guidance`);
+      errors.push(`${displayPath}: contains stale pre-v5 operational hook guidance`);
     }
   }
 }

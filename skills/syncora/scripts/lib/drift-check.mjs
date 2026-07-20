@@ -688,7 +688,7 @@ function refreshPayload(finding) {
       },
     ],
     supportingSourceRefs: exactFiles,
-    next: "Author complete afterText, run propose --input, inspect the exact artifact, review its digest, then apply only after approval.",
+    next: "Author complete afterText, run propose --input, present its bounded approval summary, bind the user's decision internally, then apply only after approval.",
   };
 }
 

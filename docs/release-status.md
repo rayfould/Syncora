@@ -22,8 +22,8 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v4 with governed capture and foreground drift
-  routing;
+- relevance-gated agent hook v5 with bounded human approval summaries,
+  internally bound governed capture, and foreground drift routing;
 - ownership-aware unpatch and rollback;
 - bounded doctor, validate, search, and backlinks commands;
 - foreground checkpoint policy and state;
@@ -54,8 +54,8 @@ expected to memorize.
   sharing an external graph do not share observations or baselines;
 - zero-authority, dry-run migration inventory;
 - reviewed v2 promotion-manifest validation and exact staged target bundles;
-- one reviewed-pack `adopt` operation that previews an exact content digest,
-  seals it after one digest-bound authorization, and runs the resumable
+- one reviewed-pack `adopt` operation that previews a bounded human summary,
+  seals the exact content after one internally digest-bound authorization, and runs the resumable
   lifecycle; standalone bundle adoption remains compatible;
 - bounded pre-cutover shadow fixtures;
 - graph-root-scoped migration state, locking, artifacts, and recovery journal;
@@ -90,7 +90,8 @@ finding and repair flow.
 Foreground drift detection does not mean background monitoring: no watcher,
 daemon, timer, or after-response worker exists. Findings prove only potential
 staleness and grant zero authority. Repairs still require complete resulting
-Markdown through `propose` -> exact artifact review -> `review` -> `apply`;
+Markdown through `propose` -> bounded summary approval -> internally bound
+`review` -> `apply`;
 `capture` rejects drift-origin inputs. Proposal and apply recheck the active
 finding, canonical note hash, and complete live binding fingerprints.
 

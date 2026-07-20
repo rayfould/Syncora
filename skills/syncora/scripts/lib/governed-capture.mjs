@@ -3,6 +3,7 @@ import {
   publishDriftProposalBindings,
   validateDriftProposalInput,
 } from "./drift-governance.mjs";
+import { governedApprovalSummary } from "./approval-summary.mjs";
 import {
   assertFileTransactionAvailable,
   readFileTransaction,
@@ -160,6 +161,11 @@ function changeSummaries(summary) {
 
 function creationResult(environment, summary, options, publication = {}) {
   const bounded = changeSummaries(summary);
+  const approvalSummary = governedApprovalSummary(
+    summary,
+    publication.artifact,
+    { dryRun: options.dryRun },
+  );
   return {
     ok: true,
     command: options.command ?? "capture",
@@ -188,6 +194,7 @@ function creationResult(environment, summary, options, publication = {}) {
       duplicateCandidates: summary.assessment.duplicateCandidates.length,
       projectedFindings: summary.assessment.projectedValidation.findingCount,
     },
+    approvalSummary,
     duplicateCandidates: summary.assessment.duplicateCandidates,
     reviewArtifact: publication.artifact ?? null,
     ...(summary.origin === "drift"
@@ -201,7 +208,7 @@ function creationResult(environment, summary, options, publication = {}) {
     ...bounded,
     next: options.dryRun
       ? "Rerun capture without --dry-run to store the immutable proposal."
-      : "Open the local review artifact, inspect the exact before/after content, then approve this exact proposal digest before apply.",
+      : "Present approvalSummary to the user. If they approve it in plain language, record the exact digest-bound review internally and apply.",
   };
 }
 
@@ -347,6 +354,7 @@ export async function inspectGovernedProposal(options) {
       graphRoot: environment.graphRoot,
       proposal,
     });
+    const approvalSummary = governedApprovalSummary(summary, reviewArtifact);
     const decisions = [...new Set(reviews.map((review) => review.decision))];
     const outcomes = new Set(receipts.map((receipt) => receipt.outcome));
     const state = transaction?.status === "finalized"
@@ -432,6 +440,7 @@ export async function inspectGovernedProposal(options) {
         duplicateCandidates: summary.assessment.duplicateCandidates.length,
         projectedFindings: summary.assessment.projectedValidation.findingCount,
       },
+      approvalSummary,
       duplicateCandidates: summary.assessment.duplicateCandidates,
       ...bounded,
     };

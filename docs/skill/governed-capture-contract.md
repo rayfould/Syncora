@@ -12,13 +12,15 @@ The normal flow has one review boundary:
 
 1. The agent prepares a bounded JSON draft and runs `syncora capture`.
 2. Syncora returns an immutable proposal ID and digest plus a local immutable
-   review-artifact path, artifact digest, impact summary, and exact changed
-   paths. Canonical Markdown is still byte-identical.
-3. The agent gives the artifact path and digest to the user. The user opens the
-   artifact and reviews its exact JSON-escaped before/after records. The compact
-   CLI summary is orientation only.
-4. After explicit approval of that exact artifact-bound proposal, the agent
-   records a digest-bound approval and runs `syncora apply`.
+   review artifact and a bounded semantic `approvalSummary`. Canonical Markdown
+   is still byte-identical.
+3. The agent presents the summary: purpose, change counts, operation kinds,
+   authority impact, affected areas, at most eight representative paths,
+   omission counts, and warnings. A large proposal never becomes a large
+   user-facing diff. The full artifact is optional audit detail.
+4. After the user answers Yes, Approved, or No, the agent binds that decision
+   to the exact proposal and artifact digests internally. An approval may then
+   proceed to `syncora apply`.
 
 The commands are internal skill machinery. A user should normally be asked to
 approve one proposal, not to operate a multi-stage transaction manually.
@@ -44,8 +46,10 @@ only ordinary capture command allowed to publish canonical note bytes.
 - A checkpoint, capture intent, note field, or sentence inside a proposal
   cannot authorize a write.
 - The runtime recomputes authority impact from the complete before/after graph.
-- Automatic canonical apply is disabled. Approval requires the exact immutable
-  local review artifact and must bind its proposal digest.
+- Automatic canonical apply is disabled. The runtime still requires and
+  verifies the exact immutable local review artifact and binds the recorded
+  decision to its proposal digest, but users authorize the bounded summary and
+  never need to see or copy hashes.
 - Reviewer identity is attribution, not authentication. A local skill cannot
   prove which human typed an approval.
 
@@ -86,9 +90,10 @@ Ordinary proposals are bounded to 64 semantic operations, 256 file changes,
 proposal, 64 MiB of verified local source bytes, the canonical 256 KiB note
 limit, and 16 MiB of sealed content. Every local `file`, `note`, or
 `drift-finding` provenance reference carries an exact source hash. Successful
-command output contains summaries and hashes, never complete note bodies; the
-separately bounded local review artifact carries the exact before/after text and
-is capped at 8 MiB.
+JSON output contains the bounded approval summary and internal hashes, never
+complete note bodies. Default text output omits hashes and full changed-path
+lists. The separately bounded local review artifact carries the exact
+before/after text and is capped at 8 MiB.
 
 ## Drift-origin proposals
 

@@ -45,7 +45,8 @@ Adopt this existing knowledge graph into Syncora.
 ```
 
 One adoption request owns the complete conversion: inventory the old graph,
-prepare and preview the reviewed replacement, ask one digest-bound approval,
+prepare and preview the reviewed replacement, ask one plain-language approval
+from a bounded summary,
 then migrate, verify, switch agent instructions, and retire the predecessor
 workflow. Adoption preserves the source notes and keeps rollback evidence.
 Ordinary README and documentation files are not, by themselves, a reason to
@@ -60,8 +61,9 @@ use it.
   truth.
 - Compiles bounded task-specific context with mandatory, working, and evidence
   lanes plus a source map.
-- Captures durable knowledge through immutable proposals, one exact local
-  review artifact, and process-interruption-recoverable transactional apply.
+- Captures durable knowledge through immutable proposals, bounded approval
+  summaries, optional exact local audit artifacts, and
+  process-interruption-recoverable transactional apply.
 - Detects potentially stale notes after bound project sources change, while
   keeping every repair behind the same exact proposal and review boundary.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
@@ -103,7 +105,8 @@ external-root allowlist.
 - **Existing knowledge:** use adoption only when the user explicitly wants to
   convert a pre-Syncora Markdown graph or predecessor workflow. Treat that one
   request as authorization to inventory and prepare the reviewed conversion;
-  pause once for exact digest approval before canonical cutover.
+  pause once with a bounded plain-language summary before canonical cutover.
+  Keep the exact reviewed digest internal.
 
 Treat these as conversational intents. The bundled CLI is internal machinery,
 not the public workflow. Ask for another confirmation only when the agent's
@@ -135,11 +138,13 @@ change.
    typed targets. It may update a disposable lexical cache unless `--no-cache`
    is used. Consume only its bounded pack; never recursively load `local/`.
 6. When durable knowledge should change, read
-   [capture.md](references/capture.md). Prepare one immutable proposal, give the
-   user its local review-artifact path and digest, and require inspection of the
-   artifact's exact before/after records. A compact summary is orientation, not
-   the review surface. Only after the user approves that exact artifact-bound
-   proposal, record the digest-bound review and run transactional `apply`.
+   [capture.md](references/capture.md). Prepare one immutable proposal and show
+   the user only its bounded `approvalSummary` by default: purpose, counts,
+   authority impact, affected areas, representative paths, omissions, and
+   warnings. Never dump a large diff or ask the user to copy a digest. Offer the
+   exact local review artifact only when they ask for details. After the user
+   answers Yes, Approved, or No, bind that decision to the exact proposal and
+   artifact digests internally. Run transactional `apply` only after approval.
 7. After substantive project-source mutation, or for an explicit drift request,
    read [drift.md](references/drift.md) and run the foreground `check --changed`
    command before deciding whether knowledge capture is warranted. A finding
@@ -164,8 +169,9 @@ unconditional `doctor`, or unconditional full-graph validation.
 - For existing knowledge, read
   [legacy-adoption.md](references/legacy-adoption.md), inventory the complete
   old graph, and prepare the reviewed manifest, staged Markdown, and shadow
-  fixtures. Run `adopt --dry-run` with those inputs, present its exact digest
-  and review files once, then after approval rerun the same `adopt` input with
+  fixtures. Run `adopt --dry-run` with those inputs, present its bounded
+  `approvalSummary`, and ask once whether to proceed. Keep the returned digest
+  internal; after approval rerun the same `adopt` input with that value as
   `--expected-bundle-digest`. The final command seals the pack, stages it,
   shadow-tests it, cuts over, verifies it, retires the predecessor workflow,
   and retains rollback evidence. Do not expose `bundle` or internal phases
@@ -175,13 +181,14 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Use `search --query <text>` and `backlinks --note <path-or-alias>` only for
   bounded discovery. Neither ranking nor link count grants authority.
 - Use `check --changed` after substantive source mutation. Inspect immutable
-  finding evidence; route a real repair through `propose`, exact artifact
-  review, `review`, and `apply`, or record an exact-digest still-current
+  finding evidence; route a real repair through `propose`, a bounded approval
+  summary, internally digest-bound `review`, and `apply`, or record an exact-digest still-current
   acknowledgment for a harmless change. Never let a finding rewrite Markdown.
 - Use `capture` for normal proposal preparation, `propose --proposal` for
-  bounded inspection and review-artifact discovery, `review` for the user's
-  exact approval or rejection after artifact inspection, and `apply` only after
-  approval. Treat rejection and stale baselines as terminal; create a corrected
+  bounded inspection and optional review-artifact discovery, `review` to bind
+  the user's plain-language approval or rejection to the exact sealed proposal
+  internally, and `apply` only after approval. Treat rejection and stale
+  baselines as terminal; create a corrected
   proposal instead of forcing or rebasing. Resume interrupted transactions only
   in a later foreground request; no recovery runs in the background.
 - Keep `bundle`, `migrate --phase authority --dry-run`, and the individual

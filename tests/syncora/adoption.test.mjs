@@ -351,7 +351,7 @@ test("one adopt command runs the reviewed lifecycle and safely resumes as idempo
     assert.equal(adopted.summary.rollbackRetained, true);
     assert.equal(
       (await readFile(join(fixture.workspace, "AGENTS.md"), "utf8")).includes(
-      "syncora-agent-hook:begin v4",
+      "syncora-agent-hook:begin v5",
       ),
       true,
     );
@@ -381,6 +381,16 @@ test("one adopt command previews, seals, migrates, verifies, and retires a revie
     const preview = await adoptWorkspace({ ...reviewedPack, dryRun: true });
     assert.equal(preview.status, "review-required");
     assert.match(preview.review.bundleSha256, /^sha256:[0-9a-f]{64}$/u);
+    assert.equal(
+      preview.approvalSummary.title,
+      "Adopt this existing knowledge into Syncora?",
+    );
+    assert.equal(preview.approvalSummary.sourceNotes.total, 2);
+    assert.equal(preview.approvalSummary.sourceNotes.reviewed, 2);
+    assert.equal(preview.approvalSummary.targetNotes, 3);
+    assert.ok(preview.approvalSummary.representativePaths.length <= 8);
+    assert.equal(preview.approvalSummary.fullDetails.optional, true);
+    assert.equal(preview.approvalSummary.canonicalMarkdownChanged, false);
     await assert.rejects(
       access(fixture.descriptorPath),
       (error) => error?.code === "ENOENT",
@@ -601,7 +611,7 @@ test("adopt resumes after an unmarked predecessor is explicitly reviewed", async
       "utf8",
     );
     assert.match(patchedAgents, /Reviewed custom instructions/);
-    assert.match(patchedAgents, /syncora-agent-hook:begin v4/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v5/);
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }
@@ -642,7 +652,7 @@ test("adopt refuses residual custom activation outside an exact predecessor bloc
     const patched = await readFile(agentsPath, "utf8");
     assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
-    assert.match(patched, /syncora-agent-hook:begin v4/);
+    assert.match(patched, /syncora-agent-hook:begin v5/);
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }
@@ -800,7 +810,7 @@ test("legacy adoption stages, shadow-tests, atomically cuts over, verifies, reti
     assert.equal(cutover.status, "cutover-applied");
     const agents = await readFile(join(fixture.workspace, "AGENTS.md"), "utf8");
     assert.equal(agents.includes("BEGIN KNOWLEDGE GRAPH WORKFLOW"), false);
-    assert.equal(agents.includes("syncora-agent-hook:begin v4"), true);
+    assert.equal(agents.includes("syncora-agent-hook:begin v5"), true);
     assert.equal(agents.includes("# Custom preface"), true);
     assert.deepEqual(await readFile(join(fixture.graph, "notes.md")), fixture.legacyNote);
     assert.deepEqual(
@@ -1001,7 +1011,7 @@ test("cutover without an exact predecessor marker requires a durable review atte
     assert.equal(cutover.summary.predecessorReview, "operator-confirmed-absent");
     const agents = await readFile(join(fixture.workspace, "AGENTS.md"), "utf8");
     assert.match(agents, /Reviewed custom instructions/);
-    assert.match(agents, /syncora-agent-hook:begin v4/);
+    assert.match(agents, /syncora-agent-hook:begin v5/);
     await rollbackMigration({ ...common, phase: "rollback", dryRun: false });
     assert.deepEqual(await readFile(join(fixture.workspace, "AGENTS.md")), fixture.legacyAgents);
   } finally {

@@ -4,6 +4,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 
 import { loadAndValidateAuthorityManifest } from "./authority-manifest.mjs";
 import { verifyAuthoritySnapshot } from "./authority-inventory.mjs";
+import { adoptionApprovalSummary } from "./approval-summary.mjs";
 import { SyncoraError } from "./cli.mjs";
 import {
   CONTEXT_COMPILER_POLICY,
@@ -912,6 +913,11 @@ export async function buildAdoptionBundle(options, hooks = {}) {
       path: fixturesFile.path,
       sha256: descriptor.fixtures.sha256,
       caseCount: fixtures.cases.length,
+    }),
+    approvalSummary: adoptionApprovalSummary(validatedManifest.manifest, {
+      fixtureCount: fixtures.cases.length,
+      reviewPackPath: root,
+      sourceInventory: validatedManifest.snapshot.queue,
     }),
     next: Object.freeze({
       command: "adopt",

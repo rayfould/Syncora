@@ -156,13 +156,14 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v4/);
+  assert.match(hook, /syncora-agent-hook:begin v5/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
-  assert.match(hook, /local review-artifact path plus the exact digest bindings/);
-  assert.match(hook, /inspection of its exact before\/after records/);
-  assert.match(hook, /record approval only after the\s+user authorizes that artifact-bound proposal digest/);
+  assert.match(hook, /bounded plain-language approval summary/);
+  assert.match(hook, /Keep exact proposal and artifact digests internal/);
+  assert.match(hook, /Yes,\s+Approved, or No/);
+  assert.match(hook, /full local\s+review artifact only when the user asks for details/);
   assert.match(hook, /check --changed/);
   assert.match(hook, /Do not run drift checks for `none` routes, on every turn, or as\s+background work/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);
@@ -211,6 +212,9 @@ test("legacy adoption documentation and release gates stay bundled", async () =>
   assert.match(skill, /explicit setup request authorizes one normal `setup`/);
   assert.match(normalizedSkill, /Run `adopt --dry-run`/);
   assert.match(normalizedSkill, /`--expected-bundle-digest`/);
+  assert.match(normalizedSkill, /Keep the returned digest internal/);
+  assert.match(adoption, /bounded `approvalSummary`/);
+  assert.match(adoption, /Never dump the complete\s+manifest or ask the user to copy the digest/);
   assert.match(adoption, /one approval request/i);
   assert.match(adoption, /internal phases/);
   assert.doesNotMatch(adoption, /approval before each non-dry-run/i);

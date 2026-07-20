@@ -220,6 +220,15 @@ test("capture, inspect, review, and apply preserve the approval boundary and exa
     assert.equal(captured.output.ok, true);
     assert.equal(captured.output.proposal.state, "proposed");
     assert.equal(captured.output.summary.changes, 1);
+    assert.equal(
+      captured.output.approvalSummary.title,
+      "Save this knowledge update to Syncora?",
+    );
+    assert.equal(captured.output.approvalSummary.changes.total, 1);
+    assert.equal(captured.output.approvalSummary.representativePaths.length, 1);
+    assert.equal(captured.output.approvalSummary.omittedPathCount, 0);
+    assert.equal(captured.output.approvalSummary.fullDetails.optional, true);
+    assert.equal(captured.output.approvalSummary.canonicalMarkdownChanged, false);
     assert.equal(await readFile(target, "utf8"), before);
     assert.doesNotMatch(captured.result.stdout, new RegExp(secretBody, "u"));
     assert.equal("afterText" in captured.output.changes[0], false);

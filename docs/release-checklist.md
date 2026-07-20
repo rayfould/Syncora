@@ -18,7 +18,7 @@
        unpatching. Setup output must include the foreground drift-baseline
        disposition.
 - [ ] `npm run smoke:adoption` exercises one installed-copy adoption operation:
-      digest preview, digest-bound final `adopt`, internal stage through
+      bounded summary preview, internally digest-bound final `adopt`, internal stage through
       retirement, and post-retirement rollback.
 - [ ] Install remains inert until the user explicitly runs setup (including the
       exact predecessor-marker-only case) or starts legacy graph adoption.
@@ -31,15 +31,15 @@
 - [ ] Mixed exact-marker and residual custom predecessor instructions fail
       closed, and `setup --no-patch-agents` cannot bypass review through a later
       `patch-agents` call.
-- [ ] Adoption documentation and runtime help agree on reviewed-pack preview,
-      the digest-bound no-clobber builder, consolidated authorization,
+- [ ] Adoption documentation and runtime help agree on bounded reviewed-pack
+      summary, the internally digest-bound no-clobber builder, consolidated authorization,
       reviewed-attestation option, resumability, expert phase surface, and
       rollback state.
 - [ ] Cutover and retirement retain legacy source notes, and recovery evidence
       restores exact pre-cutover graph, runtime, and agent bytes.
 - [ ] Capture documentation, skill routing, runtime help, and release status
-      agree on `capture` -> inspect exact local review artifact -> exact digest
-      review -> `apply`; a bounded summary is never treated as approval input.
+      agree on `capture` -> bounded summary approval -> internally digest-bound
+      `review` -> `apply`; the full artifact remains optional audit detail.
 - [ ] Proposal fixtures enforce mandatory prior-state bindings, exact hashes for
       local file/note sources, 256 source references per operation, 512 per
       proposal, and 64 MiB of verified local source bytes.
@@ -71,7 +71,7 @@
       or diff hunk in CLI output, and cannot change canonical Markdown.
 - [ ] Drift repairs require a matching active finding, complete resulting note
       text, a matching canonical note snapshot, complete live binding
-      fingerprints, exact artifact review, digest-bound approval, and
+      fingerprints, bounded summary approval, internal digest binding, and
       transactional apply; `capture` rejects drift-origin input.
 - [ ] Exact-digest still-current acknowledgment, exact source reversion,
       cumulative finding supersession, explicit reasoned policy rebaseline of

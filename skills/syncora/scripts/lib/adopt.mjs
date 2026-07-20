@@ -155,6 +155,7 @@ async function prepareReviewedPack(options, hooks = {}) {
         stagedContent: prepared.stagedContent,
         fixtures: prepared.fixtures,
       },
+      approvalSummary: prepared.approvalSummary,
       summary: {
         bundleSha256: prepared.descriptor.sha256,
         completedPhases: [],
@@ -228,6 +229,7 @@ export async function adoptWorkspace(
           stagedContent: prepared.stagedContent,
           fixtures: prepared.fixtures,
         },
+        approvalSummary: prepared.approvalSummary,
       }
     : result;
 }

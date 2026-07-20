@@ -19,9 +19,9 @@ authority -> stage -> shadow -> cutover -> verify -> retire
 ```
 
 Nothing runs between agent messages. The normal user surface is one adoption
-operation: prepare the reviewed semantic files, preview `adopt` to receive their
-exact digest, approve that digest once, then let the final `adopt` invocation
-seal and apply the same inputs. The individual phases and standalone `bundle`
+operation: prepare the reviewed semantic files, preview `adopt` to receive a
+bounded semantic summary, approve that summary once, then let the final `adopt`
+invocation bind the exact digest internally and apply the same inputs. The individual phases and standalone `bundle`
 command remain available for expert inspection, compatibility, and recovery.
 Every workspace mutation is journaled and bound to one migration ID. No
 phase deletes legacy notes. Retirement means the predecessor activation and
@@ -206,8 +206,9 @@ transaction then:
 - copies any legacy Markdown bytes that a declared target will replace to
   `local/archive/migrations/<migration-id>/<original-path>` before publication;
 - creates or enables project-local Syncora runtime configuration;
-- replaces the exact predecessor workflow marker with relevance-gated hook v4,
-  including governed capture and foreground drift routing;
+- replaces the exact predecessor workflow marker with relevance-gated hook v5,
+  including bounded approval summaries, internally bound governed capture, and
+  foreground drift routing;
 - preserves unrelated agent bytes, encoding, and newline style;
 - records exact before/after bytes, hashes, and modes for recovery;
 - validates the resulting graph and activation before reporting success.

@@ -82,8 +82,9 @@ with overlapping descriptions.
 The normal setup surface is also intentionally small: `setup` initializes a
 greenfield workspace, or replaces the exact supported predecessor marker when
 no legacy graph exists, in one command. Existing-graph `adopt` previews the
-reviewed semantic inputs, binds one authorization to their exact digest, then
-seals and applies them in one resumable operation. The migration state machine
+reviewed semantic inputs as a bounded summary, binds one plain-language
+authorization to their exact digest internally, then seals and applies them in
+one resumable operation. The migration state machine
 and standalone bundle surface remain visible for compatibility, expert
 diagnostics, and exact recovery, but they are not the normal user workflow.
 
@@ -514,8 +515,10 @@ finding and current source, the agent supplies complete resulting note text to
 artifact, the affected note's prior hash, and complete resulting text. Focused
 file references are optional human evidence, not the completeness boundary.
 `capture` intentionally rejects drift-origin input.
-The user then inspects the immutable exact before/after review artifact, records
-an exact-digest `review`, and only an approved `apply` may publish the repair.
+The user then approves or rejects a bounded semantic repair summary. The agent
+records that decision against the exact sealed proposal internally, and only an
+approved `apply` may publish the repair. The immutable exact before/after
+artifact remains available as optional audit detail.
 
 An active finding remains until the runtime proves exactly one of:
 
@@ -585,7 +588,7 @@ Syncora uses five semantic profiles:
 | `none` | Do not activate Syncora, inspect its state, or increment its cadence. |
 | `checkpoint` | Run only the cheap foreground pre-work checkpoint for project-local work or uncertain relevance. |
 | `context` | Run the checkpoint, then compile bounded task context. |
-| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; when a durable change is needed, prepare an immutable proposal, obtain exact digest approval, and apply transactionally. Run post only after canonical change. |
+| `capture` | Shorthand for checkpoint-level pre-work with planned capture intent; when a durable change is needed, prepare an immutable proposal, obtain plain-language approval from its bounded summary, bind that decision internally, and apply transactionally. Run post only after canonical change. |
 | `maintenance` | Run the explicitly requested initialization, validation, migration, repair, upgrade, or patch operation. |
 
 The pre-work mode is `none`, `checkpoint`, `context`, or `maintenance`; capture
@@ -691,10 +694,11 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v4 keeps relevance-gated activation and the governed capture boundary,
+Hook v5 keeps relevance-gated activation and the governed capture boundary,
 then adds event-driven foreground drift routing: context and proposal
-preparation do not authorize direct canonical writes, exact digest approval
-precedes transactional apply, and `check --changed` runs only after substantive
+preparation do not authorize direct canonical writes, a bounded summary is the
+user approval surface while exact digest binding remains internal, and
+`check --changed` runs only after substantive
 source mutation, for explicit maintenance, or when relevant observation
 maintenance is due. It never runs on every turn or in the background. An
 untouched tracked older block upgrades in place
@@ -703,7 +707,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v4 beside a broad
+Legacy adoption does not use ordinary patching to append hook v5 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed unless the user has inspected every
