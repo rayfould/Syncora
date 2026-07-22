@@ -6,6 +6,13 @@ All notable changes to Syncora are documented here.
 
 #### Changed
 
+- Added one canonical user decision-boundary policy: already-authorized,
+  reversible work proceeds without interruption; plan-only requests,
+  materially ambiguous choices, unapproved external effects, host permissions,
+  and destructive weakly reversible broad-data actions retain a focused user
+  decision gate. Diff size and memory importance alone never require approval.
+- Upgraded generated project instructions to hook v7 so the same low-friction
+  policy reaches initialized Codex, Cursor, and Claude workspaces.
 - Removed contradictory context guidance that could stop routine capture at a
   sealed proposal and ask the user whether to save. Ordinary capture now must
   reach `state: "applied"`; any summary is post-save reporting only.
@@ -15,8 +22,8 @@ All notable changes to Syncora are documented here.
 - Existing-graph adoption now treats the original adoption request as authority
   for the complete lifecycle; its dry-run summary and digest binding are
   internal checks rather than another user confirmation.
-- Upgraded the generated project instruction hook to v6 so Codex, Cursor, and
-  Claude save relevant durable project memory autonomously.
+- Hook v6 made relevant durable project-memory capture autonomous for Codex,
+  Cursor, and Claude.
 - Default text reports only bounded change summaries: purpose, counts,
   authority impact, affected areas, representative paths, omissions, and
   warnings. Full immutable artifacts and exact bindings remain internal audit

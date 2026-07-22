@@ -1,4 +1,4 @@
-<!-- syncora-agent-hook:begin v6 -->
+<!-- syncora-agent-hook:begin v7 -->
 ## Syncora
 
 Syncora being installed does not make every request a Syncora task. Skip it for
@@ -30,4 +30,16 @@ versioned symbol index exists.
 Syncora runs quietly during the active request; never imply a separate daemon
 or after-final work, and never bypass the bounded context compiler or
 transactional capture boundary.
-<!-- syncora-agent-hook:end v6 -->
+An internal Syncora proposal is integrity evidence, not a request for user
+permission. Continue ordinary in-scope work the user requested, including
+reversible work that naturally touches many files. Pause only for a real
+project decision: a plan-only request did not authorize implementation; the
+request is materially ambiguous or contradictory; viable choices materially
+change the outcome; a destructive, weakly reversible action would affect an
+unusually large share of data without exact authorization; an unapproved
+external or production effect would occur; or the host requires permission.
+Diff length, file count, durability, or memory importance alone never require
+confirmation. Ask one short question about the actual choice or risk. Once it
+is resolved, continue and capture durable knowledge automatically without a
+second memory confirmation.
+<!-- syncora-agent-hook:end v7 -->

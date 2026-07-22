@@ -62,7 +62,7 @@ Deliverables:
   profiles;
 - foreground pre/post checkpoint orchestration with event triggers and bounded
   cadence backstops;
-- safe older-marker to marker-v6 activation-policy migration;
+- safe older-marker to marker-v7 activation-policy migration;
 - external graph-root allowlisting.
 
 Exit gate:
@@ -255,7 +255,7 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v6 is implemented in current
+Status: Core included in `0.1.0-preview.1`; hook v7 is implemented in current
 development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -268,9 +268,10 @@ development source
 - [x] Replace the broad v1 agent hook with a concise relevance-gated hook; v4
       adds foreground drift routing to the established governed-capture and
       relevance policy, v5 introduced bounded human summaries, and v6 makes
-      routine capture autonomous while retaining internal digest binding.
+      routine capture autonomous while retaining internal digest binding. Hook
+      v7 reserves user interruption for genuine project decision boundaries.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v6.
+      changing-target upgrades from older markers to hook v7.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint
@@ -349,7 +350,8 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 - [x] Introduce generated agent hook v3 so installed workspaces route durable
       changes through exact review and transactional apply; Milestone 5
       subsequently upgraded it to v4 for foreground drift routing, v5 for
-      human summaries, and v6 for autonomous capture with internal binding.
+      human summaries, v6 for autonomous capture with internal binding, and v7
+      for minimal user decision boundaries.
 
 Legacy cutover now has a dedicated exact-byte recovery transaction. General
 capture uses a separate graph-scoped transaction: normal `capture` seals the

@@ -692,10 +692,15 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v6 keeps relevance-gated activation and adds autonomous transactional
-capture plus event-driven foreground drift routing: context and proposal
-preparation do not authorize direct canonical writes, exact validation and
-authorization binding remain internal, and
+Hook v7 keeps relevance-gated activation, autonomous transactional capture, and
+event-driven foreground drift routing from v6, then adds one minimal user
+decision boundary. Internal proposals do not request permission; agents proceed
+with already-authorized reversible work and pause only for a material project
+choice, unresolved ambiguity, unapproved external effect, required host
+permission, or destructive weakly reversible broad-data action whose exact
+scope was not authorized. Diff length and file count alone do not create a
+confirmation boundary. Context and proposal preparation do not authorize
+direct canonical writes, exact validation and authorization binding remain internal, and
 `check --changed` runs only after substantive
 source mutation, for explicit maintenance, or when relevant observation
 maintenance is due. It never runs on every turn or in the background. An
@@ -705,7 +710,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v6 beside a broad
+Legacy adoption does not use ordinary patching to append hook v7 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed until the skill has inspected every

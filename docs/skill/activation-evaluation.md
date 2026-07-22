@@ -17,6 +17,11 @@ same installed skill and project hook.
 | Explicit custom or unmarked predecessor cleanup with no graph | Direct `maintenance` | Inspect all active agent files, remove predecessor activation, then run one `setup --confirm-predecessor-reviewed` | Operation-owned lifecycle |
 | Current date, arithmetic, casual chat | `none` | None | Never |
 | Translate or format only supplied text | `none` | None | Never |
+| Plan, proposal, design, review, or audit only | Task-relevant route | Deliver the requested artifact; do not implement unless the user also authorizes implementation | Only if the requested artifact itself changes canonical knowledge |
+| Implement, fix, update, proceed, or finish within stated scope | Task-relevant route | Continue ordinary reversible work without a second plan, proposal, or size-based confirmation | Only after a real canonical change |
+| Materially ambiguous or contradictory request | Minimum safe route | Continue independent safe work, then ask one focused question about the unresolved project choice | After the answer leads to a real canonical change |
+| Destructive, weakly reversible action over unusually broad data without exact authorization | Minimum safe route | Ask once about the underlying scope and consequence; do not mutate affected data first | Only after authorized work changes canonical knowledge |
+| Exact high-impact action already authorized | Task-relevant route | Continue through the authorized scope; do not ask again merely because the diff is large | Only after a real canonical change |
 | Read an exact version from a project manifest | `checkpoint` | Read the named artifact; no semantic context | Never |
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
 | Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then run autonomous transactional capture with an internal exact authorization and receipt | Only after capture changes canonical knowledge |
@@ -50,6 +55,17 @@ same installed skill and project hook.
   authorizes only the validated transactional capture path.
 - The bounded change summary is reporting, not a user approval surface. The
   exact immutable local review artifact remains optional audit evidence.
+- An internal Syncora proposal is integrity evidence, not a user-facing
+  proposal. Plan-only requests stop at the plan; implementation requests may
+  use an internal plan and continue without asking for plan approval.
+- Diff length, file count, durability, validation effort, or memory importance
+  alone never creates a confirmation boundary. Ask only about a material
+  unresolved project choice, unapproved external effect, required host
+  permission, or destructive weakly reversible broad-data action whose exact
+  scope was not authorized.
+- Ask one focused question about the underlying decision. Once resolved, resume
+  the operation and capture warranted memory automatically without a second
+  save confirmation.
 - Ordinary capture must reach `state: "applied"` before the agent responds. An
   agent that stops at a sealed proposal or asks "Save it?" has failed this
   contract; summaries are optional past-tense completion reports only.
@@ -85,7 +101,7 @@ same installed skill and project hook.
 
 ## Host coverage
 
-Codex and Cursor receive the same v6 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v7 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

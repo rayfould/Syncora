@@ -59,6 +59,12 @@ review artifacts, receipts, and rollback evidence internally without asking
 whether to save. Internal proposal, checkpoint, and apply commands are expert
 inspection and recovery tools, not part of the public workflow.
 
+The agent also does not ask for approval merely because an implementation is
+large. It pauses only for a real unresolved project decision, a plan-only
+request that did not authorize implementation, an unapproved external effect,
+required host permission, or a destructive weakly reversible action over broad
+data whose exact scope was not authorized.
+
 ## 4. Update, repair, or remove
 
 ```text

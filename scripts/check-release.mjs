@@ -281,23 +281,25 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v6",
+  "syncora-agent-hook:begin v7",
   "internally authorizes",
   "applies the exact transaction automatically",
   "Never ask whether to save Syncora",
   "autonomous `capture`",
   "check --changed",
   "do not run drift checks",
+  "Internal Syncora proposal is integrity evidence",
+  "Diff length, file count, durability, or memory importance alone never require",
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v6 autonomous-capture and drift guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v7 autonomy and decision-boundary guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v6")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v7")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v6 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v7 hook",
   );
 }
 
@@ -305,19 +307,37 @@ const agentPatchingReference = await readFile(
   path.join(skillRoot, "references", "agent-patching.md"),
   "utf8",
 );
+const decisionBoundaryReference = await readFile(
+  path.join(skillRoot, "references", "decision-boundaries.md"),
+  "utf8",
+);
 for (const [description, pattern] of [
-  ["current hook v6 declaration", /Hook v6 is current\./u],
-  ["autonomous capture declaration", /makes capture\s+autonomous/u],
+  ["internal proposals are not permission prompts", /internal Syncora proposal is an integrity artifact, not a request for user\s+permission/u],
+  ["plan-only boundary", /plan, proposal, design, review, or audit, so\s+implementation was not authorized/u],
+  ["broad destructive data boundary", /destructive or difficult to reverse, affects an unusually\s+large share of user or business data/u],
+  ["size-alone rejection", /Size alone is not enough/u],
+  ["single focused question", /Ask one focused question only/u],
+  ["automatic post-decision capture", /capture resulting\s+durable knowledge automatically/u],
+]) {
+  if (!pattern.test(decisionBoundaryReference)) {
+    errors.push(
+      `skills/syncora/references/decision-boundaries.md: decision-boundary contract is missing (${description})`,
+    );
+  }
+}
+for (const [description, pattern] of [
+  ["current hook v7 declaration", /Hook v7 is current\./u],
+  ["autonomous capture declaration", /autonomous capture/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v5 snapshot preservation",
-    /exact tracked v1, v2, v3, v4, or v5 hook retains its original pre-Syncora restoration\s+snapshot/u,
+    "exact tracked v1-v6 snapshot preservation",
+    /exact tracked v1, v2, v3, v4, v5, or v6 hook retains its original\s+pre-Syncora restoration snapshot/u,
   ],
   [
-    "diverged or untracked v1-v5 baseline refresh",
-    /diverged or untracked v1,\s+v2, v3, v4, or v5 hook instead refreshes the restoration baseline from current\s+user-owned bytes with only the old marker removed/u,
+    "diverged or untracked v1-v6 baseline refresh",
+    /diverged or untracked v1, v2, v3, v4, v5, or v6 hook instead refreshes the\s+restoration baseline from current user-owned bytes with only the old marker\s+removed/u,
   ],
-  ["future hook fail-closed behavior", /hook newer than v6 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /hook newer than\s+v7 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -349,7 +369,12 @@ const implementationPlan = await readFile(
 );
 if (!/v6 makes\s+routine capture autonomous/u.test(implementationPlan)) {
   errors.push(
-    "docs/skill/implementation-plan.md: hook history must identify v6 as the current autonomous-capture upgrade",
+    "docs/skill/implementation-plan.md: hook history must identify v6 as the autonomous-capture upgrade",
+  );
+}
+if (!/v7 reserves user interruption for genuine project decision boundaries/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify the v7 decision-boundary upgrade",
   );
 }
 
@@ -366,8 +391,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v6/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v6`);
+  if (!/hook v7/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v7`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,
@@ -378,7 +403,7 @@ for (const [displayPath, source] of [
     /automatic drift detection remains unavailable/iu,
   ]) {
     if (stalePattern.test(source)) {
-      errors.push(`${displayPath}: contains stale pre-v6 operational hook guidance`);
+      errors.push(`${displayPath}: contains stale pre-v7 operational hook guidance`);
     }
   }
 }

@@ -164,7 +164,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v6/);
+  assert.match(hook, /syncora-agent-hook:begin v7/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
@@ -184,6 +184,33 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(hook, /check --changed/);
   assert.match(hook, /Do not run drift checks for `none` routes, on every turn, or as\s+background work/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);
+});
+
+test("user decision boundaries preserve autonomy without hiding real risk", async () => {
+  const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const hook = await readFile(
+    join(skillRoot, "assets", "agent-hooks", "shared.md"),
+    "utf8",
+  );
+  const boundaries = await readFile(
+    join(skillRoot, "references", "decision-boundaries.md"),
+    "utf8",
+  );
+  const normalizedSkill = normalizeWhitespace(skill);
+  const normalizedHook = normalizeWhitespace(hook);
+  const normalizedBoundaries = normalizeWhitespace(boundaries);
+
+  assert.match(skill, /\[decision-boundaries\.md\]\(references\/decision-boundaries\.md\)/);
+  assert.match(normalizedSkill, /a large diff alone is not a confirmation boundary/i);
+  assert.match(normalizedBoundaries, /internal Syncora proposal is an integrity artifact, not a request for user permission/i);
+  assert.match(normalizedBoundaries, /"implement", "fix", "update", "proceed", and "finish" authorize the ordinary in-scope work/i);
+  assert.match(normalizedBoundaries, /plan, proposal, design, review, or audit[\s\S]*implementation was not authorized/i);
+  assert.match(normalizedBoundaries, /destructive or difficult to reverse[\s\S]*unusually large share of user or business data/i);
+  assert.match(normalizedBoundaries, /Size alone is not enough/i);
+  assert.match(normalizedBoundaries, /Ask one focused question only/i);
+  assert.match(normalizedBoundaries, /Never ask whether Syncora should save or update its memory/i);
+  assert.match(normalizedHook, /Diff length, file count, durability, or memory importance alone never require confirmation/i);
+  assert.match(normalizedHook, /Once it is resolved, continue and capture durable knowledge automatically/i);
 });
 
 test("optional OpenAI metadata stays presentation-only", async () => {

@@ -60,6 +60,21 @@ removes a direct maintenance command or a separate context requirement. Keep
 unrelated self-contained clauses out of graph context. No route authorizes
 unrelated reads or writes.
 
+## User decision gate
+
+Routing and user authorization are separate. A request to implement, fix,
+update, proceed, or finish authorizes ordinary in-scope work; do not stop for a
+plan approval, a long diff, or a Syncora save question. A request only for a
+plan, proposal, design, review, or audit does not authorize implementation.
+
+Before asking the user anything, apply
+[decision-boundaries.md](decision-boundaries.md). Pause only when the underlying
+project action needs a material choice, has unresolved ambiguity, introduces an
+unapproved external effect, or combines destructive weakly reversible behavior
+with unusually broad data impact and unclear scope. Ask once about that real
+decision. After it is resolved, continue the authorized operation and save any
+warranted Syncora memory automatically.
+
 Direct maintenance commands with an equivalent lifecycle run directly. Do not
 precede `setup` (`init` compatibility), reviewed-pack `adopt`, compatibility
 `bundle` or `adopt --bundle`, `doctor`, explicit `validate`, patch/unpatch, or

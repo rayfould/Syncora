@@ -83,6 +83,12 @@ changes, flag knowledge that may be stale after source changes, and recover an
 interrupted Syncora write on a later foreground request. There is no timer,
 watcher, daemon, or background worker.
 
+Syncora does not add approval prompts to normal project work. Your agent asks
+only when the project action itself needs a real choice: for example, you asked
+for a plan but not implementation, the request is materially ambiguous, or an
+unauthorized destructive or external action would follow. A long diff or an
+important memory update is not, by itself, a reason to stop.
+
 ### Maintain it
 
 Use the same plain language for maintenance:

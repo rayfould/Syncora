@@ -22,7 +22,8 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v6 with autonomous transactional capture,
+- relevance-gated agent hook v7 with autonomous transactional capture and
+  minimal user decision boundaries,
   internal change summaries, and foreground drift routing;
 - ownership-aware unpatch and rollback;
 - bounded doctor, validate, search, and backlinks commands;

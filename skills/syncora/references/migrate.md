@@ -143,7 +143,9 @@ The staged bundle is bounded to 10,000 targets and 64 MiB total.
 No inventory field grants promotion authority. The actionable gate is an exact
 reviewed v2 manifest plus staged target content that passes `migrate --phase
 stage`; cutover additionally requires a recorded passing shadow comparison and
-explicit user authorization.
+authorization for the adoption or cutover outcome. A single explicit adoption
+request supplies that authorization for the normal operation; do not ask again
+at the internal cutover phase.
 
 ## Shadow fixture contract
 

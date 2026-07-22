@@ -22,6 +22,10 @@ evidence, not user approval steps.
   proposal. Normal capture must reach `state: "applied"` in the active request.
 - If the fact itself is ambiguous, ask about the fact. Never ask merely whether
   Syncora should remember an otherwise valid change.
+- If the underlying project action itself crosses a decision boundary, resolve
+  that action before carrying it out; see
+  [decision-boundaries.md](decision-boundaries.md). Once the action or fact is
+  authorized, its valid memory capture is automatic and needs no second prompt.
 - Treat `changeSummary` as an optional completion report after apply. Use
   declarative past tense; never turn it into "Save it?", "Apply this update?",
   or another pre-save question.

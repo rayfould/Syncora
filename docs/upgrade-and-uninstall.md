@@ -9,8 +9,11 @@ Update Syncora.
 ```
 
 This updates the installed skill. It does not initialize, adopt, or migrate a
-project graph. The agent should diagnose an initialized workspace only when the
-new release or current state requires it.
+project graph. In the current initialized workspace, the agent runs `doctor`
+after the skill update and automatically refreshes an older intact
+Syncora-owned project hook. That hook refresh is part of the update request and
+does not need another confirmation. Other repair or migration remains a
+separate operation.
 
 For manual use, update a globally installed skill with:
 

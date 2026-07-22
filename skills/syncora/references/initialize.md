@@ -26,12 +26,15 @@ second confirmation. The flag does not find or delete custom instructions.
 
 1. Resolve the requested workspace as an absolute real path.
 2. If `local/` resolves outside the workspace through a symlink or junction,
-   stop unless the user explicitly allowlists its exact resolved path.
+   stop unless the user explicitly allowlists its exact resolved path. This is
+   a real external-root permission boundary, not a general setup confirmation.
 3. Run `setup` once after the user authorizes initialization. Use
-   `setup --dry-run` only when the user requests a preview or workspace risk
-   warrants one. A legacy-graph finding means this is not greenfield; prepare a
-   reviewed manifest, staged targets, and fixtures, then switch to the
-   reviewed-pack `adopt` summary and internally digest-bound final invocation.
+   `setup --dry-run` only when the user requests a preview or a concrete
+   unresolved target risk makes mutation unsafe. Workspace size alone does not
+   warrant a preview. A legacy-graph finding means this is not greenfield;
+   prepare a reviewed manifest, staged targets, and fixtures, then switch to
+   the reviewed-pack `adopt` summary and internally digest-bound final
+   invocation.
 
 ## Command
 
@@ -58,11 +61,12 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed relevance-gated hook v6 teaches autonomous transactional capture
-with internal exact authorization plus foreground changed-source drift routing.
-Initialization may safely upgrade a tracked v1, v2, v3, v4, or v5 hook under the same workspace patch lock
-used by `patch-agents`; restoration snapshots are verified before any upgrade
-is published.
+The installed relevance-gated hook v7 teaches autonomous transactional capture,
+foreground changed-source drift routing, and the minimal user decision boundary
+in [decision-boundaries.md](decision-boundaries.md). Initialization may safely
+upgrade a tracked v1, v2, v3, v4, v5, or v6 hook under the same workspace patch
+lock used by `patch-agents`; restoration snapshots are verified before any
+upgrade is published.
 If initialization opted out of hooks, a later `patch-agents` call still refuses
 to write while predecessor activation remains outside Syncora-owned markers;
 confirmation never overrides that gate.

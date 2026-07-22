@@ -92,9 +92,11 @@ external-root allowlist.
   the newest compatible release through the Skills CLI. For the normal global
   installation run `npx skills update syncora --global`; for a project-local
   installation, run it from that project without `--global`. It does not mean
-  `setup`, `adopt`, or `migrate`. After the update, diagnose an initialized
-  workspace only as needed; do not run migration merely because the version
-  changed.
+  `setup`, `adopt`, or `migrate`. After the update, run `doctor` for the current
+  initialized workspace. If its Syncora-owned agent hook is merely older than
+  the installed skill, refresh it with `patch-agents` under the same update
+  request without another confirmation. Do not repair unrelated failures or
+  run migration merely because the version changed.
 - **Repair:** start with `doctor`, then use only the failing subsystem's
   validation, recovery, drift, or agent-patching operation. Preserve canonical
   `local/` Markdown. Do not reinstall, reinitialize, migrate, delete state, or
@@ -110,8 +112,12 @@ external-root allowlist.
 
 Treat these as conversational intents. The bundled CLI is internal machinery,
 not the public workflow. Never ask whether to save Syncora memory. Ask only
-when the underlying project fact or requested action is genuinely ambiguous,
-or when the agent host itself requires permission.
+at a genuine user decision boundary. Before presenting a proposal, requesting
+confirmation, or asking a blocking question, read
+[decision-boundaries.md](references/decision-boundaries.md). Routine in-scope
+work remains authorized by requests such as "implement", "fix", "proceed", or
+"finish"; a large diff alone is not a confirmation boundary. A plan-only or
+proposal-only request does not authorize implementation.
 
 For ordinary memory capture, never stop at a sealed proposal or turn a bounded
 change summary into a question. Run non-dry `capture` through `state: "applied"`
@@ -156,9 +162,13 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    `capture` with `origin: "drift"`; ask about project truth only when it is
    genuinely unclear. Do not run it for `none` routes, every turn, on a timer,
    in a separate background process, or after the final response.
-8. Load only the other reference needed for the task. Never recursively load
+8. If the work would pause for user input, apply
+   [decision-boundaries.md](references/decision-boundaries.md) first and ask
+   only about the underlying unresolved choice or risk. Never ask about saving
+   Syncora memory.
+9. Load only the other reference needed for the task. Never recursively load
    `local/`.
-9. Run the paired post-work checkpoint only after canonical knowledge or
+10. Run the paired post-work checkpoint only after canonical knowledge or
    authority actually changed, including a successful governed apply. Reuse
    the pre-work checkpoint ID. Nothing runs in the background or after the
    final response.
@@ -210,6 +220,7 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Greenfield initialization: [initialize.md](references/initialize.md)
 - Existing-graph adoption and rollback: [legacy-adoption.md](references/legacy-adoption.md)
 - Activation routing: [activation-policy.md](references/activation-policy.md)
+- Proposal, confirmation, and clarification boundaries: [decision-boundaries.md](references/decision-boundaries.md)
 - Foreground checkpoint lifecycle: [checkpoint.md](references/checkpoint.md)
 - Task context compilation: [context.md](references/context.md)
 - Governed capture, review, and apply: [capture.md](references/capture.md)
