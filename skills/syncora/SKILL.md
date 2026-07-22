@@ -113,6 +113,12 @@ not the public workflow. Never ask whether to save Syncora memory. Ask only
 when the underlying project fact or requested action is genuinely ambiguous,
 or when the agent host itself requires permission.
 
+For ordinary memory capture, never stop at a sealed proposal or turn a bounded
+change summary into a question. Run non-dry `capture` through `state: "applied"`
+before responding. A change summary is an optional past-tense completion report
+after the save, never a pre-save approval surface. Do not ask "Save it?",
+"Apply this memory update?", or an equivalent question.
+
 ### Route before loading context
 
 1. Apply [activation-policy.md](references/activation-policy.md). Explicit

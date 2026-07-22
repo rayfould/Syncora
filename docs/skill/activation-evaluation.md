@@ -50,6 +50,9 @@ same installed skill and project hook.
   authorizes only the validated transactional capture path.
 - The bounded change summary is reporting, not a user approval surface. The
   exact immutable local review artifact remains optional audit evidence.
+- Ordinary capture must reach `state: "applied"` before the agent responds. An
+  agent that stops at a sealed proposal or asks "Save it?" has failed this
+  contract; summaries are optional past-tense completion reports only.
 - A normal code edit does not trigger post unless canonical Syncora knowledge
   was actually changed or an authority-changing operation completed.
 - If post is mistakenly invoked without an exact canonical graph change, the

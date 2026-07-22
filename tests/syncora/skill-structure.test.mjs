@@ -122,6 +122,14 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
     join(skillRoot, "assets", "agent-hooks", "shared.md"),
     "utf8",
   );
+  const contextReference = await readFile(
+    join(skillRoot, "references", "context.md"),
+    "utf8",
+  );
+  const captureReference = await readFile(
+    join(skillRoot, "references", "capture.md"),
+    "utf8",
+  );
 
   assert.match(skill, /Do not invoke merely because `\.syncora\/config\.json` exists/);
   assert.match(skill, /ordinary work in an uninitialized workspace/);
@@ -163,6 +171,16 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(hook, /validates, internally authorizes, and\s+applies the exact transaction automatically/);
   assert.match(hook, /Never ask whether to save Syncora\s+memory/);
   assert.match(hook, /never expose its\s+proposal or artifact digests/);
+  assert.match(hook, /Never stop at a sealed\s+proposal/);
+  assert.match(normalizedSkill, /never stop at a sealed proposal/);
+  assert.match(normalizedSkill, /through `state: "applied"`/);
+  assert.match(contextReference, /run non-dry `capture` through `state: "applied"`/);
+  assert.doesNotMatch(
+    contextReference,
+    /present its bounded semantic summary|plain-language decision/iu,
+  );
+  assert.match(captureReference, /Never substitute `propose` for ordinary capture/);
+  assert.match(captureReference, /optional completion report after apply/);
   assert.match(hook, /check --changed/);
   assert.match(hook, /Do not run drift checks for `none` routes, on every turn, or as\s+background work/);
   assert.doesNotMatch(hook, /When `\.syncora\/config\.json` exists, use/);

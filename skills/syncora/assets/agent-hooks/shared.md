@@ -15,7 +15,8 @@ canonical graph Markdown directly. When durable project knowledge should
 change, use non-dry Syncora `capture`; it validates, internally authorizes, and
 applies the exact transaction automatically. Never ask whether to save Syncora
 memory, and never expose its proposal or artifact digests. Mention the saved
-result only when useful.
+result only when useful and only after apply succeeds. Never stop at a sealed
+proposal or turn a change summary into a save question.
 After substantive project-source mutation, run the foreground
 `check --changed` operation before deciding whether durable knowledge capture
 is needed. A drift finding proves only potential staleness: inspect its local

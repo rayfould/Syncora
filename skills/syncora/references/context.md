@@ -165,6 +165,8 @@ scanning the complete edge set per seed.
 
 A context pack never authorizes direct canonical note writes. When the task
 establishes durable knowledge, follow [capture.md](capture.md): prepare an
-immutable proposal, present its bounded semantic summary, bind the user's
-plain-language decision to the exact digest internally, and publish only
-through transactional `apply`.
+exact bounded input and run non-dry `capture` through `state: "applied"` during
+the active request. The runtime handles proposal sealing, internal digest
+authorization, and transactional apply. Do not stop at a sealed proposal,
+present a pre-save summary, or ask the user whether to save. Report the bounded
+change summary only after successful apply and only when useful.

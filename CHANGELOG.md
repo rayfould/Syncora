@@ -6,6 +6,9 @@ All notable changes to Syncora are documented here.
 
 #### Changed
 
+- Removed contradictory context guidance that could stop routine capture at a
+  sealed proposal and ask the user whether to save. Ordinary capture now must
+  reach `state: "applied"`; any summary is post-save reporting only.
 - Routine knowledge capture and drift repair now validate, authorize internally,
   and apply transactionally without asking the user whether to save. Exact
   artifacts, receipts, recovery, and rollback evidence remain available.

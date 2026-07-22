@@ -18,8 +18,13 @@ evidence, not user approval steps.
   competing note.
 - `capture` is the ordinary transactional write path. `propose`, `review`, and
   `apply` remain expert inspection and recovery commands.
+- Never substitute `propose` for ordinary capture or stop after sealing a
+  proposal. Normal capture must reach `state: "applied"` in the active request.
 - If the fact itself is ambiguous, ask about the fact. Never ask merely whether
   Syncora should remember an otherwise valid change.
+- Treat `changeSummary` as an optional completion report after apply. Use
+  declarative past tense; never turn it into "Save it?", "Apply this update?",
+  or another pre-save question.
 - Keep exact proposal, artifact, authorization, and receipt details internal
   unless the user requests audit evidence.
 - A stale or conflicted proposal must be corrected as a new proposal. Never
