@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   mkdir,
   mkdtemp,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -62,7 +63,9 @@ function canonicalNote(target, title, body) {
 }
 
 async function lifecycleFixture() {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-lock-composition-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-lock-composition-")),
+  );
   const graph = join(workspace, "local");
   const pack = join(workspace, "review");
   const stagedContent = join(pack, "staged-content");

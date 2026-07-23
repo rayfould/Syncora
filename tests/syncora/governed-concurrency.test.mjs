@@ -245,8 +245,8 @@ async function writeInput(workspace, name, input) {
   return path;
 }
 
-function captureArgs(workspace, graph, inputPath) {
-  return ["capture", ...externalOptions(workspace, graph), "--input", inputPath];
+function proposeArgs(workspace, graph, inputPath) {
+  return ["propose", ...externalOptions(workspace, graph), "--input", inputPath];
 }
 
 function reviewArgs(workspace, graph, proposal, decision, suffix = decision) {
@@ -284,8 +284,8 @@ function inspectProposal(workspace, graph, proposal) {
   ]).output;
 }
 
-async function capture(workspace, graph, inputPath) {
-  return syncResult(captureArgs(workspace, graph, inputPath)).output.proposal;
+async function propose(workspace, graph, inputPath) {
+  return syncResult(proposeArgs(workspace, graph, inputPath)).output.proposal;
 }
 
 async function approve(workspace, graph, proposal) {
@@ -333,7 +333,7 @@ function isBoundedLockContention(result) {
   );
 }
 
-async function settleConcurrentCaptureAttempts(argsList, initialResults) {
+async function settleConcurrentProposalAttempts(argsList, initialResults) {
   const settled = [];
   for (let index = 0; index < initialResults.length; index += 1) {
     const result = initialResults[index];
@@ -373,7 +373,7 @@ test("the full governed lifecycle works through an exact external graph allowlis
       suffix: "external-full-lifecycle",
     });
     const inputPath = await writeInput(fixture.workspaceA, "external-full", drafted.input);
-    const proposal = await capture(fixture.workspaceA, fixture.graph, inputPath);
+    const proposal = await propose(fixture.workspaceA, fixture.graph, inputPath);
     await approve(fixture.workspaceA, fixture.graph, proposal);
     const applied = syncResult(
       applyArgs(fixture.workspaceA, fixture.graph, proposal),
@@ -429,7 +429,7 @@ test("a proposal bound to workspace A cannot be reviewed or applied through work
       suffix: "cross-workspace-isolation",
     });
     const inputPath = await writeInput(fixture.workspaceA, "cross-workspace", drafted.input);
-    const proposal = await capture(fixture.workspaceA, fixture.graph, inputPath);
+    const proposal = await propose(fixture.workspaceA, fixture.graph, inputPath);
 
     const review = syncResult(
       reviewArgs(fixture.workspaceB, fixture.graph, proposal, "approve", "workspace-b"),
@@ -466,8 +466,8 @@ test("two workspaces sharing one external graph serialize canonical applies", as
       writeInput(fixture.workspaceA, "shared-a", draftedA.input),
       writeInput(fixture.workspaceB, "shared-b", draftedB.input),
     ]);
-    const proposalA = await capture(fixture.workspaceA, fixture.graph, inputA);
-    const proposalB = await capture(fixture.workspaceB, fixture.graph, inputB);
+    const proposalA = await propose(fixture.workspaceA, fixture.graph, inputA);
+    const proposalB = await propose(fixture.workspaceB, fixture.graph, inputB);
     await approve(fixture.workspaceA, fixture.graph, proposalA);
     await approve(fixture.workspaceB, fixture.graph, proposalB);
 
@@ -501,7 +501,7 @@ test("two workspaces sharing one external graph serialize canonical applies", as
   }
 });
 
-test("concurrent identical captures converge on one immutable proposal", async () => {
+test("concurrent identical proposals converge on one immutable proposal", async () => {
   const fixture = await externalFixture();
   try {
     const drafted = createInput({
@@ -510,11 +510,11 @@ test("concurrent identical captures converge on one immutable proposal", async (
     });
     const inputPath = await writeInput(fixture.workspaceA, "identical", drafted.input);
     const argsList = Array.from({ length: 8 }, () =>
-      captureArgs(fixture.workspaceA, fixture.graph, inputPath));
+      proposeArgs(fixture.workspaceA, fixture.graph, inputPath));
     const initialResults = await Promise.all(
       argsList.map((args) => asyncResult(args)),
     );
-    const results = await settleConcurrentCaptureAttempts(
+    const results = await settleConcurrentProposalAttempts(
       argsList,
       initialResults,
     );
@@ -532,7 +532,7 @@ test("concurrent identical captures converge on one immutable proposal", async (
   }
 });
 
-test("one intent wins when concurrent captures reuse an idempotency key", async () => {
+test("one intent wins when concurrent proposals reuse an idempotency key", async () => {
   const fixture = await externalFixture();
   try {
     const first = createInput({
@@ -548,7 +548,7 @@ test("one intent wins when concurrent captures reuse an idempotency key", async 
       writeInput(fixture.workspaceA, "idempotency-second", second.input),
     ]);
     const argsList = Array.from({ length: 8 }, (_, index) =>
-      captureArgs(
+      proposeArgs(
           fixture.workspaceA,
           fixture.graph,
           index % 2 === 0 ? firstInput : secondInput,
@@ -556,7 +556,7 @@ test("one intent wins when concurrent captures reuse an idempotency key", async 
     const initialResults = await Promise.all(
       argsList.map((args) => asyncResult(args)),
     );
-    const results = await settleConcurrentCaptureAttempts(
+    const results = await settleConcurrentProposalAttempts(
       argsList,
       initialResults,
     );
@@ -583,7 +583,7 @@ test("concurrent approve and reject attempts persist exactly one terminal dispos
       suffix: "concurrent-review-disposition",
     });
     const inputPath = await writeInput(fixture.workspaceA, "review-race", drafted.input);
-    const proposal = await capture(fixture.workspaceA, fixture.graph, inputPath);
+    const proposal = await propose(fixture.workspaceA, fixture.graph, inputPath);
     const results = await Promise.all(
       Array.from({ length: 10 }, (_, index) => {
         const decision = index % 2 === 0 ? "approve" : "reject";
@@ -620,7 +620,7 @@ test("many concurrent applies converge on one mutation and one applied receipt",
       suffix: "concurrent-many-apply",
     });
     const inputPath = await writeInput(fixture.workspaceA, "many-apply", drafted.input);
-    const proposal = await capture(fixture.workspaceA, fixture.graph, inputPath);
+    const proposal = await propose(fixture.workspaceA, fixture.graph, inputPath);
     await approve(fixture.workspaceA, fixture.graph, proposal);
 
     const firstRound = await Promise.all(
@@ -669,8 +669,8 @@ test("disjoint proposals from one baseline yield one apply and one durable confl
       writeInput(fixture.workspaceA, "disjoint-first", first.input),
       writeInput(fixture.workspaceA, "disjoint-second", second.input),
     ]);
-    const firstProposal = await capture(fixture.workspaceA, fixture.graph, firstInput);
-    const secondProposal = await capture(fixture.workspaceA, fixture.graph, secondInput);
+    const firstProposal = await propose(fixture.workspaceA, fixture.graph, firstInput);
+    const secondProposal = await propose(fixture.workspaceA, fixture.graph, secondInput);
     await approve(fixture.workspaceA, fixture.graph, firstProposal);
     await approve(fixture.workspaceA, fixture.graph, secondProposal);
 

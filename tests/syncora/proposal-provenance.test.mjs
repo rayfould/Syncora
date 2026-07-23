@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, truncate, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  truncate,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -26,7 +34,9 @@ import {
 } from "../../skills/syncora/scripts/lib/proposal-schema.mjs";
 
 async function fixture() {
-  const workspacePath = await mkdtemp(join(tmpdir(), "syncora-provenance-"));
+  const workspacePath = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-provenance-")),
+  );
   const graphRoot = join(workspacePath, "local");
   const sourceBytes = Buffer.from("const governed = true;\n", "utf8");
   const noteBytes = Buffer.from("# Bound note\n\nExact local evidence.\n", "utf8");

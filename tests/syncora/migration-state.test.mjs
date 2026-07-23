@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -50,7 +50,9 @@ function stateFor(workspace, migrationId = "legacy-adoption") {
 }
 
 test("migration state binds identity, exact fields, and supported transitions", async () => {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-state-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-state-")),
+  );
   const graph = join(workspace, "local");
   const paths = migrationPaths(graph, "legacy-adoption");
   try {
@@ -91,7 +93,9 @@ test("migration state binds identity, exact fields, and supported transitions", 
 });
 
 test("migration state rejects malformed and oversized state before use", async () => {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-state-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-state-")),
+  );
   const paths = migrationPaths(join(workspace, "local"), "bounded");
   try {
     await mkdir(paths.root, { recursive: true });
@@ -111,7 +115,9 @@ test("migration state rejects malformed and oversized state before use", async (
 });
 
 test("high-volume migration target reads stay in-process and bounded", async () => {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-target-read-scale-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-target-read-scale-")),
+  );
   const graph = join(workspace, "local");
   const path = join(graph, "knowledge", "note.md");
   const expected = Buffer.from("bounded migration note\n", "utf8");

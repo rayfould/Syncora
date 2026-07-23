@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -109,7 +116,9 @@ function scaleFinding(index) {
 }
 
 test("drift artifacts seal and publish deterministically with exact immutable bytes", async () => {
-  const graphRoot = await mkdtemp(join(tmpdir(), "syncora-drift-artifact-"));
+  const graphRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-artifact-")),
+  );
   try {
     assert.equal(DRIFT_STATE_POLICY.maximumStateBytes, 16_777_216);
     assert.equal(DRIFT_STATE_POLICY.maximumArtifactBytes, 16_777_216);
@@ -208,7 +217,9 @@ test("drift state preserves one actionable finding for every note at the 10,000-
 });
 
 test("drift state is workspace-sharded, strict, bounded, and atomically replaceable", async () => {
-  const graphRoot = await mkdtemp(join(tmpdir(), "syncora-drift-state-"));
+  const graphRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-state-")),
+  );
   try {
     const { state } = stateWithFinding();
     const first = await writeDriftState({ graphRoot, state });
@@ -254,7 +265,9 @@ test("drift state is workspace-sharded, strict, bounded, and atomically replacea
 });
 
 test("missing drift state and artifacts are read without creating storage", async () => {
-  const graphRoot = await mkdtemp(join(tmpdir(), "syncora-drift-pure-read-"));
+  const graphRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-pure-read-")),
+  );
   const paths = driftStatePaths(graphRoot, WORKSPACE_A);
   try {
     assert.equal(await readDriftState({
@@ -277,7 +290,9 @@ test("missing drift state and artifacts are read without creating storage", asyn
 });
 
 test("corrupt, future, and identity-mismatched state fails closed and is not reset", async () => {
-  const graphRoot = await mkdtemp(join(tmpdir(), "syncora-drift-corrupt-"));
+  const graphRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-corrupt-")),
+  );
   const paths = driftStatePaths(graphRoot, WORKSPACE_A);
   try {
     await mkdir(paths.workspaceRoot, { recursive: true });
@@ -316,7 +331,9 @@ test("corrupt, future, and identity-mismatched state fails closed and is not res
 });
 
 test("artifact paths isolate workspaces and reject copied cross-workspace evidence", async () => {
-  const graphRoot = await mkdtemp(join(tmpdir(), "syncora-drift-isolation-"));
+  const graphRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-isolation-")),
+  );
   try {
     const published = await publishDriftFinding({
       graphRoot,
@@ -350,12 +367,14 @@ test("artifact paths isolate workspaces and reject copied cross-workspace eviden
 });
 
 test("drift storage rejects unsafe directory and state path components", async () => {
-  const unsafeRoot = await mkdtemp(join(tmpdir(), "syncora-drift-unsafe-"));
-  const unsafeArtifactRoot = await mkdtemp(
-    join(tmpdir(), "syncora-drift-unsafe-artifact-"),
+  const unsafeRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-unsafe-")),
   );
-  const unsafeStateRoot = await mkdtemp(
-    join(tmpdir(), "syncora-drift-unsafe-state-"),
+  const unsafeArtifactRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-unsafe-artifact-")),
+  );
+  const unsafeStateRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-unsafe-state-")),
   );
   try {
     await writeFile(join(unsafeRoot, ".syncora"), "not a directory\n", "utf8");

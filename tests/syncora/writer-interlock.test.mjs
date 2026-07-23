@@ -98,7 +98,7 @@ test("all canonical readers, setup reruns, and migration phases fail closed duri
       correctsProposalId: null,
       operations: [{
         operationId: "update-workspace-hub",
-        kind: "note.update",
+        kind: "hub.refresh",
         sourceRefs: [{
           type: "user",
           ref: "current-task:writer-interlock",
@@ -112,7 +112,7 @@ test("all canonical readers, setup reruns, and migration phases fail closed duri
       }],
     }, null, 2)}\n`, "utf8");
     const proposal = JSON.parse(run([
-      "capture",
+      "propose",
       "--workspace",
       state.workspace,
       "--input",

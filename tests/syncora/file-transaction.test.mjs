@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   readdir,
   rm,
   symlink,
@@ -34,7 +35,7 @@ function sha(value) {
 }
 
 async function fixture(prefix = "syncora-file-transaction-") {
-  const root = await mkdtemp(join(tmpdir(), prefix));
+  const root = await realpath(await mkdtemp(join(tmpdir(), prefix)));
   const graphRoot = join(root, "local");
   await mkdir(join(graphRoot, "knowledge"), { recursive: true });
   return { root, graphRoot };

@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -83,7 +84,9 @@ function target(values) {
 }
 
 async function builderFixture() {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-bundle-builder-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-bundle-builder-")),
+  );
   const graph = join(workspace, "local");
   const pack = join(workspace, "review");
   const stagedContent = join(pack, "staged-content");

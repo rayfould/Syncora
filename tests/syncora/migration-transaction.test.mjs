@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -29,7 +30,9 @@ const RECOVERY_BINDINGS = Object.freeze({
 });
 
 async function fixture() {
-  const workspacePath = await mkdtemp(join(tmpdir(), "syncora-transaction-"));
+  const workspacePath = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-transaction-")),
+  );
   const graphRoot = join(workspacePath, "local");
   const paths = migrationPaths(graphRoot, "legacy-adoption");
   await mkdir(paths.root, { recursive: true });
@@ -173,7 +176,9 @@ test("transaction resumes when a crash left an already-published prefix", async 
 });
 
 test("recovery directory creation rejects a junction before external mutation", async (t) => {
-  const workspacePath = await mkdtemp(join(tmpdir(), "syncora-transaction-junction-"));
+  const workspacePath = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-transaction-junction-")),
+  );
   const graphRoot = join(workspacePath, "local");
   const outside = join(workspacePath, "outside");
   const paths = migrationPaths(graphRoot, "legacy-adoption");

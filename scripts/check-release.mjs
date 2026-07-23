@@ -24,6 +24,7 @@ const requiredPaths = [
   "docs/skill/implementation-plan.md",
   "package.json",
   "package-lock.json",
+  "scripts/run-skill-tests.mjs",
   "scripts/smoke-legacy-adoption.mjs",
   "skills/syncora/SKILL.md",
   "skills/syncora/agents/openai.yaml",

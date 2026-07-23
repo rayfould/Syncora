@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -189,7 +196,9 @@ function proposalInput(fixture, {
 }
 
 async function driftFixture({ active = true } = {}) {
-  const workspacePath = await mkdtemp(join(tmpdir(), "syncora-drift-governance-"));
+  const workspacePath = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-drift-governance-")),
+  );
   const graphRoot = join(workspacePath, "local");
   await mkdir(join(workspacePath, "src"), { recursive: true });
   await mkdir(join(workspacePath, "config"), { recursive: true });

@@ -5,6 +5,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -151,9 +152,11 @@ async function adoptionFixture({
   migrationId = "legacy-adoption",
   externalGraph = false,
 } = {}) {
-  const workspace = await mkdtemp(join(tmpdir(), "syncora-adoption-"));
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-adoption-")),
+  );
   const graph = externalGraph
-    ? await mkdtemp(join(tmpdir(), "syncora-adoption-graph-"))
+    ? await realpath(await mkdtemp(join(tmpdir(), "syncora-adoption-graph-")))
     : join(workspace, "local");
   if (externalGraph) {
     await symlink(
@@ -445,7 +448,9 @@ test("external-graph adoption persists the exact allowlist used after retirement
     }
     throw error;
   }
-  const staleRoot = await mkdtemp(join(tmpdir(), "syncora-stale-graph-root-"));
+  const staleRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-stale-graph-root-")),
+  );
   try {
     await write(
       join(fixture.workspace, ".syncora", "local.json"),

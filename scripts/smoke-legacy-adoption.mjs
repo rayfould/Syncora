@@ -283,7 +283,7 @@ try {
     "--dry-run",
   ]);
   assert.equal(previewed.command, "adopt");
-  assert.equal(previewed.status, "review-required");
+  assert.equal(previewed.status, "ready");
   assert.deepEqual(previewed.changes, []);
   assert.equal(previewed.review.stagedContent.targetCount, targets.length);
 

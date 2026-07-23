@@ -72,7 +72,7 @@ function proposalInput({
     correctsProposalId: null,
     operations: [{
       operationId: `${idempotencyKey}-update`,
-      kind: "note.update",
+      kind: "hub.refresh",
       sourceRefs: [sourceRef],
       changes: [{
         path: TARGET_NOTE,
@@ -105,7 +105,7 @@ async function approvedProposal(workspace, {
   const captured = await createGovernedProposal({
     workspace,
     allowExternalGraphRoot: undefined,
-    command: "capture",
+    command: "propose",
     input: inputPath,
     dryRun: false,
   });

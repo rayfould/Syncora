@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -27,7 +28,9 @@ async function write(path, bytes) {
 }
 
 async function bundleFixture() {
-  const container = await mkdtemp(join(tmpdir(), "syncora-adoption-bundle-"));
+  const container = await realpath(
+    await mkdtemp(join(tmpdir(), "syncora-adoption-bundle-")),
+  );
   const root = join(container, "pack");
   const stagedRoot = join(root, "staged-content");
   const descriptorPath = join(root, "adoption-bundle-v1.json");
