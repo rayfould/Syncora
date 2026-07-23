@@ -281,7 +281,7 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v7",
+  "syncora-agent-hook:begin v8",
   "internally authorizes",
   "applies the exact transaction automatically",
   "Never ask whether to save Syncora",
@@ -290,16 +290,26 @@ for (const requiredHookText of [
   "do not run drift checks",
   "Internal Syncora proposal is integrity evidence",
   "Diff length, file count, durability, or memory importance alone never require",
+  "Before every final response on an initialized project-relevant route",
+  "durable_change",
+  "no_durable_change",
+  "open_question",
+  "user_decision_required",
+  "stable-keyed entry",
+  "may provide provenance but never owns",
+  "resolve-owner",
+  "Never guess between",
+  "ask the user to choose a note",
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v7 autonomy and decision-boundary guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v8 capture-disposition and autonomy guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v7")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v8")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v7 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v8 hook",
   );
 }
 
@@ -326,18 +336,19 @@ for (const [description, pattern] of [
   }
 }
 for (const [description, pattern] of [
-  ["current hook v7 declaration", /Hook v7 is current\./u],
+  ["current hook v8 declaration", /Hook v8 is current\./u],
+  ["mandatory pre-final disposition", /mandatory internal pre-final capture-disposition sweep/u],
   ["autonomous capture declaration", /autonomous capture/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v6 snapshot preservation",
-    /exact tracked v1, v2, v3, v4, v5, or v6 hook retains its original\s+pre-Syncora restoration snapshot/u,
+    "exact tracked v1-v7 snapshot preservation",
+    /exact tracked v1, v2, v3, v4, v5, v6, or v7 hook retains its original\s+pre-Syncora restoration snapshot/u,
   ],
   [
-    "diverged or untracked v1-v6 baseline refresh",
-    /diverged or untracked v1, v2, v3, v4, v5, or v6 hook instead refreshes the\s+restoration baseline from current user-owned bytes with only the old marker\s+removed/u,
+    "diverged or untracked v1-v7 baseline refresh",
+    /diverged or untracked v1, v2, v3, v4, v5, v6, or v7 hook instead refreshes the\s+restoration baseline from current user-owned bytes with only the old marker\s+removed/u,
   ],
-  ["future hook fail-closed behavior", /hook newer than\s+v7 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /hook newer than\s+v8 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -377,6 +388,11 @@ if (!/v7 reserves user interruption for genuine project decision boundaries/u.te
     "docs/skill/implementation-plan.md: hook history must identify the v7 decision-boundary upgrade",
   );
 }
+if (!/Hook v8 adds the mandatory internal pre-final capture-disposition sweep/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify the v8 capture-disposition upgrade",
+  );
+}
 
 const initializationReference = await readFile(
   path.join(skillRoot, "references", "initialize.md"),
@@ -391,8 +407,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v7/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v7`);
+  if (!/hook v8/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v8`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,

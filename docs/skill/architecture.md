@@ -692,9 +692,31 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v7 keeps relevance-gated activation, autonomous transactional capture, and
-event-driven foreground drift routing from v6, then adds one minimal user
-decision boundary. Internal proposals do not request permission; agents proceed
+Hook v8 keeps relevance-gated activation, autonomous transactional capture,
+event-driven foreground drift routing, and the v7 minimal user decision
+boundary, then adds a mandatory internal pre-final capture-disposition sweep.
+That sweep records non-blocking uncertainty as a stable-keyed `open_question`
+on the owning project or workstream hub without interrupting the user. Session
+and journal notes may supply provenance but do not own the question. Only an
+uncertainty that blocks completion or could materially change the outcome
+becomes `user_decision_required`. Later evidence updates the same question key;
+cleanup may merge duplicates, resolve entries, or mark stale unsupported items
+dormant, but cannot invent answers or silently discard material uncertainty.
+Before capture drafting, an internal read-only canonical-owner resolver uses
+schema authority rather than search or prose similarity. It resolves active
+project hubs by scope, accepted decisions by `scope + decision_key`, and active
+concepts by `scope + id`, returning only `owner_found`, `owner_missing`, or a
+bounded `owner_ambiguous`. A found result carries the exact prior hash needed
+for update; missing does not authorize creation, and ambiguity is an internal
+repair condition rather than a user note-selection prompt. The capture semantic
+kernel then enforces edit-before-create independently: hub changes require
+`hub.refresh`; existing concept and decision identities must be edited; only
+ownerless active concepts and ownerless accepted decisions using
+`decision.accept` may become new canonical knowledge. A replacement decision
+can be created only as the atomic accepted-successor leg of
+`decision.supersede`. Setup and adoption own new project hubs and atlas notes,
+while `session.record` owns new history.
+Internal proposals do not request permission; agents proceed
 with already-authorized reversible work and pause only for a material project
 choice, unresolved ambiguity, unapproved external effect, required host
 permission, or destructive weakly reversible broad-data action whose exact
@@ -710,7 +732,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v7 beside a broad
+Legacy adoption does not use ordinary patching to append hook v8 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed until the skill has inspected every

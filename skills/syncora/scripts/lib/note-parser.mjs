@@ -115,6 +115,13 @@ function validBoundedIdentifier(value, maximumCharacters) {
   );
 }
 
+export function isValidNoteIdentifier(value) {
+  return validBoundedIdentifier(
+    value,
+    NOTE_SCHEMA_SEMANTICS.maxIdentifierCharacters,
+  );
+}
+
 function validDate(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;

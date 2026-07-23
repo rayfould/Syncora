@@ -694,6 +694,43 @@ test("capture is autonomous while propose, review, and apply remain recovery too
   assert.match(helpText("apply"), /process-interruption recovery/u);
 });
 
+test("canonical owner resolution is an internal read-only command", () => {
+  const workspace = resolve("workspace");
+  const parsed = parseArgv([
+    "resolve-owner",
+    "--workspace",
+    workspace,
+    "--scope",
+    "workspace",
+    "--owner-kind",
+    "decision",
+    "--owner-key",
+    "cache-policy",
+    "--note",
+    "knowledge/decisions/cache-policy.md",
+  ]);
+  assert.equal(parsed.command, "resolve-owner");
+  assert.equal(parsed.options.scope, "workspace");
+  assert.equal(parsed.options.ownerKind, "decision");
+  assert.equal(parsed.options.ownerKey, "cache-policy");
+  assert.equal(parsed.options.note, "knowledge/decisions/cache-policy.md");
+  assert.match(helpText("resolve-owner"), /Internal read-only capture primitive/u);
+  assert.match(helpText("resolve-owner"), /never asks the user to choose a note/u);
+
+  assert.throws(
+    () => parseArgv([
+      "resolve-owner",
+      "--workspace",
+      workspace,
+      "--scope",
+      "workspace",
+      "--owner-kind",
+      "concept",
+    ]),
+    /requires --owner-key/u,
+  );
+});
+
 test("governed CLI rejects ambiguous creation and unbound review", () => {
   const workspace = resolve("workspace");
   const input = resolve("draft.json");

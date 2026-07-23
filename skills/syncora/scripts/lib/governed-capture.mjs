@@ -55,6 +55,9 @@ function changeRequiresAbsentPrior(operation, change, before) {
   if (operation.kind === "decision.accept") {
     return before === null;
   }
+  if (operation.kind === "decision.supersede") {
+    return change.expectedPriorSha256 === null;
+  }
   return operation.kind === "note.move" && change.afterText !== null;
 }
 

@@ -54,6 +54,38 @@ the durable change. Maintenance-oriented project work can use pre
 lifecycle. Creating or inspecting a proposal does not count as a durable
 change; only a successful canonical apply does.
 
+## Mandatory pre-final capture disposition
+
+For every initialized project-relevant route, perform one internal disposition
+sweep after the work is complete and before the final response. This sweep is
+mandatory even when pre-work routing did not predict a durable change. Inspect
+the completed work and current conversation, then select exactly one result:
+
+- `durable_change`: durable decisions, constraints, rationale, status, or
+  discoveries changed. Prepare one bounded proposal input and run non-dry
+  `capture` through `state: "applied"` before responding.
+- `open_question`: a potentially durable project fact remains uncertain but
+  does not block the current task. Resolve the owning project or workstream hub,
+  then silently create or update one stable-keyed item in its `Open questions`
+  section through the same applied capture path. Session or journal material
+  may be provenance, but it never owns the question.
+- `no_durable_change`: no canonical project knowledge changed. Finish without
+  a graph write or post-work capture checkpoint.
+
+An uncertainty that blocks completion or could materially change the outcome is
+not a quiet capture disposition. Treat it as `user_decision_required` and ask
+one focused question about the underlying project choice. Never ask whether to
+save memory. Later source-grounded evidence updates the existing question key
+to resolved. Cleanup may merge duplicate keys, move resolved entries out of the
+active list, or mark stale unsupported entries dormant; it must not invent an
+answer or silently delete a material unresolved question.
+
+The disposition is internal bookkeeping, not a user-visible status or approval
+surface. Do not announce it, ask whether to save, or perform the sweep for a
+route that remained `none`. A direct maintenance command may satisfy its own
+equivalent lifecycle, but any additional durable project truth established by
+the surrounding work still receives this disposition.
+
 For compound prompts, classify every clause and retain each required operation.
 Precedence applies only when clauses can share one checkpoint gate; it never
 removes a direct maintenance command or a separate context requirement. Keep
@@ -136,7 +168,8 @@ one bounded pack. Do not run `context` for clauses that remain self-contained.
   autonomous flow in [capture.md](capture.md), then execute the post disposition
   with that same checkpoint ID only when apply actually changes canonical
   knowledge.
-- If a proposed durable change does not occur, omit the post-work capture path.
+- Always perform the mandatory pre-final disposition sweep. If its result is
+  `no_durable_change`, omit the post-work capture path.
 - Never substitute chat memory for a required context pack, and never replace
   transactional capture with a direct note write.
 

@@ -35,6 +35,7 @@ const COMMANDS = new Set([
   "migrate",
   "patch-agents",
   "propose",
+  "resolve-owner",
   "review",
   "search",
   "setup",
@@ -74,6 +75,8 @@ const VALUE_OPTIONS = new Set([
   "--decision",
   "--reviewed-by",
   "--reason",
+  "--owner-kind",
+  "--owner-key",
 ]);
 
 export function parseArgv(argv) {
@@ -126,6 +129,8 @@ export function parseArgv(argv) {
     decision: undefined,
     reviewedBy: undefined,
     reason: undefined,
+    ownerKind: undefined,
+    ownerKey: undefined,
     changed: false,
     rebaseline: false,
     acknowledgeCurrent: undefined,
@@ -219,6 +224,8 @@ export function parseArgv(argv) {
       if (token === "--decision") options.decision = value;
       if (token === "--reviewed-by") options.reviewedBy = value;
       if (token === "--reason") options.reason = value;
+      if (token === "--owner-kind") options.ownerKind = value;
+      if (token === "--owner-key") options.ownerKey = value;
       if (token === "--max-characters") {
         const maximum = Number(value);
         if (!Number.isSafeInteger(maximum)) {
@@ -263,8 +270,11 @@ export function parseArgv(argv) {
   if (command === "backlinks" && !options.note) {
     throw new SyncoraError("CLI002", "backlinks requires --note <path-or-alias>.");
   }
-  if (command !== "backlinks" && options.note !== undefined) {
-    throw new SyncoraError("CLI005", "--note is only valid with backlinks.");
+  if (!new Set(["backlinks", "resolve-owner"]).has(command) && options.note !== undefined) {
+    throw new SyncoraError(
+      "CLI005",
+      "--note is only valid with backlinks or resolve-owner.",
+    );
   }
   if (command === "search" && !options.query) {
     throw new SyncoraError("CLI002", "search requires --query <text>.");
@@ -297,6 +307,31 @@ export function parseArgv(argv) {
         "Use either --budget or --max-characters, not both.",
       );
     }
+  } else if (command === "resolve-owner") {
+    if (options.dryRun) {
+      throw new SyncoraError(
+        "CLI005",
+        "resolve-owner is read-only and does not support --dry-run.",
+      );
+    }
+    if (!options.scope || !options.ownerKind) {
+      throw new SyncoraError(
+        "CLI002",
+        "resolve-owner requires --scope and --owner-kind.",
+      );
+    }
+    if (
+      options.intent !== undefined ||
+      options.mode !== undefined ||
+      options.budget !== undefined ||
+      options.maxCharacters !== undefined ||
+      options.targets.length > 0
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        "Context intent, mode, budget, and target options are not valid with resolve-owner.",
+      );
+    }
   } else if (
     options.intent !== undefined ||
     options.scope !== undefined ||
@@ -308,6 +343,31 @@ export function parseArgv(argv) {
     throw new SyncoraError(
       "CLI005",
       "--intent, --scope, --mode, --budget, --max-characters, and --target are only valid with context.",
+    );
+  }
+  if (command === "resolve-owner") {
+    if (!new Set(["project", "decision", "concept"]).has(options.ownerKind)) {
+      throw new SyncoraError(
+        "CLI004",
+        "resolve-owner --owner-kind must be project, decision, or concept.",
+      );
+    }
+    if (options.ownerKind === "project" && options.ownerKey !== undefined) {
+      throw new SyncoraError(
+        "CLI005",
+        "Project-hub resolution does not accept --owner-key.",
+      );
+    }
+    if (options.ownerKind !== "project" && !options.ownerKey) {
+      throw new SyncoraError(
+        "CLI002",
+        "Decision and concept owner resolution requires --owner-key.",
+      );
+    }
+  } else if (options.ownerKind !== undefined || options.ownerKey !== undefined) {
+    throw new SyncoraError(
+      "CLI005",
+      "--owner-kind and --owner-key are only valid with resolve-owner.",
     );
   }
 
@@ -904,6 +964,22 @@ export function helpText(topic = undefined) {
     ].join("\n");
   }
 
+  if (topic === "resolve-owner") {
+    return [
+      "Usage: syncora resolve-owner --workspace <absolute-path> --scope <scope> --owner-kind <project|decision|concept> [options]",
+      "",
+      "--workspace <absolute-path>",
+      "--scope <portable-scope-id>",
+      "--owner-kind <project|decision|concept>",
+      "--owner-key <portable-id>  (required for decisions and concepts)",
+      "--note <exact-path-or-id>  (optional explicit owner assertion)",
+      "--format <text|json>",
+      "--allow-external-graph-root <absolute-path>",
+      "",
+      "Internal read-only capture primitive. It selects no content and never asks the user to choose a note.",
+    ].join("\n");
+  }
+
   if (topic === "review") {
     return [
       "Usage: syncora review --workspace <absolute-path> --proposal <id> --proposal-digest <sha256> --decision <approve|reject> --reviewed-by <text> --reason <text> [options]",
@@ -996,6 +1072,7 @@ export function helpText(topic = undefined) {
     "  patch-agents    Add or refresh project-local agent hooks",
     "  propose         Create or inspect a governed proposal",
     "  review          Record an approval or rejection for a sealed proposal",
+    "  resolve-owner   Resolve one canonical capture owner read-only",
     "  unpatch-agents  Restore or remove Syncora-owned hooks",
     "",
     "Run syncora <command> --help for command options.",
@@ -1699,6 +1776,28 @@ export function renderResult(result, format = "text") {
     }
     assertGovernedResultBound(result.command, rendered, format);
     return rendered;
+  }
+
+  if (result.command === "resolve-owner") {
+    lines.push(`Workspace: ${terminalSafe(result.workspace)}`);
+    lines.push(`Graph: ${terminalSafe(result.graph.root)}`);
+    lines.push(`State: ${terminalSafe(result.state)}`);
+    lines.push(
+      `Query: ${terminalSafe(result.request.ownerKind)} owner in ${terminalSafe(result.request.scope)}`,
+    );
+    if (result.owner) {
+      lines.push(`Owner: ${terminalSafe(result.owner.path)}`);
+    }
+    for (const candidate of result.candidates ?? []) {
+      lines.push(`Candidate: ${terminalSafe(candidate.path)}`);
+    }
+    if ((result.omittedCandidateCount ?? 0) > 0) {
+      lines.push(
+        `... ${Number(result.omittedCandidateCount)} additional candidate(s) omitted`,
+      );
+    }
+    lines.push("Internal read-only result; no user selection is required.");
+    return `${lines.join("\n")}\n`;
   }
 
   if (result.command === "validate") {

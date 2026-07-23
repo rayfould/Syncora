@@ -180,6 +180,13 @@ async function baseFixture() {
       decisionKey: "replacement-choice",
       state: "proposed",
     })],
+    ["knowledge/decisions/legacy.md", currentNote({
+      id: "decision-legacy",
+      kind: "decision",
+      title: "Legacy choice",
+      decisionKey: "legacy-choice",
+      state: "accepted",
+    })],
   ]);
   for (const [path, bytes] of notes) await writeGraphNote(workspace, path, bytes);
   const inspection = await inspectWorkspace({ workspace });
@@ -496,7 +503,7 @@ test("authority impact comes from before and after authority, not operation labe
 
     const decisionPath = "knowledge/decisions/accept.md";
     const disguisedAuthority = runAssessment(fixture.inspection, proposal([
-      operation("generic-decision-update", "note.update", [{
+      operation("accepted-decision-update", "decision.accept", [{
         path: decisionPath,
         before: fixture.notes.get(decisionPath),
         after: currentNote({
@@ -512,6 +519,163 @@ test("authority impact comes from before and after authority, not operation labe
     assert.ok(disguisedAuthority.authorityImpact.reasons.some(
       (reason) => /authority topology|decision/u.test(reason),
     ));
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("canonical owner admission enforces edit-before-create without user selection", async (context) => {
+  const fixture = await baseFixture();
+  try {
+    const cases = [
+      {
+        name: "project hubs remain setup-owned",
+        packageValue: proposal([
+          operation("create-project", "note.create", [{
+            path: "knowledge/projects/other.md",
+            before: null,
+            after: currentNote({
+              id: "project-other",
+              kind: "project",
+              scope: "other",
+            }),
+          }]),
+        ]),
+        pattern: /cannot create project hubs/u,
+      },
+      {
+        name: "decisions require their semantic operation",
+        packageValue: proposal([
+          operation("create-decision-generically", "note.create", [{
+            path: "knowledge/decisions/generic.md",
+            before: null,
+            after: currentNote({
+              id: "decision-generic",
+              kind: "decision",
+              decisionKey: "generic-choice",
+              state: "accepted",
+            }),
+          }]),
+        ]),
+        pattern: /must use decision\.accept/u,
+      },
+      {
+        name: "sessions require their semantic operation",
+        packageValue: proposal([
+          operation("create-session-generically", "note.create", [{
+            path: "knowledge/sessions/generic.md",
+            before: null,
+            after: currentNote({
+              id: "session-generic",
+              kind: "session",
+            }),
+          }]),
+        ]),
+        pattern: /must use session\.record/u,
+      },
+      {
+        name: "an existing decision identity must be edited",
+        packageValue: proposal([
+          operation("create-competing-decision", "decision.accept", [{
+            path: "knowledge/decisions/competing.md",
+            before: null,
+            after: currentNote({
+              id: "decision-competing",
+              kind: "decision",
+              decisionKey: "accept-choice",
+              state: "accepted",
+            }),
+          }]),
+        ]),
+        pattern: /owner already exists/u,
+      },
+      {
+        name: "project updates use hub refresh",
+        packageValue: proposal([
+          operation("update-project-generically", "note.update", [{
+            path: "knowledge/projects/workspace.md",
+            before: fixture.notes.get("knowledge/projects/workspace.md"),
+            after: currentNote({
+              id: "project-workspace",
+              kind: "project",
+              title: "Workspace",
+              body: "Generic update is not the hub write contract.",
+            }),
+          }]),
+        ]),
+        pattern: /must be edited with hub\.refresh/u,
+      },
+    ];
+
+    for (const item of cases) {
+      await context.test(item.name, () => {
+        const projection = validateProjectedGraph(
+          fixture.inspection,
+          item.packageValue.changes,
+        );
+        assert.equal(projection.ok, true);
+        assert.throws(
+          () => assessProposalSemantics(
+            item.packageValue.input,
+            fixture.inspection,
+            item.packageValue.changes,
+            projection,
+          ),
+          (error) =>
+            error?.code === "PROPOSAL003" && item.pattern.test(error.message),
+        );
+      });
+    }
+
+    const ownerlessConcept = proposal([
+      operation("create-ownerless-concept", "note.create", [{
+        path: "knowledge/concepts/independent.md",
+        before: null,
+        after: currentNote({
+          id: "concept-independent",
+          kind: "concept",
+          summary: "A stable independently governed technical truth.",
+        }),
+      }]),
+    ]);
+    assert.equal(
+      runAssessment(fixture.inspection, ownerlessConcept)
+        .assessment.authorityImpact.level,
+      "canonical-content",
+    );
+
+    const predecessorPath = "knowledge/decisions/legacy.md";
+    const atomicSuccessor = proposal([
+      operation("atomically-supersede", "decision.supersede", [
+        {
+          path: predecessorPath,
+          before: fixture.notes.get(predecessorPath),
+          after: currentNote({
+            id: "decision-legacy",
+            kind: "decision",
+            decisionKey: "legacy-choice",
+            state: "superseded",
+            supersededBy: ["decision-modern"],
+          }),
+        },
+        {
+          path: "knowledge/decisions/modern.md",
+          before: null,
+          after: currentNote({
+            id: "decision-modern",
+            kind: "decision",
+            decisionKey: "legacy-choice",
+            state: "accepted",
+            supersedes: ["decision-legacy"],
+          }),
+        },
+      ]),
+    ]);
+    assert.equal(
+      runAssessment(fixture.inspection, atomicSuccessor)
+        .assessment.authorityImpact.level,
+      "authority-changing",
+    );
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }

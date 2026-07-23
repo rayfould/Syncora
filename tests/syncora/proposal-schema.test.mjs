@@ -219,7 +219,7 @@ test("decision.accept supports explicit create and update modes but rejects ambi
   );
 });
 
-test("decision.supersede remains update-only and rejects a missing or null prior hash", () => {
+test("decision.supersede updates two decisions or atomically creates one successor", () => {
   const validChanges = [
     {
       path: "knowledge/decisions/old.md",
@@ -244,13 +244,23 @@ test("decision.supersede remains update-only and rejects a missing or null prior
     /missing or unknown fields/,
   );
 
-  const createLike = structuredClone(valid);
-  createLike.operations[0].changes[0].expectedPriorSha256 = null;
-  assert.throws(
-    () => sealProposal(createLike, bindings(), {
+  const createSuccessor = structuredClone(valid);
+  createSuccessor.operations[0].changes[1].expectedPriorSha256 = null;
+  assert.doesNotThrow(
+    () => sealProposal(createSuccessor, bindings(), {
       assessment: assessment(validChanges.map((change) => change.path)),
     }),
-    /exact prior note hash/,
+  );
+
+  const createBoth = structuredClone(valid);
+  createBoth.operations[0].changes.forEach((change) => {
+    change.expectedPriorSha256 = null;
+  });
+  assert.throws(
+    () => sealProposal(createBoth, bindings(), {
+      assessment: assessment(validChanges.map((change) => change.path)),
+    }),
+    /atomically create one successor/,
   );
 });
 

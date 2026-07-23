@@ -387,9 +387,24 @@ function validateOperationShape(operation, pointer) {
     }
     case "decision.supersede":
       requireCount(2);
+      changes.forEach((change, index) =>
+        requireAfter(change, `${pointer} change ${index + 1}`));
+      if (changes.every((change) => change.expectedPriorSha256 !== null)) {
+        changes.forEach((change, index) =>
+          requirePriorHash(change, `${pointer} change ${index + 1}`));
+        break;
+      }
+      if (changes.filter((change) => change.expectedPriorSha256 === null).length !== 1) {
+        throw proposalError(
+          `${pointer} must update two existing decisions or atomically create one successor while updating one predecessor.`,
+        );
+      }
       changes.forEach((change, index) => {
-        requireAfter(change, `${pointer} change ${index + 1}`);
-        requirePriorHash(change, `${pointer} change ${index + 1}`);
+        if (change.expectedPriorSha256 === null) {
+          requireAbsentPrior(change, `${pointer} change ${index + 1}`);
+        } else {
+          requirePriorHash(change, `${pointer} change ${index + 1}`);
+        }
       });
       break;
     default:

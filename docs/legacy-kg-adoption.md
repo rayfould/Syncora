@@ -207,7 +207,7 @@ transaction then:
 - copies any legacy Markdown bytes that a declared target will replace to
   `local/archive/migrations/<migration-id>/<original-path>` before publication;
 - creates or enables project-local Syncora runtime configuration;
-- replaces the exact predecessor workflow marker with relevance-gated hook v7,
+- replaces the exact predecessor workflow marker with relevance-gated hook v8,
   including autonomous transactional capture, internal change summaries, and
   foreground drift routing;
 - preserves unrelated agent bytes, encoding, and newline style;

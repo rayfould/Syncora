@@ -150,9 +150,21 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    typed targets. It may update a disposable lexical cache unless `--no-cache`
    is used. Consume only its bounded pack; never recursively load `local/`.
 6. When durable knowledge should change, read
-   [capture.md](references/capture.md), prepare one bounded proposal input, and
-   run non-dry `capture`. It validates, records its exact internal authorization,
-   and applies transactionally in one operation. Do not present a proposal,
+   [capture.md](references/capture.md). Before drafting the write, run the
+   internal read-only `resolve-owner` operation for the intended scope and
+   owner identity. Use `owner_found` to update the returned exact path and prior
+   hash. Never guess between `owner_ambiguous` candidates or ask the user to
+   choose a note; treat that state as a repair issue. `owner_missing` is not by
+   itself permission to create a node. Then prepare one bounded proposal input
+   and run non-dry `capture`. The runtime enforces edit-before-create: hubs use
+   `hub.refresh`, existing canonical identities must be edited, and new
+   canonical notes are admitted only as an ownerless active concept or an
+   ownerless accepted decision using `decision.accept`; an accepted successor
+   may be created only atomically with predecessor supersession through
+   `decision.supersede`. Setup or adoption owns new hubs and atlas notes;
+   `session.record` owns new session history. Capture
+   validates, records its exact internal authorization, and applies
+   transactionally in one operation. Do not present a proposal, owner query,
    diff, hash, or save question. Mention the saved result briefly only when it
    helps the user understand the completed work.
 7. After substantive project-source mutation, or for an explicit drift request,
@@ -162,13 +174,31 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    `capture` with `origin: "drift"`; ask about project truth only when it is
    genuinely unclear. Do not run it for `none` routes, every turn, on a timer,
    in a separate background process, or after the final response.
-8. If the work would pause for user input, apply
+8. Before every final response on an initialized project-relevant route, run a
+   mandatory internal capture-disposition sweep over the work completed and
+   the current conversation. Select exactly one result:
+   - `durable_change`: prepare one bounded input and run non-dry `capture`
+     through `state: "applied"` before responding;
+   - `open_question`: silently create or update a stable-keyed entry in the
+     owning project or workstream hub through the same applied capture path;
+     sessions and journals may provide provenance but never own the question;
+   - `no_durable_change`: finish without a canonical graph write.
+   Do not expose this classification, ask whether to save, or skip the sweep
+   merely because capture was not predicted during pre-work routing. Later
+   source-grounded evidence updates the same question key to resolved. Cleanup
+   may merge duplicates, move resolved entries out of the active list, or mark
+   unsupported stale entries dormant, but must never invent answers or silently
+   delete a material unresolved question.
+   If an unresolved fact blocks completion or could materially change the
+   outcome, classify it separately as `user_decision_required` and ask one
+   focused question about the underlying project choice.
+9. If the work would pause for user input, apply
    [decision-boundaries.md](references/decision-boundaries.md) first and ask
    only about the underlying unresolved choice or risk. Never ask about saving
    Syncora memory.
-9. Load only the other reference needed for the task. Never recursively load
+10. Load only the other reference needed for the task. Never recursively load
    `local/`.
-10. Run the paired post-work checkpoint only after canonical knowledge or
+11. Run the paired post-work checkpoint only after canonical knowledge or
    authority actually changed, including a successful governed apply. Reuse
    the pre-work checkpoint ID. Nothing runs in the background or after the
    final response.

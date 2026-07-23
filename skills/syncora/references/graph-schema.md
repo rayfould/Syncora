@@ -62,6 +62,14 @@ Supported note kinds are `atlas`, `project`, `decision`, `concept`, `reference`,
 - A session is historical chronology and cannot override canonical notes.
 - Inbox material is transient until classified.
 
+Canonical write targeting is resolved before capture through deterministic
+metadata, never lexical similarity. One active canonical project hub owns its
+scope; one accepted canonical decision owns `scope + decision_key`; and one
+active canonical concept owns `scope + id`. The internal read-only resolver
+returns a unique owner with its exact prior hash, a missing-owner state, or a
+bounded ambiguity state. Missing and ambiguous states do not grant creation or
+overwrite authority and never require the user to choose a file.
+
 The runtime enforces the supported schema-v1 authority invariants; it does not
 infer authority for legacy notes. Every missing-schema note remains unpromoted
 until it enters canonical authority through the reviewed v2 adoption workflow.

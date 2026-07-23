@@ -6,6 +6,22 @@ All notable changes to Syncora are documented here.
 
 #### Changed
 
+- Upgraded generated project instructions to hook v8 with a mandatory internal
+  pre-final capture-disposition sweep, preventing initialized project-relevant
+  requests from silently omitting durable changes. Non-blocking uncertainty is
+  stored without interruption as a stable-keyed open question on the owning
+  project or workstream hub; only blocking or outcome-changing uncertainty
+  becomes a focused user decision.
+- Added an internal read-only canonical-owner resolver. Capture targeting can
+  now identify active hubs by scope, accepted decisions by stable decision key,
+  and active concepts by stable ID without fuzzy authority, canonical writes,
+  or user note-selection prompts.
+- Enforced edit-before-create in the capture semantic kernel. Existing
+  canonical owners must be edited through their semantic operation; ordinary
+  capture admits new canonical notes only for ownerless active concepts and
+  ownerless accepted decisions, plus an atomic accepted successor through
+  `decision.supersede`. Setup and adoption retain hub and atlas creation, while
+  session history uses `session.record`.
 - Added one canonical user decision-boundary policy: already-authorized,
   reversible work proceeds without interruption; plan-only requests,
   materially ambiguous choices, unapproved external effects, host permissions,

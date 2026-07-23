@@ -38,7 +38,8 @@ summary: {{workspace_summary_json}}
 
 ## Open questions
 
-- What project facts and decisions must survive future agent sessions?
+<!-- Format: - `[open|resolved|dormant] stable-question-key` — Question. Last seen: YYYY-MM-DD. -->
+- None recorded.
 
 ## Next actions
 

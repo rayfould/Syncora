@@ -130,6 +130,10 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
     join(skillRoot, "references", "capture.md"),
     "utf8",
   );
+  const projectHubTemplate = await readFile(
+    join(skillRoot, "assets", "templates", "project-hub.md"),
+    "utf8",
+  );
 
   assert.match(skill, /Do not invoke merely because `\.syncora\/config\.json` exists/);
   assert.match(skill, /ordinary work in an uninitialized workspace/);
@@ -164,7 +168,26 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v7/);
+  assert.match(hook, /syncora-agent-hook:begin v8/);
+  assert.match(hook, /mandatory even when\s+the agent did not predict capture/);
+  assert.match(hook, /`durable_change`, `open_question`, or\s+`no_durable_change`/);
+  assert.match(hook, /stable-keyed entry in the\s+owning project or workstream hub/);
+  assert.match(hook, /session or journal may provide provenance but never owns\s+the question/);
+  assert.match(hook, /`user_decision_required`/);
+  assert.match(hook, /internal read-only `resolve-owner`/);
+  assert.match(skill, /runtime enforces edit-before-create/);
+  assert.match(hook, /Never guess between\s+`owner_ambiguous` candidates/);
+  assert.match(hook, /ask the user to choose a note/);
+  assert.match(captureReference, /Backend canonical-owner resolution/);
+  assert.match(captureReference, /active project hubs by\s+scope/);
+  assert.match(captureReference, /accepted decisions by `scope \+ decision_key`/);
+  assert.match(captureReference, /active concepts by\s+`scope \+ id`/);
+  assert.match(projectHubTemplate, /## Open questions/);
+  assert.match(projectHubTemplate, /stable-question-key/);
+  assert.match(projectHubTemplate, /- None recorded\./);
+  assert.match(normalizedSkill, /Before every final response on an initialized project-relevant route/);
+  assert.match(policy, /Mandatory pre-final capture disposition/);
+  assert.match(captureReference, /Pre-final disposition sweep/);
   assert.match(hook, /installed does not make every request a Syncora task/);
   assert.match(hook, /Without initialization, ordinary work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);

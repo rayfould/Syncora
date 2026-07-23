@@ -55,6 +55,11 @@ const TOPOLOGY_FIELDS = Object.freeze([
   "decision_key",
 ]);
 
+const CANONICAL_CREATION_KINDS = Object.freeze(new Set([
+  "concept",
+  "decision",
+]));
+
 function semanticError(message, details = undefined) {
   return new SyncoraError("PROPOSAL003", message, details);
 }
@@ -64,7 +69,9 @@ function portableCompare(left, right) {
 }
 
 function portableIdentity(value) {
-  return value.normalize("NFC").toLowerCase();
+  return typeof value === "string"
+    ? value.normalize("NFC").toLowerCase()
+    : "";
 }
 
 function exactKeys(value, expected, label) {
@@ -545,6 +552,19 @@ function assertDecisionAccept(context, projectionByPath) {
 
 function assertDecisionIdentityPreserved(context, after) {
   const before = context.beforeValidated;
+  if (before === null) {
+    if (
+      after.frontmatter.kind !== "decision" ||
+      after.frontmatter.authority !== "canonical" ||
+      !relationsUseUniquePortableIdentities(after)
+    ) {
+      throw semanticError(
+        "decision.supersede may create only one canonical decision successor.",
+        { path: context.exact.path },
+      );
+    }
+    return null;
+  }
   if (
     before?.currentSchema !== true ||
     before.frontmatter.kind !== "decision" ||
@@ -597,7 +617,9 @@ function supersessionOrientation(successor, predecessor, successorAfter, predece
 
 function assertDecisionSupersede(contexts, projectionByPath) {
   const after = contexts.map((context) =>
-    requireUpdate(context, projectionByPath, "decision.supersede"));
+    context.exact.before === null
+      ? requireCreate(context, projectionByPath, "decision.supersede")
+      : requireUpdate(context, projectionByPath, "decision.supersede"));
   contexts.forEach((context, index) => assertDecisionIdentityPreserved(context, after[index]));
   const orientations = [
     { successor: 0, predecessor: 1 },
@@ -619,7 +641,8 @@ function assertDecisionSupersede(contexts, projectionByPath) {
   if (
     after[successor].frontmatter.state !== "accepted" ||
     after[predecessor].frontmatter.state !== "superseded" ||
-    contexts[successor].beforeValidated.frontmatter.state === "accepted" ||
+    contexts[successor].beforeValidated?.frontmatter.state === "accepted" ||
+    contexts[predecessor].beforeValidated === null ||
     contexts[predecessor].beforeValidated.frontmatter.state === "superseded" ||
     after[successor].frontmatter.scope !== after[predecessor].frontmatter.scope
   ) {
@@ -711,6 +734,197 @@ function assertOperationSemantics(operation, contexts, projectionByPath, project
         operationId: operation.operationId,
         kind: operation.kind,
       });
+  }
+}
+
+function declaredCanonical(note) {
+  return (
+    note?.currentSchema === true &&
+    note.frontmatter?.authority === "canonical"
+  );
+}
+
+function canonicalIdentity(note) {
+  if (!declaredCanonical(note)) return null;
+  const kind = portableIdentity(note.frontmatter.kind);
+  const scope = portableIdentity(note.frontmatter.scope);
+  if (kind === "project") return { kind, scope, key: "" };
+  if (kind === "decision") {
+    return {
+      kind,
+      scope,
+      key: portableIdentity(note.frontmatter.decision_key),
+    };
+  }
+  if (kind === "concept") {
+    return {
+      kind,
+      scope,
+      key: portableIdentity(note.frontmatter.id),
+    };
+  }
+  return null;
+}
+
+function identityClaims(inspectionByPath, identity, options = {}) {
+  const matches = [];
+  for (const note of inspectionByPath.values()) {
+    const candidate = canonicalIdentity(note);
+    if (
+      candidate === null ||
+      candidate.kind !== identity.kind ||
+      candidate.scope !== identity.scope ||
+      candidate.key !== identity.key
+    ) {
+      continue;
+    }
+    if (options.activeOnly === true && note.frontmatter.state !== "active") {
+      continue;
+    }
+    matches.push(note);
+  }
+  return matches.sort((left, right) => portableCompare(left.path, right.path));
+}
+
+function boundedClaimDetails(operation, identity, claims) {
+  return {
+    operationId: operation.operationId,
+    kind: identity.kind,
+    scope: identity.scope,
+    key: identity.key,
+    paths: claims.slice(0, 16).map((note) => note.path),
+    claimCount: claims.length,
+    omittedClaims: Math.max(0, claims.length - 16),
+  };
+}
+
+function requireExistingOwner(
+  operation,
+  context,
+  after,
+  inspectionByPath,
+  options = {},
+) {
+  const identity = canonicalIdentity(after);
+  if (identity === null) return;
+  const claims = identityClaims(inspectionByPath, identity, options);
+  if (claims.length !== 1 || claims[0].path !== context.exact.path) {
+    throw semanticError(
+      claims.length > 1
+        ? "Canonical ownership is ambiguous and must be repaired before capture."
+        : "The operation does not target the unique existing canonical owner.",
+      boundedClaimDetails(operation, identity, claims),
+    );
+  }
+}
+
+function assertCreateAdmission(
+  operation,
+  context,
+  after,
+  inspectionByPath,
+) {
+  const kind = after.frontmatter.kind;
+  if (kind === "project" || kind === "atlas") {
+    throw semanticError(
+      "Ordinary capture cannot create project hubs or atlas routing notes; setup or adoption owns that boundary.",
+      { operationId: operation.operationId, path: context.exact.path, kind },
+    );
+  }
+  if (kind === "session" && operation.kind !== "session.record") {
+    throw semanticError(
+      "Historical session creation must use session.record.",
+      { operationId: operation.operationId, path: context.exact.path },
+    );
+  }
+  if (
+    kind === "decision" &&
+    !["decision.accept", "decision.supersede"].includes(operation.kind)
+  ) {
+    throw semanticError(
+      "Canonical decision creation must use decision.accept or decision.supersede.",
+      { operationId: operation.operationId, path: context.exact.path },
+    );
+  }
+  if (!declaredCanonical(after)) return;
+  if (!CANONICAL_CREATION_KINDS.has(kind)) {
+    throw semanticError(
+      "This canonical note kind is not eligible for ordinary capture creation.",
+      { operationId: operation.operationId, path: context.exact.path, kind },
+    );
+  }
+  if (kind === "concept" && after.frontmatter.state !== "active") {
+    throw semanticError(
+      "A newly governed concept must be active.",
+      { operationId: operation.operationId, path: context.exact.path },
+    );
+  }
+  if (kind === "decision" && operation.kind === "decision.supersede") return;
+  const identity = canonicalIdentity(after);
+  const claims = identityClaims(inspectionByPath, identity);
+  if (claims.length > 0) {
+    throw semanticError(
+      claims.length === 1
+        ? "A canonical owner already exists; capture must edit it instead of creating a competing note."
+        : "Canonical ownership is ambiguous and must be repaired before capture.",
+      boundedClaimDetails(operation, identity, claims),
+    );
+  }
+}
+
+function assertCanonicalOwnerAdmission(
+  operation,
+  contexts,
+  inspectionByPath,
+  projectionByPath,
+) {
+  for (const context of contexts) {
+    const after = context.exact.after === null
+      ? null
+      : projectionByPath.get(context.exact.path);
+    if (after === null || after === undefined) continue;
+    if (context.exact.before === null) {
+      // A move relocates one existing identity byte-for-byte; it does not
+      // claim that new independently governed knowledge was created.
+      if (operation.kind !== "note.move") {
+        assertCreateAdmission(operation, context, after, inspectionByPath);
+      }
+      continue;
+    }
+    if (!declaredCanonical(after)) continue;
+    if (after.frontmatter.kind === "project") {
+      if (operation.kind !== "hub.refresh") {
+        throw semanticError(
+          "Canonical project hubs must be edited with hub.refresh.",
+          { operationId: operation.operationId, path: context.exact.path },
+        );
+      }
+      requireExistingOwner(
+        operation,
+        context,
+        after,
+        inspectionByPath,
+        { activeOnly: true },
+      );
+      continue;
+    }
+    if (
+      after.frontmatter.kind === "decision" &&
+      after.frontmatter.state === "accepted"
+    ) {
+      if (operation.kind === "decision.supersede") continue;
+      if (operation.kind !== "decision.accept") {
+        throw semanticError(
+          "Accepted canonical decisions must be edited with a decision operation.",
+          { operationId: operation.operationId, path: context.exact.path },
+        );
+      }
+      requireExistingOwner(operation, context, after, inspectionByPath);
+      continue;
+    }
+    if (after.frontmatter.kind === "concept") {
+      requireExistingOwner(operation, context, after, inspectionByPath);
+    }
   }
 }
 
@@ -1075,6 +1289,12 @@ export function assessProposalSemantics(
       contextsByOperation.get(operation),
       projectionByPath,
       projectedGraph,
+    );
+    assertCanonicalOwnerAdmission(
+      operation,
+      contextsByOperation.get(operation),
+      inspectionByPath,
+      projectionByPath,
     );
   }
 

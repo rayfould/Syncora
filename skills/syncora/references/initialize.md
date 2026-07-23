@@ -61,10 +61,11 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed relevance-gated hook v7 teaches autonomous transactional capture,
-foreground changed-source drift routing, and the minimal user decision boundary
-in [decision-boundaries.md](decision-boundaries.md). Initialization may safely
-upgrade a tracked v1, v2, v3, v4, v5, or v6 hook under the same workspace patch
+The installed relevance-gated hook v8 teaches autonomous transactional capture,
+foreground changed-source drift routing, the minimal user decision boundary,
+and the mandatory internal pre-final capture-disposition sweep in
+[decision-boundaries.md](decision-boundaries.md). Initialization may safely
+upgrade a tracked v1, v2, v3, v4, v5, v6, or v7 hook under the same workspace patch
 lock used by `patch-agents`; restoration snapshots are verified before any
 upgrade is published.
 If initialization opted out of hooks, a later `patch-agents` call still refuses

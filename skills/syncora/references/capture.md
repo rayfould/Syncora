@@ -34,6 +34,95 @@ evidence, not user approval steps.
 - A stale or conflicted proposal must be corrected as a new proposal. Never
   force, rebase, or overwrite newer bytes.
 
+## Pre-final disposition sweep
+
+On every initialized project-relevant route, inspect the completed work and the
+current conversation immediately before the final response. Select exactly one
+internal result:
+
+- `durable_change`: run non-dry `capture` through `state: "applied"` before the
+  response.
+- `open_question`: silently create or update one stable-keyed item in the
+  owning project or workstream hub's `Open questions` section through the same
+  applied capture path. Sessions and journals may supply provenance but do not
+  own the question.
+- `no_durable_change`: do not write canonical Markdown.
+
+If the unresolved fact blocks completion or could materially change the
+outcome, use the separate `user_decision_required` boundary and ask one focused
+question about the project choice. Never ask whether to save memory. When later
+source-grounded evidence resolves a question, update that same key. Cleanup may
+merge duplicates, move resolved items out of the active list, or mark stale
+unsupported items dormant, but it cannot invent an answer or silently delete a
+material unresolved question.
+
+The sweep is required even when pre-work routing did not mark capture intent.
+Keep the result internal. It exists to prevent silent under-capture, not to add
+a visible workflow step or produce a note on every request.
+
+## Backend canonical-owner resolution
+
+Before composing an ordinary capture draft, resolve the intended owner through
+the internal read-only backend operation. This is agent/runtime machinery, not
+a user workflow:
+
+```text
+node "<syncora-skill-root>/scripts/syncora.mjs" resolve-owner \
+  --workspace "<absolute-workspace>" \
+  --scope "<scope>" \
+  --owner-kind "<project|decision|concept>" \
+  [--owner-key "<decision-key-or-concept-id>"] \
+  --format json
+```
+
+Use a `project` query for current status, constraints, blockers, small
+scope-local choices, and keyed open questions. Use a `decision` query with the
+exact `decision_key`, or a `concept` query with the exact concept `id`. An
+optional `--note <exact-path-or-id>` asserts an already-known target; it cannot
+override conflicting ownership.
+
+The backend returns exactly one state:
+
+- `owner_found`: update its exact path using the returned
+  `expectedPriorSha256`.
+- `owner_missing`: no canonical owner currently claims the identity. This is
+  an input to the separate creation policy, not automatic creation authority.
+- `owner_ambiguous`: multiple notes claim the identity. Do not guess, write, or
+  ask the user to choose a note; report a repair condition through internal
+  diagnostics.
+
+Resolution uses current-schema authority metadata: active project hubs by
+scope, accepted decisions by `scope + decision_key`, and active concepts by
+`scope + id`. It never grants authority from lexical similarity, search rank,
+titles, summaries, backlinks, or note content. Results contain bounded metadata
+only, run during the active request, and create no canonical Markdown.
+
+## Edit-before-create admission
+
+`capture` independently enforces owner admission after exact current-note reads
+and projected validation. Prompt instructions cannot bypass it:
+
+- an existing active project hub must be edited with `hub.refresh`;
+- an existing canonical concept identity must be edited at its exact path;
+- an accepted decision must use `decision.accept` or
+  `decision.supersede`;
+- a new canonical concept is allowed only when it is active and no canonical
+  `scope + id` claim exists;
+- a new canonical decision is allowed only through `decision.accept` and only
+  when no canonical note in any state claims its `scope + decision_key`;
+- a successor decision may be created only as the accepted create leg of
+  `decision.supersede`, atomically paired with the existing predecessor update;
+- new project hubs and atlas routing notes belong to setup or adoption, not
+  ordinary capture;
+- new historical session notes must use `session.record`;
+- byte-identical `note.move` destinations are relocations, not new knowledge.
+
+Ambiguous ownership fails as an internal repair condition. The runtime never
+asks the user to choose a note or approve a memory save. `owner_missing` merely
+allows the semantic creation checks to run; it never grants creation by itself.
+Supporting references and transient inbox material retain their schema-limited
+creation paths because they do not compete for canonical authority.
+
 ## Draft file
 
 Create a temporary bounded JSON draft outside canonical Markdown. The runtime
@@ -98,13 +187,17 @@ authority. Read [drift.md](drift.md) for resolution and acknowledgment rules.
 
 Initial operation kinds:
 
-- `note.create`: additive valid Markdown note creation.
+- `note.create`: additive supporting/transient note creation, or an ownerless
+  active canonical concept. It cannot create hubs, atlas notes, decisions, or
+  sessions.
 - `note.update`: complete replacement of an existing note.
 - `note.move`: one exact deletion leg and one byte-identical create leg.
 - `link.add`: body-only link addition with authority frontmatter preserved.
-- `decision.accept`: create or update one decision in accepted canonical state.
-- `decision.supersede`: atomically update predecessor and successor decisions
-  with reciprocal, acyclic supersession.
+- `decision.accept`: create an ownerless independently governed decision or
+  update its existing identity into accepted canonical state.
+- `decision.supersede`: atomically update predecessor and successor decisions,
+  or create the accepted successor while updating the predecessor, with
+  reciprocal, acyclic supersession.
 - `hub.refresh`: refresh one existing active canonical project hub without
   changing its identity.
 - `session.record`: create one historical session note.

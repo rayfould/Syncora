@@ -77,6 +77,17 @@ The initial semantic operation kinds are:
 - `hub.refresh`
 - `session.record`
 
+The semantic kernel also enforces canonical-owner admission. Project hubs can
+only be edited with `hub.refresh`; accepted decisions use decision operations;
+existing concept and decision identities cannot be bypassed by creating a new
+path. Ordinary capture can create canonical knowledge only for an ownerless
+active concept or an ownerless accepted decision through `decision.accept`.
+An accepted successor may be created only atomically through
+`decision.supersede` while its predecessor is updated. Setup and adoption
+remain the only creation boundary for project hubs and atlas routing notes, and
+`session.record` remains the session-history creation path. Ambiguity fails
+internally without a user note-selection prompt.
+
 Proposal files never change. Reviews, conflicts, transaction journals,
 application receipts, and correction links are separate unique records. A
 correction is a new proposal; Syncora never silently edits or rebases an old

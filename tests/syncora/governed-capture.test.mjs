@@ -154,7 +154,7 @@ function proposalInput({ idempotencyKey, beforeText, afterText, path = TARGET_NO
     correctsProposalId: null,
     operations: [{
       operationId: `${idempotencyKey}-update`,
-      kind: "note.update",
+      kind: "hub.refresh",
       sourceRefs: [{
         type: "user",
         ref: "current-task:governed-capture-integration-test",
@@ -528,7 +528,6 @@ test("the governed CLI composes all eight semantic operation kinds into one exac
       writeFile(pathFor(paths.linkTarget), baseline.linkTarget, "utf8"),
       writeFile(pathFor(paths.accept), baseline.accept, "utf8"),
       writeFile(pathFor(paths.predecessor), baseline.predecessor, "utf8"),
-      writeFile(pathFor(paths.successor), baseline.successor, "utf8"),
     ]);
 
     const created = currentNote({
@@ -629,7 +628,7 @@ test("the governed CLI composes all eight semantic operation kinds into one exac
           },
           {
             path: paths.successor,
-            expectedPriorSha256: taggedContentSha256(baseline.successor),
+            expectedPriorSha256: null,
             afterText: successor,
           },
         ]),

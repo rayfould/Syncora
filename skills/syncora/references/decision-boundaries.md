@@ -51,6 +51,32 @@ already made:
 Explicit authorization for the exact high-impact action normally resolves the
 boundary. Do not ask twice simply because the implementation is large.
 
+## Make long artifacts decision-ready
+
+When a plan, specification, design, review, or audit is long enough that reading
+the complete artifact would burden the user, never make the full document the
+only basis for approval. Keep it available as optional detail, but place a
+`Decision brief` of no more than 200 words in the conversational response before
+asking whether to implement.
+
+Use this compact structure:
+
+- **Recommendation:** one sentence naming the preferred approach.
+- **Outcome:** two to four bullets describing what materially changes.
+- **Tradeoffs:** the main upside and downside. If the user must choose among
+  viable approaches, show at most three options with one-line pros and cons and
+  still recommend one.
+- **Risks and rollback:** the material failure mode, blast radius, and whether
+  the change is reversible.
+- **Open decisions:** only choices that genuinely require the user; write
+  `None` when the spec contains no unresolved choice.
+
+End with one precise approval question such as `Proceed with the recommended
+approach?` Do not make `Please review the full spec and say proceed` the only
+approval surface. Do not repeat file inventories, step-by-step implementation
+details, or the complete test plan in the brief; link the detailed artifact for
+optional inspection.
+
 ## How to ask
 
 - Ask about the underlying project choice, risk, or external action. Never ask

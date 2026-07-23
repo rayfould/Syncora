@@ -11,6 +11,7 @@ import {
 import { inventoryAuthority } from "./lib/authority-inventory.mjs";
 import { captureKnowledge } from "./lib/autonomous-capture.mjs";
 import { readBacklinks } from "./lib/backlinks.mjs";
+import { resolveCanonicalOwner } from "./lib/canonical-owner.mjs";
 import { checkpointWorkspace } from "./lib/checkpoint.mjs";
 import {
   VERSION,
@@ -184,6 +185,8 @@ async function main() {
         : await inspectGovernedProposal(parsed.options);
     } else if (parsed.command === "review") {
       result = await reviewGovernedProposal(parsed.options);
+    } else if (parsed.command === "resolve-owner") {
+      result = await resolveCanonicalOwner(parsed.options);
     } else if (parsed.command === "search") {
       result = await searchWorkspace(parsed.options);
     } else if (parsed.command === "validate") {

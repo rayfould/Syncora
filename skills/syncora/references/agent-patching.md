@@ -48,9 +48,18 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v7 is current. It keeps relevance-gated activation, autonomous capture,
-and foreground drift routing from v6, and adds one explicit minimal-interruption
-policy. Internal proposals are not user approval surfaces. The agent proceeds
+Hook v8 is current. It keeps relevance-gated activation, autonomous capture,
+foreground drift routing, and the v7 minimal-interruption policy, then adds a
+mandatory internal pre-final capture-disposition sweep. Every initialized
+project-relevant route ends as `durable_change`, `open_question`, or
+`no_durable_change`; durable changes and quiet hub-owned questions must reach
+applied capture before response. Only an outcome-changing or blocking
+uncertainty becomes `user_decision_required`.
+Before capture drafting, the hook routes owner selection through the internal
+read-only `resolve-owner` backend. It never asks the user to choose a note;
+ambiguous ownership is a repair condition, and a missing owner is not automatic
+permission to create one.
+Internal proposals are not user approval surfaces. The agent proceeds
 with already-authorized, reversible work and pauses only for a material project
 choice, unresolved ambiguity, unapproved external effect, host permission, or
 destructive weakly reversible action over unusually broad data whose exact
@@ -59,12 +68,12 @@ foreground `check --changed` operation while forbidding checks on every turn,
 background work, and after-final work. Exact proposal, artifact,
 authorization, and receipt details remain internal audit evidence.
 
-An exact tracked v1, v2, v3, v4, v5, or v6 hook retains its original
-pre-Syncora restoration snapshot while its owned marker is upgraded to v7. A
-diverged or untracked v1, v2, v3, v4, v5, or v6 hook instead refreshes the
+An exact tracked v1, v2, v3, v4, v5, v6, or v7 hook retains its original
+pre-Syncora restoration snapshot while its owned marker is upgraded to v8. A
+diverged or untracked v1, v2, v3, v4, v5, v6, or v7 hook instead refreshes the
 restoration baseline from current user-owned bytes with only the old marker
 removed, so a later unpatch cannot erase intervening edits. A hook newer than
-v7 fails closed before target writes.
+v8 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
@@ -76,7 +85,7 @@ without another approval prompt. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v7, and records a predecessor-free restoration baseline in the
+with hook v8, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 
