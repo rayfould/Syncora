@@ -5,6 +5,7 @@ import {
   applyFilePlans,
   describePlan,
 } from "./atomic-file.mjs";
+import { validateAdoptionHubHierarchy } from "./adoption-hierarchy.mjs";
 import {
   AUTHORITY_MANIFEST_POLICY,
   loadAndValidateAuthorityManifest,
@@ -229,7 +230,7 @@ export function validateStagedAuthorityGraph(originalNotes, stagedNotes, targetP
     ...stagedNotes.map(cloneNote),
   ];
   applyAuthorityValidation(combined, VALIDATION_POLICY);
-  buildLinkGraph(combined, VALIDATION_POLICY);
+  const linkGraph = buildLinkGraph(combined, VALIDATION_POLICY);
   const errors = combined.flatMap((note) =>
     note.diagnostics
       .filter((item) => item.severity === "error")
@@ -242,18 +243,7 @@ export function validateStagedAuthorityGraph(originalNotes, stagedNotes, targetP
       { errors: errors.slice(0, 50), omitted: Math.max(0, errors.length - 50) },
     );
   }
-  const activeAtlases = combined.filter(
-    (note) =>
-      note.currentSchema &&
-      note.frontmatter.kind === "atlas" &&
-      note.frontmatter.state === "active" &&
-      note.authorityClass === "routing",
-  );
-  if (activeAtlases.length !== 1) {
-    throw stageError("MIGRATE010", "Staged graph must contain exactly one active canonical atlas.", {
-      count: activeAtlases.length,
-    });
-  }
+  validateAdoptionHubHierarchy(combined, linkGraph);
   return combined;
 }
 

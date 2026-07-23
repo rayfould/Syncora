@@ -124,6 +124,26 @@ validator proves that:
 - target paths, IDs, hubs, decision identities, and relations do not conflict;
 - source hashes and expected prior target hashes still match.
 
+## Hub-centric target design
+
+Before writing promotion operations, group current project status into stable
+workstreams by meaning, not by legacy filename or folder. Produce exactly one
+active canonical project hub with `scope: workspace`. The active atlas must
+link directly to that workspace hub and must not link directly to other active
+canonical project hubs. Produce at most one active canonical project hub for
+each live workstream scope, and link every one directly from the workspace hub.
+
+Reuse or merge useful existing pages wherever possible. A legacy project page
+is not automatically a new workstream: if it overlaps an owning hub, make it a
+source for that hub, leave it evidence-only, or preserve it as a supporting
+historical reference. Do not copy the same current status into multiple hubs.
+The workspace hub routes; each workstream hub owns current status for its
+scope; linked decisions and concepts own independently changing truths.
+
+The deterministic stage gate validates this hierarchy on the virtual
+post-adoption graph. It rejects flat atlases, atlas shortcuts to workstream
+hubs, missing workspace hubs, and orphaned active workstream hubs.
+
 JSON Schema checks local field shape. Deterministic validation also checks
 cross-row completeness, cardinality, graph semantics, exact graph and source
 bindings, prior target bytes, portable identities, hub uniqueness, decision

@@ -45,8 +45,11 @@ Adopt this existing knowledge graph into Syncora.
 ```
 
 One adoption request authorizes the complete conversion: inventory the old
-graph, validate the replacement internally, migrate, verify, switch agent
-instructions, and retire the predecessor workflow. Adoption preserves the
+graph, consolidate its current truth into a hub hierarchy, validate the
+replacement internally, migrate, verify, switch agent instructions, and retire
+the predecessor workflow. The hierarchy has one workspace home and one
+non-competing canonical hub per active workstream; old project pages remain
+linked evidence instead of becoming parallel owners. Adoption preserves the
 source notes and keeps rollback evidence. Do not interrupt the user with a
 second save or approval prompt.
 Ordinary README and documentation files are not, by themselves, a reason to
@@ -215,8 +218,14 @@ unconditional `doctor`, or unconditional full-graph validation.
 
 - For existing knowledge, read
   [legacy-adoption.md](references/legacy-adoption.md), inventory the complete
-  old graph, and prepare the reviewed manifest, staged Markdown, and shadow
-  fixtures. Run `adopt --dry-run` with those inputs as an internal validation,
+  old graph, identify its active workstreams, and prepare the reviewed
+  manifest, staged hub-centric Markdown, and shadow fixtures. Reuse or merge
+  existing pages when possible: create exactly one workspace hub, keep exactly
+  one active canonical project hub per workstream scope, route the atlas only
+  to the workspace hub among project pages, and link every workstream hub from
+  that workspace hub. Do not promote old project pages into competing current
+  owners merely because they exist. Run `adopt --dry-run` with those inputs as
+  an internal validation,
   keep the returned digest internal, then immediately rerun the same `adopt`
   input with that value as `--expected-bundle-digest`. The final command seals the pack, stages it,
   shadow-tests it, cuts over, verifies it, retires the predecessor workflow,

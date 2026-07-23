@@ -19,8 +19,33 @@ node "<syncora-skill-root>/scripts/syncora.mjs" adopt --workspace <absolute-path
 ```
 
 The user asks for adoption once. That request authorizes the complete operation.
-The agent inventories the old graph and prepares the reviewed v2 manifest,
-staged Markdown, and shadow fixtures. The first `adopt` invocation is a
+The agent inventories the old graph, clusters its live knowledge into stable
+workstreams, and prepares the reviewed v2 manifest, staged Markdown, and shadow
+fixtures. The staged graph must use this routing hierarchy:
+
+```text
+active atlas
+  -> one active canonical workspace hub (scope: workspace)
+       -> one active canonical project hub per live workstream scope
+```
+
+The atlas may link supporting knowledge, but among active canonical project
+hubs it routes only to the workspace hub. The workspace hub directly links
+every active canonical workstream hub. A workspace with no independently useful
+workstreams may stop at the workspace hub.
+
+Prefer editing or merging an existing useful page into each hub. Do not promote
+every legacy project page. For old pages that overlap a selected hub, use them
+as operation sources, retain them as evidence-only sources, or preserve them as
+supporting historical references. They must not remain parallel active owners
+of current status. Keep detailed decisions and concepts in linked atomic notes
+when they can change independently; keep chronology in sessions.
+
+Stage validation rejects a missing workspace hub, an atlas that bypasses it,
+or any active canonical workstream hub not linked from it. This makes the
+hub-centric result an engine invariant rather than a documentation convention.
+
+The first `adopt` invocation is a
 non-mutating internal preview that validates the complete pack and returns a
 bounded summary plus its exact bundle digest. Do not turn that preview into a
 second approval request. Keep the digest internal and immediately bind the
@@ -61,8 +86,9 @@ phases into user approval prompts during normal adoption.
    [migrate.md](migrate.md).
 2. `stage` revalidates the source graph, manifest, prior target hashes, target
    frontmatter, body hashes, provenance, and resulting authority graph. It
-   copies reviewed artifacts into graph-local migration storage but does not
-   change canonical notes or agent files.
+   also proves the atlas-to-workspace-to-workstream routing hierarchy. It copies
+   reviewed artifacts into graph-local migration storage but does not change
+   canonical notes or agent files.
 3. `shadow` compiles the virtual post-migration graph against bounded fixtures.
    Every required and evidence identity must fit its case budget, forbidden
    identities must stay out, and all cases must pass before cutover.

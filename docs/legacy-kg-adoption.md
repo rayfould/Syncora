@@ -83,6 +83,16 @@ sources to one target; split by assigning one source to several one-target
 operations. Never infer a missing scope, decision key, authority, or target
 body from legacy wording or recency.
 
+Before drafting targets, group live project knowledge into stable workstreams
+by meaning rather than by old filenames. The staged graph must contain exactly
+one active canonical workspace hub. The active atlas links to that hub and not
+directly to other active project hubs. Each independently useful workstream has
+one active canonical project hub with its own scope, linked directly from the
+workspace hub. Merge, demote, or preserve overlapping old project pages as
+evidence instead of creating parallel current owners. Stage validation rejects
+a flat atlas, a missing workspace hub, atlas shortcuts, and orphaned workstream
+hubs.
+
 Schema v1 manifests remain review records but are not actionable.
 
 Place the three reviewed inputs together beneath one review directory:

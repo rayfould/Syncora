@@ -118,10 +118,12 @@ Adopt this existing knowledge graph into Syncora.
 ```
 
 This one request owns the complete conversion. Syncora inventories the old
-graph, internally validates and seals the replacement, then migrates the notes,
-verifies the new authority graph, switches the agent
-instructions, and retires the predecessor workflow. Source notes and rollback
-evidence are preserved. See
+graph, consolidates current truth into one workspace home with one
+non-competing hub per active workstream, internally validates and seals that
+replacement, then migrates the notes, verifies the new authority graph,
+switches the agent instructions, and retires the predecessor workflow. Old
+project pages remain evidence instead of parallel owners. Source notes and
+rollback evidence are preserved. See
 [legacy knowledge graph adoption](docs/legacy-kg-adoption.md).
 
 ## Current boundaries
