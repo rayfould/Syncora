@@ -2,6 +2,11 @@
 
 ## Availability gate
 
+Loading Syncora in a new chat first requires the read-only `update-status`
+activation gate from `SKILL.md`. This check does not load project knowledge,
+create runtime state, or authorize an update. An outdated or unknown result is
+user-visible but does not block unrelated work.
+
 An explicit request to set up, update, repair, remove, adopt, or diagnose
 Syncora may run the corresponding maintenance workflow before project
 initialization when its target exists. For every other request, implicit

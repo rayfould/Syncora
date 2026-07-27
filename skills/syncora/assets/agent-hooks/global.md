@@ -1,5 +1,9 @@
 # Global Syncora routing
 
+On the first Syncora activation in each chat, load the installed `syncora`
+skill and complete its mandatory read-only `update-status` gate before any
+other Syncora operation. Never auto-update.
+
 For the current workspace, first check whether `.syncora/config.json` exists.
 If it does not, do not use Syncora for ordinary work; only explicit setup,
 adoption, update, repair, removal, or diagnostics may activate it.

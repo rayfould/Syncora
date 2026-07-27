@@ -1,6 +1,6 @@
 # Autonomous transactional capture contract
 
-Status: Implemented in the unpublished `0.1.0-preview.2` release candidate.
+Status: Implemented in the `0.1.0-preview.3` development release.
 
 Syncora agents may interpret relevant project work and prepare a proposed
 knowledge change. Only the deterministic local runtime may validate, authorize,

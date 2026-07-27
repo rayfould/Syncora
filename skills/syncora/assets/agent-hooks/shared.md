@@ -1,5 +1,10 @@
-<!-- syncora-agent-hook:begin v9 -->
+<!-- syncora-agent-hook:begin v10 -->
 ## Syncora
+
+On the first Syncora activation in each chat, load the installed `syncora`
+skill and complete its mandatory read-only `update-status` gate before any
+other Syncora operation. Surface an outdated or unknown result, never suppress
+the check, and never auto-update.
 
 Syncora being installed does not make every request load project memory. Before
 work, decide whether existing Syncora context is needed. When this project is
@@ -76,4 +81,4 @@ the response before asking. Include the recommendation, material outcome,
 primary tradeoffs, risks and rollback, and only genuine open decisions. Keep
 the full artifact available as optional detail. Never make `Please review the
 full spec and say proceed` the only approval surface.
-<!-- syncora-agent-hook:end v9 -->
+<!-- syncora-agent-hook:end v10 -->

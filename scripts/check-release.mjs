@@ -63,9 +63,12 @@ const requiredPaths = [
   "skills/syncora/scripts/lib/review-artifact.mjs",
   "skills/syncora/scripts/lib/target-bindings.mjs",
   "skills/syncora/scripts/lib/task-context.mjs",
+  "skills/syncora/scripts/lib/update-status.mjs",
+  "skills/syncora/scripts/lib/version.mjs",
   "skills/syncora/scripts/lib/writer-interlock.mjs",
   "skills/syncora/scripts/lib/workflow-drafts.mjs",
   "skills/syncora/scripts/syncora.mjs",
+  "tests/syncora/update-status.test.mjs",
 ];
 
 const allowedRootEntries = new Set([
@@ -197,9 +200,9 @@ if (packageJson.dependencies || packageJson.optionalDependencies || packageJson.
   errors.push("package.json: the portable runtime must not declare production dependencies");
 }
 
-const cliSource = await readFile(path.join(skillRoot, "scripts", "lib", "cli.mjs"), "utf8");
-const runtimeVersion = cliSource.match(/export const VERSION = ["']([^"']+)["']/u)?.[1];
-if (!runtimeVersion) errors.push("skills/syncora/scripts/lib/cli.mjs: VERSION export is missing");
+const versionSource = await readFile(path.join(skillRoot, "scripts", "lib", "version.mjs"), "utf8");
+const runtimeVersion = versionSource.match(/export const VERSION = ["']([^"']+)["']/u)?.[1];
+if (!runtimeVersion) errors.push("skills/syncora/scripts/lib/version.mjs: VERSION export is missing");
 if (runtimeVersion && runtimeVersion !== packageJson.version) {
   errors.push(`version mismatch: package.json=${packageJson.version}, runtime=${runtimeVersion}`);
 }
@@ -287,7 +290,9 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v8",
+  "syncora-agent-hook:begin v10",
+  "mandatory read-only `update-status` gate",
+  "never auto-update",
   "internally authorizes",
   "applies the exact transaction automatically",
   "Never ask whether to save Syncora",
@@ -296,7 +301,7 @@ for (const requiredHookText of [
   "do not run drift checks",
   "Internal Syncora proposal is integrity evidence",
   "Diff length, file count, durability, or memory importance alone never require",
-  "Before every final response on an initialized project-relevant route",
+  "Before every final response in an initialized workspace",
   "durable_change",
   "no_durable_change",
   "open_question",
@@ -309,13 +314,13 @@ for (const requiredHookText of [
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v8 capture-disposition and autonomy guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v10 activation, capture-disposition, and autonomy guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v8")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v10")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v8 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v10 hook",
   );
 }
 
@@ -342,19 +347,20 @@ for (const [description, pattern] of [
   }
 }
 for (const [description, pattern] of [
-  ["current hook v8 declaration", /Hook v8 is current\./u],
+  ["current hook v10 declaration", /Hook v10 is current\./u],
+  ["mandatory activation update gate", /mandatory read-only `update-status` gate/u],
   ["mandatory pre-final disposition", /mandatory internal pre-final capture-disposition sweep/u],
   ["autonomous capture declaration", /autonomous capture/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v7 snapshot preservation",
-    /exact tracked v1, v2, v3, v4, v5, v6, or v7 hook retains its original\s+pre-Syncora restoration snapshot/u,
+    "exact tracked v1-v9 snapshot preservation",
+    /exact tracked v1 through v9 hook retains its original pre-Syncora restoration\s+snapshot/u,
   ],
   [
-    "diverged or untracked v1-v7 baseline refresh",
-    /diverged or untracked v1, v2, v3, v4, v5, v6, or v7 hook instead refreshes the\s+restoration baseline from current user-owned bytes with only the old marker\s+removed/u,
+    "diverged or untracked v1-v9 baseline refresh",
+    /diverged or untracked v1\s+through v9 hook instead refreshes the\s+restoration baseline/u,
   ],
-  ["future hook fail-closed behavior", /hook newer than\s+v8 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /v10 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -394,9 +400,14 @@ if (!/v7 reserves user interruption for genuine project decision boundaries/u.te
     "docs/skill/implementation-plan.md: hook history must identify the v7 decision-boundary upgrade",
   );
 }
-if (!/Hook v8 adds the mandatory internal pre-final capture-disposition sweep/u.test(implementationPlan)) {
+if (!/Hook v8 added the mandatory internal pre-final capture-disposition sweep/u.test(implementationPlan)) {
   errors.push(
     "docs/skill/implementation-plan.md: hook history must identify the v8 capture-disposition upgrade",
+  );
+}
+if (!/Hook v10 adds the\s+mandatory read-only update-status gate/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify the v10 activation update gate",
   );
 }
 
@@ -413,8 +424,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v8/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v8`);
+  if (!/hook v10/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v10`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,

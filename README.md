@@ -9,7 +9,7 @@ Markdown, loads only what a task needs, and gives each project or work area one
 clear home for current truth.
 
 > **Development preview.** The current public release is
-> `v0.1.0-preview.2`. Use it in a Git repository or another recoverable
+> `v0.1.0-preview.3`. Use it in a Git repository or another recoverable
 > workspace while stable-release acceptance remains in progress.
 
 ## Why Syncora

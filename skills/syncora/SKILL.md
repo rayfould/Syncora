@@ -28,6 +28,11 @@ project memory is relevant. Self-contained questions bypass context retrieval,
 but every completed request still receives a quiet durable-outcome check before
 the response ends.
 
+The first time Syncora is activated in each chat, it also performs a mandatory
+read-only release check. It never updates itself. When a newer release exists,
+the agent shows the exact Skills CLI command to run and continues the requested
+work.
+
 ```text
 Review the authentication flow and fix the session expiry bug.
 Update Syncora.
@@ -87,6 +92,23 @@ project's working directory contains Syncora's `scripts/` directory. Resolve
 every workspace to an absolute real path before a command. If `local/` resolves
 outside the workspace, require its exact resolved path through the command's
 external-root allowlist.
+
+### Mandatory activation update gate
+
+Before any other Syncora workflow or runtime command in each chat, run exactly
+one read-only check:
+
+```text
+node "<syncora-skill-root>/scripts/syncora.mjs" update-status --format json
+```
+
+This gate has no auto-update or suppression option. Do not substitute a generic
+Skills CLI check. If the result is `outdated`, visibly tell the user which
+version is installed, which version is available, and show the returned update
+command. If it is `unknown`, visibly report that the check could not complete.
+In either case, continue the requested work unless it independently requires an
+update. A `current` or `ahead` result stays quiet. Never run the returned update
+command without an explicit update request.
 
 ### Route the public intent
 

@@ -2,6 +2,13 @@
 
 ## Upgrade
 
+On the first Syncora activation in each chat, the installed skill runs
+`update-status`. This is a read-only comparison against the version published
+on Syncora's public `main` branch. The check has no auto-update or suppression
+flag. An available release produces a visible notification and exact manual
+update command; an unavailable network produces a visible unknown status
+without blocking unrelated work.
+
 The normal workflow is to tell your agent:
 
 ```text

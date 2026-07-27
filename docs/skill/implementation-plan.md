@@ -232,7 +232,7 @@ The migration runtime now owns that explicit, gated cutover.
 
 ### Milestone 2: Authority-aware graph kernel
 
-Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
+Status: Implemented in the `0.1.0-preview.3` development release
 
 - [x] Implement raw-byte Markdown scanning, strict constrained frontmatter, and
       bounded wiki-link parsing.
@@ -255,7 +255,7 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v9 is implemented in current
+Status: Core included in `0.1.0-preview.1`; hook v10 is implemented in current
 development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -273,7 +273,9 @@ development source
       Hook v8 added the mandatory internal pre-final capture-disposition sweep,
       including silent stable-keyed open questions on the owning hub and a
       separate blocking `user_decision_required` boundary. Hook v9 makes that
-      sweep independent of the pre-work retrieval route.
+      sweep independent of the pre-work retrieval route. Hook v10 adds the
+      mandatory read-only update-status gate at the first Syncora activation
+      in each chat without granting automatic update authority.
 - [x] Add a deterministic read-only canonical-owner backend that resolves
       active hubs by scope, accepted decisions by `scope + decision_key`, and
       active concepts by `scope + id`; return bounded found, missing, or
@@ -281,7 +283,7 @@ development source
 - [x] Enforce edit-before-create admission in capture, allowing a new node only
       when the separate independently-governed creation policy succeeds.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v9.
+      changing-target upgrades from older markers to hook v10.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint
@@ -305,7 +307,7 @@ separate `context` command, and Milestone 4 supplies governed capture.
 
 ### Milestone 3: Budgeted context compiler
 
-Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
+Status: Implemented in the `0.1.0-preview.3` development release
 
 - [x] Implement typed target binding and deterministic scope resolution.
 - [x] Preserve normalized target case and enforce case-sensitive code
@@ -337,7 +339,7 @@ the general canonical-Markdown-read-only task-context command.
 
 ### Milestone 4: Transactional write path
 
-Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
+Status: Implemented in the `0.1.0-preview.3` development release
 
 - [x] Port a bounded typed operation-envelope contract.
 - [x] Implement immutable content-derived proposals, idempotency bindings, and
@@ -374,8 +376,8 @@ release. Recovery runs only when a later foreground request reruns `apply`.
 
 ### Milestone 5: Drift, migration, and stable release
 
-Status: Runtime capability implemented in the unpublished `0.1.0-preview.2`
-release candidate; integration and stable-release evidence remain in progress
+Status: Runtime capability implemented in the `0.1.0-preview.3` development
+release; integration and stable-release evidence remain in progress
 
 - [x] Implement foreground changed-source checks with exact raw-byte
       fingerprints as authority and Git limited to bounded advisory hints.

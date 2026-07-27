@@ -1,4 +1,4 @@
-export const VERSION = "0.1.0-preview.2";
+export { VERSION } from "./version.mjs";
 
 export const ERROR_OUTPUT_POLICY = Object.freeze({
   maximumSerializedCharacters: 16_384,
@@ -42,6 +42,7 @@ const COMMANDS = new Set([
   "search",
   "setup",
   "unpatch-agents",
+  "update-status",
   "validate",
   "verify",
   "workflows",
@@ -49,6 +50,10 @@ const COMMANDS = new Set([
 
 const WORKFLOW_DRAFT_COMMANDS = new Set(["debate", "design", "verify"]);
 const WORKFLOW_DEMO_COMMANDS = new Set(["workflows", ...WORKFLOW_DRAFT_COMMANDS]);
+const WORKSPACE_FREE_COMMANDS = new Set([
+  "update-status",
+  ...WORKFLOW_DEMO_COMMANDS,
+]);
 
 const VALUE_OPTIONS = new Set([
   "--workspace",
@@ -154,12 +159,12 @@ export function parseArgv(argv) {
     }
 
     if (
-      WORKFLOW_DEMO_COMMANDS.has(command) &&
+      WORKSPACE_FREE_COMMANDS.has(command) &&
       !new Set(["--format", "--topic"]).has(token)
     ) {
       throw new SyncoraError(
         "CLI005",
-        `${token} is not valid with the read-only workflow demo commands.`,
+        `${token} is not valid with this workspace-free read-only command.`,
       );
     }
 
@@ -279,6 +284,16 @@ export function parseArgv(argv) {
     }
     if (WORKFLOW_DRAFT_COMMANDS.has(command) && !options.topic) {
       throw new SyncoraError("CLI002", `${command} requires --topic <text>.`);
+    }
+    return { command, options };
+  }
+
+  if (command === "update-status") {
+    if (options.topic !== undefined) {
+      throw new SyncoraError(
+        "CLI005",
+        "--topic is not valid with update-status.",
+      );
     }
     return { command, options };
   }
@@ -813,6 +828,15 @@ export function helpText(topic = undefined) {
     "--format <text|json>",
   ];
 
+  if (topic === "update-status") {
+    return [
+      "Usage: syncora update-status [--format <text|json>]",
+      "",
+      "Checks public Syncora release metadata without changing the installed skill.",
+      "There is no auto-update or suppression option.",
+    ].join("\n");
+  }
+
   if (topic === "workflows") {
     return [
       "Usage: syncora workflows [--format <text|json>]",
@@ -1111,6 +1135,7 @@ export function helpText(topic = undefined) {
     "Usage: syncora <command> [options]",
     "",
     "Commands:",
+    "  update-status   Check for a newer release without updating",
     "  workflows       List the draft workflow demos",
     "  debate          Pressure-test an idea one question at a time",
     "  design          Draft an implementation-ready design document",
@@ -1735,6 +1760,24 @@ export function renderResult(result, format = "text") {
       );
     }
     lines.push(`Note: ${terminalSafe(result.disclaimer)}`);
+    return `${lines.join("\n")}\n`;
+  }
+
+  if (result.command === "update-status") {
+    lines.push(`State: ${terminalSafe(result.state)}`);
+    lines.push(`Installed: ${terminalSafe(result.currentVersion)}`);
+    if (result.latestVersion) {
+      lines.push(`Latest: ${terminalSafe(result.latestVersion)}`);
+    }
+    lines.push("Automatic update: disabled");
+    if (result.warning) {
+      lines.push(
+        `warning ${terminalSafe(result.warning.code)}: ${terminalSafe(result.warning.message)}`,
+      );
+    }
+    if (result.notificationRequired && result.state === "outdated") {
+      lines.push(`Update: ${terminalSafe(result.update.command)}`);
+    }
     return `${lines.join("\n")}\n`;
   }
 

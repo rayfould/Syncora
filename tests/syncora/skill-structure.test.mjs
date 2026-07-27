@@ -168,7 +168,15 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v9/);
+  assert.match(hook, /syncora-agent-hook:begin v10/);
+  assert.match(hook, /first Syncora activation in each chat/);
+  assert.match(hook, /mandatory read-only `update-status` gate/);
+  assert.match(hook, /never auto-update/);
+  assert.match(
+    normalizedSkill,
+    /Before any other Syncora workflow or runtime command in each chat/,
+  );
+  assert.match(normalizedSkill, /no auto-update or suppression option/);
   assert.match(hook, /regardless of the\s+pre-work mode/);
   assert.match(hook, /`durable_change`,\s+`open_question`, or `no_durable_change`/);
   assert.match(hook, /stable-keyed entry in the\s+owning project or workstream hub/);

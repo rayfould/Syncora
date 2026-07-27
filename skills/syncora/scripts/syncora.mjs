@@ -42,6 +42,7 @@ import { stageMigration } from "./lib/migration-stage.mjs";
 import { withPatchLock } from "./lib/patch-lock.mjs";
 import { searchWorkspace } from "./lib/search.mjs";
 import { compileTaskContext } from "./lib/task-context.mjs";
+import { checkForSyncoraUpdate } from "./lib/update-status.mjs";
 import { validateWorkspace } from "./lib/validate.mjs";
 import {
   createWorkflowDraft,
@@ -156,7 +157,9 @@ async function main() {
     }
 
     let result;
-    if (parsed.command === "workflows") {
+    if (parsed.command === "update-status") {
+      result = await checkForSyncoraUpdate();
+    } else if (parsed.command === "workflows") {
       result = listWorkflowDrafts();
     } else if (isWorkflowDraftCommand(parsed.command)) {
       result = createWorkflowDraft(parsed.command, parsed.options);

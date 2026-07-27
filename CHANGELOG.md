@@ -4,6 +4,17 @@ All notable changes to Syncora are documented here.
 
 ## [Unreleased]
 
+## [0.1.0-preview.3] - 2026-07-27
+
+### Added
+
+- Added a mandatory read-only `update-status` activation gate that checks the
+  public release version once when Syncora is first used in a chat.
+- Added explicit outdated and unavailable notifications with scope-aware update
+  commands while keeping automatic updates disabled.
+- Added hook v10 so patched project instructions carry the same activation
+  contract.
+
 #### Changed
 
 - Upgraded generated project instructions to hook v8 with a mandatory internal
@@ -200,6 +211,7 @@ First public development preview of the portable Syncora Agent Skill.
 - Changed-file drift detection.
 - Stable-release compatibility guarantees.
 
-[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.2...HEAD
+[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.3...HEAD
+[0.1.0-preview.3]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.2...v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.1

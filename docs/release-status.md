@@ -1,6 +1,6 @@
 # Release status
 
-Current package version: **0.1.0-preview.2**
+Current package version: **0.1.0-preview.3**
 
 Latest public tag: **0.1.0-preview.2**
 
@@ -22,7 +22,8 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v9 with optional pre-work retrieval, autonomous
+- relevance-gated agent hook v10 with a mandatory read-only activation update
+  check, optional pre-work retrieval, autonomous
   transactional capture, a route-independent mandatory pre-final capture
   disposition, quiet stable-keyed open questions on owning hubs, minimal
   blocking user decision boundaries, internal change summaries, and foreground
