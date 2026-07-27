@@ -36,9 +36,11 @@ evidence, not user approval steps.
 
 ## Pre-final disposition sweep
 
-On every initialized project-relevant route, inspect the completed work and the
-current conversation immediately before the final response. Select exactly one
-internal result:
+On every request in an initialized workspace, inspect the completed work and
+durable outcomes established anywhere in the current conversation since the
+last successful capture immediately before the final response. Run this sweep
+even when pre-work mode was `none` and no context was loaded. Select exactly
+one internal result:
 
 - `durable_change`: run non-dry `capture` through `state: "applied"` before the
   response.
@@ -46,7 +48,8 @@ internal result:
   owning project or workstream hub's `Open questions` section through the same
   applied capture path. Sessions and journals may supply provenance but do not
   own the question.
-- `no_durable_change`: do not write canonical Markdown.
+- `no_durable_change`: run no Syncora command and do not write canonical
+  Markdown.
 
 If the unresolved fact blocks completion or could materially change the
 outcome, use the separate `user_decision_required` boundary and ask one focused
@@ -56,9 +59,10 @@ merge duplicates, move resolved items out of the active list, or mark stale
 unsupported items dormant, but it cannot invent an answer or silently delete a
 material unresolved question.
 
-The sweep is required even when pre-work routing did not mark capture intent.
-Keep the result internal. It exists to prevent silent under-capture, not to add
-a visible workflow step or produce a note on every request.
+The sweep is independent from pre-work retrieval and required even when
+pre-work mode was `none` or routing did not mark capture intent. Keep the result
+internal. It exists to prevent silent under-capture, not to add a visible
+workflow step or produce a note on every request.
 
 ## Backend canonical-owner resolution
 
@@ -191,6 +195,10 @@ Initial operation kinds:
   active canonical concept. It cannot create hubs, atlas notes, decisions, or
   sessions.
 - `note.update`: complete replacement of an existing note.
+- `note.repair`: exact-hash repair of an existing quarantined schema-v1 note.
+  It requires `origin: "repair"`, preserves every stable identity field already
+  present, cannot compete with another canonical owner, and must make the
+  projected graph valid.
 - `note.move`: one exact deletion leg and one byte-identical create leg.
 - `link.add`: body-only link addition with authority frontmatter preserved.
 - `decision.accept`: create an ownerless independently governed decision or

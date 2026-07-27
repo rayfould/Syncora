@@ -7,6 +7,7 @@ export const PROPOSAL_SCHEMA_VERSION = 1;
 export const PROPOSAL_OPERATION_KINDS = Object.freeze([
   "note.create",
   "note.update",
+  "note.repair",
   "note.move",
   "link.add",
   "decision.accept",
@@ -357,6 +358,7 @@ function validateOperationShape(operation, pointer) {
       requireAbsentPrior(changes[0], `${pointer} change`);
       break;
     case "note.update":
+    case "note.repair":
     case "link.add":
     case "hub.refresh":
       requireCount(1);

@@ -223,11 +223,11 @@ export async function createGovernedProposal(options) {
     const parsed = parseProposalInputBytes(inputBytes);
     if (
       options.command === "capture" &&
-      !new Set(["capture", "drift"]).has(parsed.origin)
+      !new Set(["capture", "drift", "repair"]).has(parsed.origin)
     ) {
       throw proposalError(
         "PROPOSAL001",
-        "capture requires proposal input origin capture or drift.",
+        "capture requires proposal input origin capture, drift, or repair.",
       );
     }
     const inspection = await inspectWorkspace(options, {

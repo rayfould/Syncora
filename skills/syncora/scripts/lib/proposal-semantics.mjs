@@ -689,13 +689,63 @@ function assertSessionRecord(context, projectionByPath) {
   }
 }
 
-function assertOperationSemantics(operation, contexts, projectionByPath, projection) {
+function assertNoteRepair(context, projectionByPath, origin) {
+  if (origin !== "repair") {
+    throw semanticError("note.repair requires proposal origin repair.", {
+      path: context.exact.path,
+    });
+  }
+  const after = requireUpdate(context, projectionByPath, "note.repair");
+  const before = context.beforeValidated;
+  if (
+    before === null ||
+    before.frontmatter?.schema_version !== VALIDATION_POLICY.noteSchemaVersion ||
+    before.currentSchema === true ||
+    !before.diagnostics?.some((item) => item.severity === "error") ||
+    after.currentSchema !== true
+  ) {
+    throw semanticError(
+      "note.repair must convert one invalid schema-v1 note into a valid current-schema note.",
+      { path: context.exact.path },
+    );
+  }
+  const stableFields = [
+    "id",
+    "kind",
+    "scope",
+    "authority",
+    "state",
+    "schema_version",
+    "created",
+  ];
+  for (const field of stableFields) {
+    if (
+      Object.hasOwn(before.frontmatter, field) &&
+      !exactValue(before.frontmatter[field], after.frontmatter[field])
+    ) {
+      throw semanticError(`note.repair must preserve existing ${field}.`, {
+        path: context.exact.path,
+      });
+    }
+  }
+}
+
+function assertOperationSemantics(
+  operation,
+  contexts,
+  projectionByPath,
+  projection,
+  origin,
+) {
   switch (operation.kind) {
     case "note.create":
       requireCreate(contexts[0], projectionByPath, "note.create");
       break;
     case "note.update":
       requireUpdate(contexts[0], projectionByPath, "note.update");
+      break;
+    case "note.repair":
+      assertNoteRepair(contexts[0], projectionByPath, origin);
       break;
     case "note.move": {
       const removed = contexts.find((context) => context.exact.after === null);
@@ -883,6 +933,20 @@ function assertCanonicalOwnerAdmission(
       ? null
       : projectionByPath.get(context.exact.path);
     if (after === null || after === undefined) continue;
+    if (operation.kind === "note.repair") {
+      if (declaredCanonical(after)) {
+        const identity = canonicalIdentity(after);
+        const claims = identityClaims(inspectionByPath, identity)
+          .filter((claim) => claim.path !== context.exact.path);
+        if (claims.length > 0) {
+          throw semanticError(
+            "note.repair cannot create or compete with another canonical owner.",
+            boundedClaimDetails(operation, identity, claims),
+          );
+        }
+      }
+      continue;
+    }
     if (context.exact.before === null) {
       // A move relocates one existing identity byte-for-byte; it does not
       // claim that new independently governed knowledge was created.
@@ -1279,6 +1343,12 @@ export function assessProposalSemantics(
   projectedGraph,
 ) {
   const input = parseProposalInput(proposalInput);
+  if (
+    input.origin === "repair" &&
+    input.operations.some((operation) => operation.kind !== "note.repair")
+  ) {
+    throw semanticError("Repair-origin proposals may contain only note.repair operations.");
+  }
   const inspectionByPath = baselineIndex(inspection);
   const contextsByOperation = bindExactChanges(input, inspectionByPath, exactChanges);
   const projectionByPath = projectedIndex(projectedGraph, inspection, exactChanges);
@@ -1289,6 +1359,7 @@ export function assessProposalSemantics(
       contextsByOperation.get(operation),
       projectionByPath,
       projectedGraph,
+      input.origin,
     );
     assertCanonicalOwnerAdmission(
       operation,

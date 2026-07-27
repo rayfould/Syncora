@@ -135,10 +135,10 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
     "utf8",
   );
 
-  assert.match(skill, /Do not invoke merely because `\.syncora\/config\.json` exists/);
+  assert.match(skill, /Do not load context\s+merely because `\.syncora\/config\.json` exists/);
   assert.match(skill, /ordinary work in an uninitialized workspace/);
   assert.match(normalizedSkill, /Every implicit project route requires/);
-  assert.match(skill, /date\/time, arithmetic, translation, casual conversation/);
+  assert.match(normalizedSkill, /date\/time, arithmetic, translation, casual conversation/);
   for (const profile of [
     "none",
     "checkpoint",
@@ -168,9 +168,9 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v8/);
-  assert.match(hook, /mandatory even when\s+the agent did not predict capture/);
-  assert.match(hook, /`durable_change`, `open_question`, or\s+`no_durable_change`/);
+  assert.match(hook, /syncora-agent-hook:begin v9/);
+  assert.match(hook, /regardless of the\s+pre-work mode/);
+  assert.match(hook, /`durable_change`,\s+`open_question`, or `no_durable_change`/);
   assert.match(hook, /stable-keyed entry in the\s+owning project or workstream hub/);
   assert.match(hook, /session or journal may provide provenance but never owns\s+the question/);
   assert.match(hook, /`user_decision_required`/);
@@ -185,11 +185,13 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(projectHubTemplate, /## Open questions/);
   assert.match(projectHubTemplate, /stable-question-key/);
   assert.match(projectHubTemplate, /- None recorded\./);
-  assert.match(normalizedSkill, /Before every final response on an initialized project-relevant route/);
+  assert.match(normalizedSkill, /Before every final response in an initialized workspace/);
+  assert.match(normalizedSkill, /because pre-work mode was `none`/);
   assert.match(policy, /Mandatory pre-final capture disposition/);
   assert.match(captureReference, /Pre-final disposition sweep/);
-  assert.match(hook, /installed does not make every request a Syncora task/);
-  assert.match(hook, /Without initialization, ordinary work stays inactive/);
+  assert.match(captureReference, /run no Syncora command/);
+  assert.match(hook, /installed does not make every request load project memory/);
+  assert.match(hook, /Without initialization, ordinary\s+work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
   assert.match(hook, /validates, internally authorizes, and\s+applies the exact transaction automatically/);
   assert.match(hook, /Never ask whether to save Syncora\s+memory/);

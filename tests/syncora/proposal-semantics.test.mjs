@@ -110,13 +110,13 @@ function operation(operationId, kind, changes) {
   };
 }
 
-function proposal(operations) {
+function proposal(operations, origin = "manual") {
   return {
     input: parseProposalInput({
       schemaVersion: 1,
       kind: "syncora.proposal-input",
       idempotencyKey: "proposal-semantics-test",
-      origin: "manual",
+      origin,
       actor: { type: "agent", id: "test-agent", runtime: "node-test" },
       reason: "Exercise the governed proposal semantic kernel.",
       correctsProposalId: null,
@@ -205,6 +205,60 @@ function runAssessment(inspection, proposalPackage) {
     ),
   };
 }
+
+test("note.repair fixes one exact invalid schema-v1 note without bypassing ownership", async () => {
+  const fixture = await baseFixture();
+  const path = "knowledge/decisions/repair.md";
+  const valid = currentNote({
+    id: "decision-repair",
+    kind: "decision",
+    title: "Repair decision",
+    decisionKey: "repair-choice",
+    state: "accepted",
+  });
+  const invalid = Buffer.from(
+    valid.toString("utf8").replace("decision_key: repair-choice\n", ""),
+    "utf8",
+  );
+  try {
+    await writeGraphNote(fixture.workspace, path, invalid);
+    const inspection = await inspectWorkspace({ workspace: fixture.workspace });
+    assert.equal(inspection.report.summary.valid, false);
+
+    const repairOperation = () =>
+      operation("repair-invalid-decision", "note.repair", [{
+        path,
+        before: invalid,
+        after: valid,
+      }]);
+    const result = runAssessment(
+      inspection,
+      proposal([repairOperation()], "repair"),
+    );
+    assert.equal(result.projection.ok, true);
+    assert.equal(result.assessment.authorityImpact.level, "authority-changing");
+
+    assert.throws(
+      () => runAssessment(inspection, proposal([repairOperation()])),
+      /note\.repair requires proposal origin repair/u,
+    );
+    assert.throws(
+      () => runAssessment(
+        inspection,
+        proposal([
+          operation("misclassified-repair", "note.update", [{
+            path,
+            before: invalid,
+            after: valid,
+          }]),
+        ], "repair"),
+      ),
+      /Repair-origin proposals may contain only note\.repair operations/u,
+    );
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
 
 test("semantic bridge enforces and accepts all eight operation meanings", async () => {
   const fixture = await baseFixture();

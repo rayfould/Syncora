@@ -26,9 +26,10 @@ Evaluate the request before loading graph content:
    durable context is probably unnecessary?
 4. Could the work establish or change durable project knowledge?
 
-If every answer is no, select `none`. If project relevance is plausible but
-uncertain, select `checkpoint`; uncertainty never justifies loading the full
-graph.
+If every answer is no, select pre-work mode `none`. If project relevance is
+plausible but uncertain, select `checkpoint`; uncertainty never justifies
+loading the full graph. This decision governs retrieval only. In an initialized
+workspace, it never disables the mandatory pre-final durable-outcome sweep.
 
 An explicit user request to skip Syncora selects `none`. If the same request
 also asks for a Syncora mutation or safety gate, do not execute that operation;
@@ -38,7 +39,7 @@ surface the conflict instead of overriding the opt-out.
 
 | Profile | Select when | Required behavior |
 |---|---|---|
-| `none` | The request is self-contained and independent of workspace state. | Do not activate Syncora, inspect its state, increment its cadence, or load graph notes. |
+| `none` | The request is self-contained and independent of existing workspace state. | Do not run a pre-work checkpoint, inspect graph state, increment cadence, or load notes. If the workspace is initialized, still perform the final durable-outcome sweep; run no Syncora command when it returns `no_durable_change`. |
 | `checkpoint` | The task concerns the project but does not need durable context, or relevance is uncertain. | Perform only the supported cheap pre-work checkpoint. Do not compile context or capture knowledge by default. |
 | `context` | Correct work depends on project decisions, constraints, status, history, or provenance. | Perform the pre-work checkpoint, then run the bounded task-context compiler with the current intent, suitable mode, and any known typed targets. |
 | `capture` | The task may establish or change durable knowledge without needing context retrieval. | Use checkpoint-level pre-work, then run autonomous transactional capture when a durable change is actually needed. Run post only after capture changes canonical Markdown or authority. |
@@ -56,10 +57,12 @@ change; only a successful canonical apply does.
 
 ## Mandatory pre-final capture disposition
 
-For every initialized project-relevant route, perform one internal disposition
+For every request in an initialized workspace, perform one internal disposition
 sweep after the work is complete and before the final response. This sweep is
-mandatory even when pre-work routing did not predict a durable change. Inspect
-the completed work and current conversation, then select exactly one result:
+independent from pre-work routing and remains mandatory when pre-work mode was
+`none`. Inspect the completed work and durable outcomes established anywhere
+in the current conversation since the last successful capture, then select
+exactly one result:
 
 - `durable_change`: durable decisions, constraints, rationale, status, or
   discoveries changed. Prepare one bounded proposal input and run non-dry
@@ -69,8 +72,8 @@ the completed work and current conversation, then select exactly one result:
   then silently create or update one stable-keyed item in its `Open questions`
   section through the same applied capture path. Session or journal material
   may be provenance, but it never owns the question.
-- `no_durable_change`: no canonical project knowledge changed. Finish without
-  a graph write or post-work capture checkpoint.
+- `no_durable_change`: no canonical project knowledge changed. Run no Syncora
+  command and finish without a graph write or post-work capture checkpoint.
 
 An uncertainty that blocks completion or could materially change the outcome is
 not a quiet capture disposition. Treat it as `user_decision_required` and ask
@@ -81,8 +84,8 @@ active list, or mark stale unsupported entries dormant; it must not invent an
 answer or silently delete a material unresolved question.
 
 The disposition is internal bookkeeping, not a user-visible status or approval
-surface. Do not announce it, ask whether to save, or perform the sweep for a
-route that remained `none`. A direct maintenance command may satisfy its own
+surface. Do not announce it or ask whether to save. Pre-work mode `none` skips
+retrieval, not this sweep. A direct maintenance command may satisfy its own
 equivalent lifecycle, but any additional durable project truth established by
 the surrounding work still receives this disposition.
 
@@ -136,7 +139,7 @@ finding may instead receive an exact-digest acknowledgment with a reason.
 
 ## Requests that stay `none`
 
-Keep Syncora inactive for requests such as:
+Keep Syncora retrieval inactive for requests such as:
 
 - the current date or time;
 - arithmetic or unit conversion;
@@ -147,7 +150,8 @@ Keep Syncora inactive for requests such as:
   needed.
 
 A named project in the working directory is not enough to change these
-outcomes.
+pre-work outcomes. If that project is initialized, the final durable-outcome
+sweep still runs and normally returns `no_durable_change`.
 
 Project-local code-only tasks, such as reading an exact version from a manifest
 or making an isolated mechanical edit, normally select `checkpoint`, not
@@ -168,8 +172,10 @@ one bounded pack. Do not run `context` for clauses that remain self-contained.
   autonomous flow in [capture.md](capture.md), then execute the post disposition
   with that same checkpoint ID only when apply actually changes canonical
   knowledge.
-- Always perform the mandatory pre-final disposition sweep. If its result is
-  `no_durable_change`, omit the post-work capture path.
+- Always perform the mandatory pre-final disposition sweep in an initialized
+  workspace, including when pre-work mode remained `none`. If its result is
+  `no_durable_change`, run no Syncora command and omit the post-work capture
+  path.
 - Never substitute chat memory for a required context pack, and never replace
   transactional capture with a direct note write.
 

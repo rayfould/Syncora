@@ -255,7 +255,7 @@ Status: Implemented in the unpublished `0.1.0-preview.2` release candidate
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v8 is implemented in current
+Status: Core included in `0.1.0-preview.1`; hook v9 is implemented in current
 development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -270,9 +270,10 @@ development source
       relevance policy, v5 introduced bounded human summaries, and v6 makes
       routine capture autonomous while retaining internal digest binding. Hook
       v7 reserves user interruption for genuine project decision boundaries.
-      Hook v8 adds the mandatory internal pre-final capture-disposition sweep,
+      Hook v8 added the mandatory internal pre-final capture-disposition sweep,
       including silent stable-keyed open questions on the owning hub and a
-      separate blocking `user_decision_required` boundary.
+      separate blocking `user_decision_required` boundary. Hook v9 makes that
+      sweep independent of the pre-work retrieval route.
 - [x] Add a deterministic read-only canonical-owner backend that resolves
       active hubs by scope, accepted decisions by `scope + decision_key`, and
       active concepts by `scope + id`; return bounded found, missing, or
@@ -280,7 +281,7 @@ development source
 - [x] Enforce edit-before-create admission in capture, allowing a new node only
       when the separate independently-governed creation policy succeeds.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v8.
+      changing-target upgrades from older markers to hook v9.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint

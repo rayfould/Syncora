@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. It loads bounded task-specific context, saves durable knowledge automatically, and detects potentially stale notes. Stay inactive for self-contained requests.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. Skip pre-work memory loading for self-contained requests, but in initialized workspaces still run the pre-final durable-outcome check. It saves durable knowledge automatically and detects potentially stale notes.
 ---
 
 # Syncora
@@ -23,8 +23,10 @@ to learn Syncora's bundled commands.
 Set up Syncora in this project.
 ```
 
-After setup, ordinary project requests automatically use Syncora when project
-memory is relevant. Self-contained questions bypass it.
+After setup, ordinary project requests automatically load Syncora context when
+project memory is relevant. Self-contained questions bypass context retrieval,
+but every completed request still receives a quiet durable-outcome check before
+the response ends.
 
 ```text
 Review the authentication flow and fix the session expiry bug.
@@ -135,12 +137,14 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    initialization when their target exists. Every implicit project route
    requires a project-local `.syncora/config.json`; without it, select `none`;
    ordinary work in an uninitialized workspace stays inactive.
-2. Do not invoke merely because `.syncora/config.json` exists. Keep
-   self-contained date/time, arithmetic, translation, casual conversation, and
-   supplied-content tasks inactive.
+2. Separate pre-work retrieval from post-work capture. Do not load context
+   merely because `.syncora/config.json` exists. Self-contained date/time,
+   arithmetic, translation, casual conversation, and supplied-content tasks
+   normally use pre-work mode `none`.
 3. Apply the relevance test. Choose a pre-work mode (`none`, `checkpoint`,
-   `context`, or `maintenance`) and an independent capture intent. Stop when the
-   mode is `none`.
+   `context`, or `maintenance`) independently from the final capture
+   disposition. Mode `none` skips only pre-work checkpoint and context loading;
+   it never skips the final durable-outcome sweep in an initialized workspace.
 4. When the route requires a checkpoint, run the pre-work phase before
    substantial exploration or mutation:
    `node "<syncora-skill-root>/scripts/syncora.mjs" checkpoint --phase pre --profile <profile> --workspace <absolute-path>`.
@@ -177,9 +181,10 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    `capture` with `origin: "drift"`; ask about project truth only when it is
    genuinely unclear. Do not run it for `none` routes, every turn, on a timer,
    in a separate background process, or after the final response.
-8. Before every final response on an initialized project-relevant route, run a
-   mandatory internal capture-disposition sweep over the work completed and
-   the current conversation. Select exactly one result:
+8. Before every final response in an initialized workspace, regardless of the
+   pre-work mode, run a mandatory internal capture-disposition sweep over the
+   work completed and durable outcomes established anywhere in the current
+   conversation since the last successful capture. Select exactly one result:
    - `durable_change`: prepare one bounded input and run non-dry `capture`
      through `state: "applied"` before responding;
    - `open_question`: silently create or update a stable-keyed entry in the
@@ -187,7 +192,9 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
      sessions and journals may provide provenance but never own the question;
    - `no_durable_change`: finish without a canonical graph write.
    Do not expose this classification, ask whether to save, or skip the sweep
-   merely because capture was not predicted during pre-work routing. Later
+   because pre-work mode was `none` or capture was not predicted. The sweep is
+   a reasoning step; do not run a Syncora command when the result is
+   `no_durable_change`. Later
    source-grounded evidence updates the same question key to resolved. Cleanup
    may merge duplicates, move resolved entries out of the active list, or mark
    unsupported stale entries dormant, but must never invent answers or silently

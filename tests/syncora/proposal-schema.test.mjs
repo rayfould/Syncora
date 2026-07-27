@@ -135,13 +135,14 @@ test("caller-declared authority and every other unknown field fail exact-key val
   );
 });
 
-test("the eight semantic operation kinds enforce their exact change shapes", () => {
+test("the semantic operation kinds enforce their exact change shapes", () => {
   const priorA = hash("a");
   const priorB = hash("b");
   const moveText = "# Exact move\n";
   const cases = new Map([
     ["note.create", [{ path: "knowledge/concepts/create.md", expectedPriorSha256: null, afterText: "# Create\n" }]],
     ["note.update", [{ path: "knowledge/concepts/update.md", expectedPriorSha256: priorA, afterText: "# Update\n" }]],
+    ["note.repair", [{ path: "knowledge/decisions/repair.md", expectedPriorSha256: priorA, afterText: "# Repair\n" }]],
     ["note.move", [
       { path: "knowledge/concepts/move-from.md", expectedPriorSha256: taggedContentSha256(moveText), afterText: null },
       { path: "knowledge/concepts/move-to.md", expectedPriorSha256: null, afterText: moveText },

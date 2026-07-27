@@ -692,9 +692,10 @@ junctions, non-regular files, unsafe recorded paths, oversized state, and future
 state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
-Hook v8 keeps relevance-gated activation, autonomous transactional capture,
-event-driven foreground drift routing, and the v7 minimal user decision
-boundary, then adds a mandatory internal pre-final capture-disposition sweep.
+Hook v9 keeps relevance-gated pre-work retrieval, autonomous transactional
+capture, event-driven foreground drift routing, and the v8 capture-disposition
+policy, then makes the mandatory internal pre-final sweep independent of the
+pre-work route.
 That sweep records non-blocking uncertainty as a stable-keyed `open_question`
 on the owning project or workstream hub without interrupting the user. Session
 and journal notes may supply provenance but do not own the question. Only an
@@ -732,7 +733,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v8 beside a broad
+Legacy adoption does not use ordinary patching to append hook v9 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed until the skill has inspected every

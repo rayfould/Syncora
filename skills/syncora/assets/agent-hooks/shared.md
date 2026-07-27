@@ -1,13 +1,15 @@
-<!-- syncora-agent-hook:begin v8 -->
+<!-- syncora-agent-hook:begin v9 -->
 ## Syncora
 
-Syncora being installed does not make every request a Syncora task. Skip it for
-self-contained work unrelated to project state. When this project is
+Syncora being installed does not make every request load project memory. Before
+work, decide whether existing Syncora context is needed. When this project is
 initialized with `.syncora/config.json`, use the installed `syncora` skill for
 project-dependent or plausibly project-relevant work and run its pre-work
 checkpoint unless the selected maintenance command supplies the equivalent
-lifecycle. Without initialization, ordinary work stays inactive; only an
-explicit initialization, adoption, or diagnostic request may enter Syncora.
+lifecycle. Self-contained work uses pre-work mode `none`: skip checkpoint and
+context retrieval, then proceed normally. Without initialization, ordinary
+work stays inactive; only an explicit initialization, adoption, or diagnostic
+request may enter Syncora.
 Run the paired post-work checkpoint only before the final response and only
 when canonical Syncora knowledge changed or an
 authority-changing operation completed. Outside setup and adoption, never edit
@@ -22,18 +24,21 @@ operation for its scope and stable owner identity. Update an `owner_found`
 target using its exact path and prior hash. Never guess between
 `owner_ambiguous` candidates or ask the user to choose a note; that is a repair
 issue. `owner_missing` does not itself authorize new-node creation.
-Before every final response on an initialized project-relevant route, perform
-one internal capture-disposition sweep over the work completed and the current
-conversation. Classify the result as `durable_change`, `open_question`, or
-`no_durable_change`. If it is `durable_change`, prepare one bounded update and
-run non-dry `capture` through `state: "applied"` before responding. If it is
+Before every final response in an initialized workspace, regardless of the
+pre-work mode, perform one internal capture-disposition sweep over the work
+completed and durable outcomes established anywhere in the current conversation
+since the last successful capture. Classify the result as `durable_change`,
+`open_question`, or `no_durable_change`. If it is `durable_change`, prepare one
+bounded update and run non-dry `capture` through `state: "applied"` before
+responding. If it is
 `open_question`, silently create or update one stable-keyed entry in the
 owning project or workstream hub's `Open questions` section through that same
 applied capture path; a session or journal may provide provenance but never owns
-the question. If it is `no_durable_change`, finish without a graph write.
-Do not expose the classification or add a confirmation step. This sweep is
-mandatory even when the agent did not predict capture at the start of the
-request. Only when the unresolved fact blocks completion or could materially
+the question. If it is `no_durable_change`, run no Syncora command and finish
+without a graph write. Do not expose the classification or add a confirmation
+step. This sweep is mandatory even when pre-work mode was `none` or the agent
+did not predict capture at the start of the request. Only when the unresolved
+fact blocks completion or could materially
 change the outcome should it become `user_decision_required`; then ask one
 focused question about the underlying project choice, never whether to save
 memory. Later source-grounded evidence should update the same key to resolved.
@@ -71,4 +76,4 @@ the response before asking. Include the recommendation, material outcome,
 primary tradeoffs, risks and rollback, and only genuine open decisions. Keep
 the full artifact available as optional detail. Never make `Please review the
 full spec and say proceed` the only approval surface.
-<!-- syncora-agent-hook:end v8 -->
+<!-- syncora-agent-hook:end v9 -->
