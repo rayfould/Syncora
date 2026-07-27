@@ -1,6 +1,6 @@
 interface:
   display_name: "Syncora"
-  short_description: "Durable project memory for coding agents"
-  default_prompt: "Use $syncora to set up durable project memory here, or maintain it if this project already uses Syncora."
+  short_description: "Durable project memory and workflow drafts"
+  default_prompt: "Use $syncora to manage durable project memory, debate an idea, draft a design, or verify a completion claim."
 policy:
   allow_implicit_invocation: true

@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, or when work in an initialized project depends on its decisions, constraints, status, or history. Skip pre-work memory loading for self-contained requests, but in initialized workspaces still run the pre-final durable-outcome check. It saves durable knowledge automatically and detects potentially stale notes.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, when initialized project work depends on durable context, or when the user asks to debate an idea, draft a design document, or verify a completion claim. Skip pre-work memory loading for self-contained requests, but in initialized workspaces still run the pre-final durable-outcome check. It saves durable knowledge automatically, detects potentially stale notes, and exposes read-only workflow drafts for demos.
 ---
 
 # Syncora
@@ -71,6 +71,8 @@ use it.
   transactional apply.
 - Detects potentially stale notes after bound project sources change, then
   saves warranted repairs through the same autonomous transaction boundary.
+- Emits read-only `debate`, `design`, and `verify` workflow drafts for demos
+  without pretending that deterministic scaffolds are completed agent work.
 - Patches and unpatches Codex, Cursor, and Claude project instructions.
 - Runs only during an active agent request; it has no background worker.
 
@@ -114,6 +116,17 @@ external-root allowlist.
   request as authorization for the full reviewed conversion. Validate its
   bounded preview internally, keep the exact digest internal, and continue
   through cutover without a second confirmation.
+- **Debate:** when the user asks Syncora to debate or pressure-test a proposal,
+  read [workflow-debate.md](references/workflow-debate.md) and execute that
+  multi-turn workflow in the current agent session.
+- **Design:** when the user asks Syncora for a product requirements document,
+  feature specification, architecture proposal, or design document, read
+  [workflow-design.md](references/workflow-design.md) and execute it without
+  implementing the result.
+- **Verify:** when the user asks Syncora to verify a completion, fix, passing
+  check, or release-readiness claim, read
+  [workflow-verify.md](references/workflow-verify.md) and execute its
+  evidence-first gate before making a success claim.
 
 Treat these as conversational intents. The bundled CLI is internal machinery,
 not the public workflow. Never ask whether to save Syncora memory. Ask only
@@ -254,6 +267,11 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Keep `bundle`, `migrate --phase authority --dry-run`, and the individual
   migration phases as expert compatibility, inspection, recovery, and rollback
   tools.
+- Use `workflows`, `debate`, `design`, and `verify` only as read-only demo
+  launch packets when called through the Node CLI. In an agent session, execute
+  the matching bundled workflow reference above. Read
+  [workflow-drafts.md](references/workflow-drafts.md) before extending the CLI
+  packets into direct model execution or project-aware persistence.
 - If custom predecessor instructions remain active, inspect and remove them
   before setup. Never manufacture an empty adoption bundle, and never let a
   confirmation override conflicting active instructions.
@@ -278,6 +296,10 @@ unconditional `doctor`, or unconditional full-graph validation.
 - Agent patching or unpatching: [agent-patching.md](references/agent-patching.md)
 - Initial graph structure: [graph-schema.md](references/graph-schema.md)
 - Trust boundaries or external graph roots: [security-model.md](references/security-model.md)
+- Read-only workflow demos: [workflow-drafts.md](references/workflow-drafts.md)
+- Debate execution: [workflow-debate.md](references/workflow-debate.md)
+- Design execution: [workflow-design.md](references/workflow-design.md)
+- Verification execution: [workflow-verify.md](references/workflow-verify.md)
 
 Use `node "<syncora-skill-root>/scripts/syncora.mjs" --help` for the current
 executable surface.

@@ -108,6 +108,21 @@ Remove Syncora from this project.
 
 To uninstall the global skill as well, say `Uninstall Syncora globally.`
 
+### Try the workflow demos
+
+The development preview also exposes three read-only workflow drafts. They
+print Markdown scaffolds and do not invoke a model or change project memory:
+
+```bash
+node <installed-syncora-skill>/scripts/syncora.mjs debate --topic "Should capture run automatically?"
+node <installed-syncora-skill>/scripts/syncora.mjs design --topic "Add durable decision briefs"
+node <installed-syncora-skill>/scripts/syncora.mjs verify --topic "The feature is ready to release"
+```
+
+Use `workflows` to list them and `--format json` to consume a packet
+programmatically. These commands establish demo vocabulary and output
+contracts; project-aware execution is intentionally deferred.
+
 ## Existing project knowledge
 
 If a project already has a Markdown knowledge graph or a predecessor agent

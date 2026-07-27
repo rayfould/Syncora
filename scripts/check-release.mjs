@@ -37,6 +37,10 @@ const requiredPaths = [
   "skills/syncora/references/agent-patching.md",
   "skills/syncora/references/initialize.md",
   "skills/syncora/references/legacy-adoption.md",
+  "skills/syncora/references/workflow-debate.md",
+  "skills/syncora/references/workflow-design.md",
+  "skills/syncora/references/workflow-drafts.md",
+  "skills/syncora/references/workflow-verify.md",
   "skills/syncora/scripts/lib/adoption-bundle.mjs",
   "skills/syncora/scripts/lib/adopt.mjs",
   "skills/syncora/scripts/lib/autonomous-capture.mjs",
@@ -60,6 +64,7 @@ const requiredPaths = [
   "skills/syncora/scripts/lib/target-bindings.mjs",
   "skills/syncora/scripts/lib/task-context.mjs",
   "skills/syncora/scripts/lib/writer-interlock.mjs",
+  "skills/syncora/scripts/lib/workflow-drafts.mjs",
   "skills/syncora/scripts/syncora.mjs",
 ];
 

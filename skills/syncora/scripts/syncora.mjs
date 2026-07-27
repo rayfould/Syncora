@@ -44,6 +44,11 @@ import { searchWorkspace } from "./lib/search.mjs";
 import { compileTaskContext } from "./lib/task-context.mjs";
 import { validateWorkspace } from "./lib/validate.mjs";
 import {
+  createWorkflowDraft,
+  isWorkflowDraftCommand,
+  listWorkflowDrafts,
+} from "./lib/workflow-drafts.mjs";
+import {
   requireInitializedWorkspace,
   resolveWorkspace,
 } from "./lib/workspace.mjs";
@@ -151,7 +156,11 @@ async function main() {
     }
 
     let result;
-    if (parsed.command === "adopt") {
+    if (parsed.command === "workflows") {
+      result = listWorkflowDrafts();
+    } else if (isWorkflowDraftCommand(parsed.command)) {
+      result = createWorkflowDraft(parsed.command, parsed.options);
+    } else if (parsed.command === "adopt") {
       result = await adoptWorkspace(parsed.options);
       result = await attachInitialDriftBaseline(result, parsed.options);
     } else if (parsed.command === "apply") {

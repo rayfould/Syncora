@@ -23,6 +23,7 @@ export class SyncoraError extends Error {
 
 const COMMANDS = new Set([
   "adopt",
+  "debate",
   "apply",
   "backlinks",
   "bundle",
@@ -31,6 +32,7 @@ const COMMANDS = new Set([
   "checkpoint",
   "context",
   "doctor",
+  "design",
   "init",
   "migrate",
   "patch-agents",
@@ -41,7 +43,12 @@ const COMMANDS = new Set([
   "setup",
   "unpatch-agents",
   "validate",
+  "verify",
+  "workflows",
 ]);
+
+const WORKFLOW_DRAFT_COMMANDS = new Set(["debate", "design", "verify"]);
+const WORKFLOW_DEMO_COMMANDS = new Set(["workflows", ...WORKFLOW_DRAFT_COMMANDS]);
 
 const VALUE_OPTIONS = new Set([
   "--workspace",
@@ -77,6 +84,7 @@ const VALUE_OPTIONS = new Set([
   "--reason",
   "--owner-kind",
   "--owner-key",
+  "--topic",
 ]);
 
 export function parseArgv(argv) {
@@ -135,6 +143,7 @@ export function parseArgv(argv) {
     rebaseline: false,
     acknowledgeCurrent: undefined,
     findingDigest: undefined,
+    topic: undefined,
   };
 
   for (let index = 1; index < argv.length; index += 1) {
@@ -142,6 +151,16 @@ export function parseArgv(argv) {
 
     if (token === "--help" || token === "-h") {
       return { command: "help", options: { topic: command } };
+    }
+
+    if (
+      WORKFLOW_DEMO_COMMANDS.has(command) &&
+      !new Set(["--format", "--topic"]).has(token)
+    ) {
+      throw new SyncoraError(
+        "CLI005",
+        `${token} is not valid with the read-only workflow demo commands.`,
+      );
     }
 
     if (token === "--dry-run") {
@@ -226,6 +245,7 @@ export function parseArgv(argv) {
       if (token === "--reason") options.reason = value;
       if (token === "--owner-kind") options.ownerKind = value;
       if (token === "--owner-key") options.ownerKey = value;
+      if (token === "--topic") options.topic = value;
       if (token === "--max-characters") {
         const maximum = Number(value);
         if (!Number.isSafeInteger(maximum)) {
@@ -246,17 +266,34 @@ export function parseArgv(argv) {
     throw new SyncoraError("CLI003", `Unknown option: ${token}`);
   }
 
-  if (!options.workspace) {
-    throw new SyncoraError(
-      "WORKSPACE001",
-      `${command} requires --workspace with an absolute path.`,
-    );
-  }
-
   if (!new Set(["text", "json"]).has(options.format)) {
     throw new SyncoraError(
       "CLI004",
       `Unsupported output format: ${options.format}`,
+    );
+  }
+
+  if (WORKFLOW_DEMO_COMMANDS.has(command)) {
+    if (command === "workflows" && options.topic !== undefined) {
+      throw new SyncoraError("CLI005", "workflows does not accept --topic.");
+    }
+    if (WORKFLOW_DRAFT_COMMANDS.has(command) && !options.topic) {
+      throw new SyncoraError("CLI002", `${command} requires --topic <text>.`);
+    }
+    return { command, options };
+  }
+
+  if (options.topic !== undefined) {
+    throw new SyncoraError(
+      "CLI005",
+      "--topic is only valid with debate, design, or verify.",
+    );
+  }
+
+  if (!options.workspace) {
+    throw new SyncoraError(
+      "WORKSPACE001",
+      `${command} requires --workspace with an absolute path.`,
     );
   }
 
@@ -776,6 +813,25 @@ export function helpText(topic = undefined) {
     "--format <text|json>",
   ];
 
+  if (topic === "workflows") {
+    return [
+      "Usage: syncora workflows [--format <text|json>]",
+      "",
+      "Lists the three read-only draft workflow demos.",
+    ].join("\n");
+  }
+
+  if (WORKFLOW_DRAFT_COMMANDS.has(topic)) {
+    return [
+      `Usage: syncora ${topic} --topic <text> [--format <text|json>]`,
+      "",
+      "--topic <text>  (1-2048 Unicode code points)",
+      "--format <text|json>",
+      "",
+      "Emits a deterministic demo scaffold. It does not invoke a model, inspect project files, or mutate Syncora knowledge.",
+    ].join("\n");
+  }
+
   if (topic === "init" || topic === "setup") {
     return [
       `Usage: syncora ${topic} --workspace <absolute-path> [options]`,
@@ -1055,6 +1111,12 @@ export function helpText(topic = undefined) {
     "Usage: syncora <command> [options]",
     "",
     "Commands:",
+    "  workflows       List the draft workflow demos",
+    "  debate          Pressure-test an idea one question at a time",
+    "  design          Draft an implementation-ready design document",
+    "  verify          Prove a completion claim with fresh evidence",
+    "",
+    "Project memory:",
     "  setup           Initialize a greenfield workspace and patch agents",
     "  adopt           Preview or apply one reviewed legacy graph end to end",
     "  bundle          Advanced compatibility tool for sealing a reviewed pack",
@@ -1660,6 +1722,21 @@ export function renderResult(result, format = "text") {
   const lines = [
     `Syncora ${result.command}: ${result.ok ? "ok" : "failed"}`,
   ];
+
+  if (result.kind === "syncora.workflow-draft") {
+    return terminalSafeMultiline(result.markdown);
+  }
+
+  if (result.kind === "syncora.workflow-catalog") {
+    lines.push("Draft workflow demos:");
+    for (const workflow of result.workflows) {
+      lines.push(
+        `  ${terminalSafe(workflow.usage)} — ${terminalSafe(workflow.description)}`,
+      );
+    }
+    lines.push(`Note: ${terminalSafe(result.disclaimer)}`);
+    return `${lines.join("\n")}\n`;
+  }
 
   if (result.command === "checkpoint") {
     const prefix = result.validation.status === "degraded"
