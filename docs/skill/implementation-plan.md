@@ -323,8 +323,13 @@ Status: Implemented in the `0.1.0-preview.3` development release
 - [x] Bound source-reference and target-match metadata with explicit totals and
       truncation signals.
 - [x] Implement `orient`, `implement`, `review`, `handoff`, and `history` modes.
-- [x] Implement lean, standard, and deep budgets plus an explicit 1,000-64,000
-      character ceiling.
+- [x] Implement 16,000, 64,000, and 128,000-character soft targets, automatic
+      required-context expansion, a default 256,000-character single-pack hard
+      ceiling, and explicit ceilings through 512,000 characters.
+- [x] Treat ordinary hub links as discovery signals and reserve mandatory
+      accepted-decision authority for explicit typed target matches.
+- [x] Expose exact-request, exact-revision continuation packs so the
+      single-pack hard ceiling is not a total retrieval limit.
 - [x] Prove mandatory and required-hub overflow behavior without truncation.
 - [x] Fail closed on unresolved-conflict overflow and total serialized-report
       overflow.

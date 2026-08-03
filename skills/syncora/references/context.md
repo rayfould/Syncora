@@ -22,7 +22,8 @@ Optional routing and ranking inputs:
 --scope <portable-scope-id>
 --target <kind>:<reference>
 --budget <lean|standard|deep>
---max-characters <1000-64000>
+--max-characters <1000-512000>
+--continuation <cursor>
 --no-cache
 --allow-external-graph-root <exact-absolute-path>
 ```
@@ -93,22 +94,37 @@ The default is `orient`.
 
 ## Budgets and lanes
 
-Built-in character ceilings are `lean` 4,800, `standard` 12,000, and `deep`
-32,000. The initialized configuration may provide strict replacements. An
-explicit ceiling may be from 1,000 through 64,000 Unicode code points.
+Built-in soft targets are `lean` 16,000, `standard` 64,000, and `deep`
+128,000. The default single-pack hard ceiling is 256,000 Unicode code points.
+Initialized configuration may replace the targets and set
+`context.hardCeilingCharacters` as high as 512,000. `--max-characters` sets an
+explicit strict ceiling from 1,000 through 512,000 and disables soft-target
+expansion for that request.
+
+An existing generated profile with the exact legacy defaults 4,800, 12,000,
+and 32,000 and no hard-ceiling field upgrades in memory to the new defaults;
+the config file is not rewritten. Other configured values remain custom and
+are preserved.
 
 The compiler publishes three lanes in this order:
 
 1. `mandatory`: controlled unresolved-conflict records, the hub's hard
-   constraints, and applicable accepted decisions;
+   constraints, and accepted decisions with an explicit matching typed target;
 2. `working`: required hub identity/current state, selected hub sections, and
    active concepts;
 3. `evidence`: selected references and history.
 
-Mandatory content and the required hub fragments are never truncated. If they
-do not fit, the command fails with `CONTEXT_BUDGET_EXCEEDED`. Optional notes are
-included whole or omitted whole. Evidence capacity is reserved before optional
-working material so supporting provenance is not crowded out.
+Mandatory content and the required hub fragments are never truncated. They may
+expand a preset beyond its soft target, up to the hard ceiling. If they exceed
+that ceiling, the command fails with `CONTEXT_BUDGET_EXCEEDED` and reports the
+complete required character count plus the largest contributors. Optional
+notes are included whole or omitted whole at the effective target. Evidence
+capacity is reserved before optional working material so supporting provenance
+is not crowded out.
+
+An accepted decision linked from the scope hub is a high-priority discovery
+candidate, not automatically mandatory. Link structure helps find context;
+only explicit typed applicability grants task-selection authority.
 
 All unresolved conflicts are mandatory. If their count exceeds the compiler's
 safety ceiling, it fails with `CONTEXT_LIMIT_EXCEEDED` instead of publishing a
@@ -122,6 +138,15 @@ the corresponding `sourceRefsTotal`, `sourceRefsTruncated`,
 metadata. Omitted sources retain deterministic expansion handles; an expansion
 handle is provenance, not a callable expansion command.
 
+When relevant optional material remains after a pack, `continuation.available`
+is true and `continuation.nextCursor` identifies the next deterministic page.
+Run the same context request with `--continuation <cursor>`. Continuation pages
+repeat the required invariants, use the same exact graph revision and request
+digest, and may use the configured hard ceiling. A changed request or graph
+fails with `CONTEXT_CONTINUATION_STALE`; a malformed or exhausted cursor also
+fails visibly. The hard ceiling therefore limits one transport pack, not the
+total relevant context that can be retrieved across exact-revision pages.
+
 Known hub sections excluded by the selected mode are recorded as bounded
 `mode_filter` omissions. Custom H2 sections remain eligible as working context,
 so an adopted hub cannot lose an unfamiliar status or constraint heading just
@@ -131,7 +156,8 @@ heading whitespace without trimming selected content. The strict frontmatter
 parser normalizes line endings to LF before compilation; within that normalized
 body, trailing spaces and fragment text are retained without summarization.
 
-The selected character ceiling applies to `renderedContext`. The complete JSON
+The effective soft target and single-pack hard ceiling apply to
+`renderedContext`. The complete JSON
 report has a separate hard ceiling, counted as Unicode code points in pretty
 JSON plus its final newline. If lanes, provenance, or other metadata exceed
 that ceiling, the command fails with `CONTEXT_OUTPUT_EXCEEDED` instead of
@@ -154,7 +180,8 @@ scanning the complete edge set per seed.
   short summary, not the complete structured source map.
 - Preserve the lane boundaries and source headers when reasoning from a pack.
 - Use source-map omissions to explain what the budget excluded; do not silently
-  recurse into the graph.
+  recurse into the graph. Follow only the report's exact continuation cursor
+  when another pack is needed.
 - Retry on `READ001`: the graph, selected bytes, configuration, or graph root
   changed during compilation.
 - Use `--no-cache` when diagnosing discovery or when the request must avoid

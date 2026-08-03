@@ -412,10 +412,11 @@ test("a precreated runtime config cannot disguise a legacy graph as initialized"
         context: {
           defaultBudget: "standard",
           characterBudgets: {
-            lean: 4800,
-            standard: 12000,
-            deep: 32000,
+            lean: 16000,
+            standard: 64000,
+            deep: 128000,
           },
+          hardCeilingCharacters: 256000,
         },
       }, null, 2)}\n`,
     );

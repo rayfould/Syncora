@@ -34,7 +34,8 @@ expected to memorize.
 - bounded doctor, validate, search, and backlinks commands;
 - foreground checkpoint policy and state;
 - canonical-Markdown-read-only task-context compilation with explicit intent,
-  deterministic scope resolution, task modes, hard character budgets,
+  deterministic scope resolution, task modes, adaptive soft targets with a
+  configurable single-pack hard ceiling,
   mandatory/working/evidence lanes, and a provenance-bearing source map;
   the default path may update a disposable derived lexical cache, while
   `--no-cache` prevents that cache write;

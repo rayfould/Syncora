@@ -255,8 +255,11 @@ test("task context separates governing decisions, working concepts, evidence, an
       result.lanes.mandatory
         .filter((item) => item.kind === "decision")
         .map((item) => item.sourceId),
-      ["decision-scope-policy", "decision-token-policy"],
+      ["decision-token-policy"],
     );
+    assert.ok(result.lanes.working.some((item) =>
+      item.sourceId === "decision-scope-policy" &&
+      item.reasons.includes("scope_hub_discovery")));
     assert.ok(result.lanes.mandatory.some((item) => item.fragment === "hard-constraints"));
     assert.ok(result.lanes.working.some((item) => item.sourceId === "concept-token-rotation"));
     assert.ok(result.lanes.evidence.some((item) => item.sourceId === "reference-auth-evidence"));
@@ -290,7 +293,24 @@ test("mandatory overflow fails visibly while oversized optional context is omitt
       currentNote({
         id: "project-workspace",
         kind: "project",
-        body: `## Hard constraints\n\n- ${"mandatory ".repeat(180)}\n\n## Current state\n\n- Active.`,
+        body: `## Hard constraints\n\n${Array.from(
+          { length: 170 },
+          (_, index) => `- Mandatory constraint ${index} remains active and exact.`,
+        ).join("\n")}\n\n## Current state\n\n- Active.`,
+      }),
+    );
+    await writeNote(
+      workspace,
+      "knowledge/decisions/large-target-policy.md",
+      currentNote({
+        id: "decision-large-target-policy",
+        kind: "decision",
+        decisionKey: "context.large-target-policy",
+        appliesTo: ["file:src/auth/session.ts"],
+        body: Array.from(
+          { length: 170 },
+          (_, index) => `Target policy clause ${index} remains mandatory and exact.`,
+        ).join("\n"),
       }),
     );
     const failed = run([
@@ -301,12 +321,27 @@ test("mandatory overflow fails visibly while oversized optional context is omitt
       "Read mandatory constraints",
       "--max-characters",
       "1000",
+      "--target",
+      "file:src/auth/session.ts",
       "--format",
       "json",
     ], 1);
     const error = JSON.parse(failed.stderr);
     assert.equal(error.error.code, "CONTEXT_BUDGET_EXCEEDED");
     assert.ok(error.error.details.requiredCharacters > 1000);
+    assert.equal(error.error.details.hardCeilingCharacters, 1000);
+    assert.ok(error.error.details.largestContributors.length > 0);
+
+    const expanded = context(workspace, [
+      "--budget",
+      "lean",
+      "--target",
+      "file:src/auth/session.ts",
+    ]);
+    assert.equal(expanded.budget.softTargetCharacters, 16_000);
+    assert.equal(expanded.budget.hardCeilingCharacters, 256_000);
+    assert.equal(expanded.budget.expandedBeyondSoftTarget, true);
+    assert.ok(expanded.budget.usedCharacters > expanded.budget.softTargetCharacters);
 
     await writeNote(
       workspace,
@@ -328,9 +363,52 @@ test("mandatory overflow fails visibly while oversized optional context is omitt
     );
     const result = context(workspace, ["--budget", "standard"]);
     assert.equal(result.ok, true);
-    assert.ok(result.budget.usedCharacters <= 12_000);
+    assert.equal(result.budget.softTargetCharacters, 64_000);
+    assert.equal(result.budget.hardCeilingCharacters, 256_000);
+    assert.ok(result.budget.usedCharacters <= result.budget.softTargetCharacters);
     assert.equal(result.renderedContext.includes("supportingmaterial"), false);
     assert.ok(result.sourceMap.omitted.some((item) => item.sourceId === "concept-oversized"));
+    assert.equal(result.continuation.available, true);
+
+    const continued = context(workspace, [
+      "--budget",
+      "standard",
+      "--continuation",
+      result.continuation.nextCursor,
+    ]);
+    assert.equal(continued.request.continuationPage, 1);
+    assert.equal(continued.graph.revision, result.graph.revision);
+    assert.notEqual(continued.contextPackId, result.contextPackId);
+    assert.ok(continued.lanes.working.some((item) => item.sourceId === "concept-oversized"));
+    assert.equal(continued.renderedContext.includes("supportingmaterial"), true);
+
+    const stale = run([
+      "context",
+      "--workspace",
+      workspace,
+      "--intent",
+      "A different task request",
+      "--budget",
+      "standard",
+      "--continuation",
+      result.continuation.nextCursor,
+      "--format",
+      "json",
+    ], 1);
+    assert.equal(JSON.parse(stale.stderr).error.code, "CONTEXT_CONTINUATION_STALE");
+
+    const malformed = run([
+      "context",
+      "--workspace",
+      workspace,
+      "--intent",
+      "Implement secure authentication token rotation",
+      "--continuation",
+      "not-a-cursor",
+      "--format",
+      "json",
+    ], 1);
+    assert.equal(JSON.parse(malformed.stderr).error.code, "CONTEXT_CONTINUATION_INVALID");
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

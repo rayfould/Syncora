@@ -20,18 +20,24 @@ import {
 import { withCanonicalReadInterlock } from "./writer-interlock.mjs";
 
 export const TASK_CONTEXT_POLICY = Object.freeze({
-  specification: "syncora-task-context-v1",
-  reportSchemaVersion: 1,
+  specification: "syncora-task-context-v2",
+  reportSchemaVersion: 2,
   modes: Object.freeze(["orient", "implement", "review", "handoff", "history"]),
   defaultMode: "orient",
   defaultBudget: "standard",
   characterBudgets: Object.freeze({
+    lean: 16_000,
+    standard: 64_000,
+    deep: 128_000,
+  }),
+  legacyCharacterBudgets: Object.freeze({
     lean: 4_800,
     standard: 12_000,
     deep: 32_000,
   }),
   minimumBudgetCharacters: 1_000,
-  maximumBudgetCharacters: 64_000,
+  defaultHardCeilingCharacters: 256_000,
+  maximumBudgetCharacters: 512_000,
   maximumSelectedItems: 100,
   maximumMandatoryItems: 100,
   maximumWorkingCandidates: 100,
@@ -48,8 +54,10 @@ export const TASK_CONTEXT_POLICY = Object.freeze({
   maximumMetadataTargetMatches: 8,
   maximumMetadataValueCharacters: 256,
   maximumErrorExamples: 16,
+  maximumContinuationCursorCharacters: 2_048,
+  maximumContinuationPage: 10_000,
   minimumOutputCharacters: 20_000,
-  maximumOutputCharacters: 128_000,
+  maximumOutputCharacters: 1_200_000,
   outputBudgetMultiplier: 2,
 });
 
@@ -91,6 +99,65 @@ function taggedDigest(namespace, value) {
   hash.update(`${namespace}\n`, "utf8");
   hash.update(typeof value === "string" ? value : canonicalJson(value), "utf8");
   return `sha256:${hash.digest("hex")}`;
+}
+
+function continuationCursor({ graphRevision, requestDigest, page }) {
+  const payload = canonicalJson({ graphRevision, page, requestDigest });
+  const encoded = Buffer.from(payload, "utf8").toString("base64url");
+  const digest = taggedDigest("syncora-context-continuation-v1", payload)
+    .replace(/^sha256:/u, "");
+  return `ctx2.${encoded}.${digest}`;
+}
+
+function parseContinuationCursor(value) {
+  if (value === undefined) return null;
+  if (
+    typeof value !== "string" ||
+    characterLength(value) > TASK_CONTEXT_POLICY.maximumContinuationCursorCharacters
+  ) {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor is malformed or oversized.");
+  }
+  const match = /^ctx2\.([A-Za-z0-9_-]+)\.([a-f0-9]{64})$/u.exec(value);
+  if (!match) {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor is malformed.");
+  }
+  let payload;
+  try {
+    const payloadBytes = Buffer.from(match[1], "base64url");
+    if (payloadBytes.toString("base64url") !== match[1]) {
+      throw new Error("non-canonical base64url");
+    }
+    payload = payloadBytes.toString("utf8");
+  } catch {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor encoding is invalid.");
+  }
+  const expected = taggedDigest("syncora-context-continuation-v1", payload)
+    .replace(/^sha256:/u, "");
+  if (expected !== match[2]) {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor digest does not match.");
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor payload is invalid.");
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    Array.isArray(parsed) ||
+    canonicalJson(Object.keys(parsed).sort()) !==
+      canonicalJson(["graphRevision", "page", "requestDigest"]) ||
+    canonicalJson(parsed) !== payload ||
+    typeof parsed.graphRevision !== "string" ||
+    typeof parsed.requestDigest !== "string" ||
+    !Number.isSafeInteger(parsed.page) ||
+    parsed.page < 1 ||
+    parsed.page > TASK_CONTEXT_POLICY.maximumContinuationPage
+  ) {
+    throw contextError("CONTEXT_CONTINUATION_INVALID", "The continuation cursor payload is invalid.");
+  }
+  return parsed;
 }
 
 function compactMetadataValue(value) {
@@ -274,12 +341,17 @@ function normalizeContextConfig(config) {
     return {
       defaultBudget: TASK_CONTEXT_POLICY.defaultBudget,
       characterBudgets: { ...TASK_CONTEXT_POLICY.characterBudgets },
+      hardCeilingCharacters: TASK_CONTEXT_POLICY.defaultHardCeilingCharacters,
     };
   }
   if (!supplied || typeof supplied !== "object" || Array.isArray(supplied)) {
     throw contextError("CONFIG001", "Syncora context configuration must be an object.");
   }
-  const allowed = new Set(["defaultBudget", "characterBudgets"]);
+  const allowed = new Set([
+    "defaultBudget",
+    "characterBudgets",
+    "hardCeilingCharacters",
+  ]);
   const unknown = Object.keys(supplied).filter((key) => !allowed.has(key));
   if (unknown.length > 0) {
     throw contextError("CONFIG001", `Unknown context configuration field: ${unknown.sort()[0]}`);
@@ -307,9 +379,29 @@ function normalizeContextConfig(config) {
   if (!Object.hasOwn(normalized, supplied.defaultBudget)) {
     throw contextError("CONFIG001", "context.defaultBudget must name lean, standard, or deep.");
   }
+  const hardCeilingCharacters = supplied.hardCeilingCharacters ??
+    TASK_CONTEXT_POLICY.defaultHardCeilingCharacters;
+  if (
+    !Number.isSafeInteger(hardCeilingCharacters) ||
+    hardCeilingCharacters < TASK_CONTEXT_POLICY.minimumBudgetCharacters ||
+    hardCeilingCharacters > TASK_CONTEXT_POLICY.maximumBudgetCharacters
+  ) {
+    throw contextError("CONFIG001", "context.hardCeilingCharacters is outside the supported range.");
+  }
+  const legacyDefaultsUpgraded =
+    supplied.hardCeilingCharacters === undefined &&
+    canonicalJson(normalized) === canonicalJson(TASK_CONTEXT_POLICY.legacyCharacterBudgets);
+  const effectiveBudgets = legacyDefaultsUpgraded
+    ? { ...TASK_CONTEXT_POLICY.characterBudgets }
+    : normalized;
+  if (Object.values(effectiveBudgets).some((value) => value > hardCeilingCharacters)) {
+    throw contextError("CONFIG001", "Context soft targets cannot exceed context.hardCeilingCharacters.");
+  }
   return {
     defaultBudget: supplied.defaultBudget,
-    characterBudgets: normalized,
+    characterBudgets: effectiveBudgets,
+    hardCeilingCharacters,
+    legacyDefaultsUpgraded,
   };
 }
 
@@ -325,7 +417,13 @@ function resolveBudget(options, config) {
         `--max-characters must be an integer from ${TASK_CONTEXT_POLICY.minimumBudgetCharacters} through ${TASK_CONTEXT_POLICY.maximumBudgetCharacters}.`,
       );
     }
-    return { preset: null, maximumCharacters: options.maxCharacters };
+    return {
+      preset: null,
+      softTargetCharacters: options.maxCharacters,
+      hardCeilingCharacters: options.maxCharacters,
+      maximumCharacters: options.maxCharacters,
+      explicit: true,
+    };
   }
   const preset = options.budget ?? config.defaultBudget;
   if (!Object.hasOwn(config.characterBudgets, preset)) {
@@ -334,7 +432,14 @@ function resolveBudget(options, config) {
       "--budget must name lean, standard, or deep.",
     );
   }
-  return { preset, maximumCharacters: config.characterBudgets[preset] };
+  return {
+    preset,
+    softTargetCharacters: config.characterBudgets[preset],
+    hardCeilingCharacters: config.hardCeilingCharacters,
+    maximumCharacters: config.hardCeilingCharacters,
+    explicit: false,
+    legacyDefaultsUpgraded: config.legacyDefaultsUpgraded === true,
+  };
 }
 
 function validateRequest(options, config) {
@@ -376,6 +481,7 @@ function validateRequest(options, config) {
     scopeResolution: null,
     mode,
     targets,
+    continuation: parseContinuationCursor(options.continuation),
     budget: resolveBudget(options, config),
   };
 }
@@ -928,6 +1034,37 @@ function reserveOptionalItems(items, lane, maximumCharacters, maximumItems) {
   return { selected, omitted, usedCharacters };
 }
 
+function reserveOptionalPage({
+  workingItems,
+  evidenceItems,
+  targetCharacters,
+  requiredCharacters,
+  optionalSlots,
+}) {
+  const optionalCharacters = targetCharacters - requiredCharacters;
+  const evidenceReservationCharacters = Math.min(
+    optionalCharacters,
+    Math.floor(targetCharacters * TASK_CONTEXT_POLICY.evidenceBudgetFraction),
+  );
+  const evidence = reserveOptionalItems(
+    evidenceItems,
+    "evidence",
+    evidenceReservationCharacters,
+    optionalSlots,
+  );
+  const working = reserveOptionalItems(
+    workingItems,
+    "working",
+    optionalCharacters - evidence.usedCharacters,
+    optionalSlots - evidence.selected.length,
+  );
+  return {
+    working,
+    evidence,
+    selectedItems: working.selected.length + evidence.selected.length,
+  };
+}
+
 async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapability) {
   const workspace = await resolveWorkspace(options.workspace);
   const loadedConfig = await requireInitializedWorkspace(workspace.realPath);
@@ -1104,11 +1241,7 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       noteInScope(note, request) &&
       note.frontmatter.kind === "decision" &&
       note.frontmatter.state === "accepted" &&
-      (
-        (note.frontmatter.applies_to?.length ?? 0) === 0 ||
-        hubLinked.has(note.path) ||
-        targetMatches.has(note.path)
-      ),
+      targetMatches.has(note.path),
   ).sort((left, right) =>
     portableCompare(left.frontmatter.decision_key, right.frontmatter.decision_key) ||
     portableCompare(left.path, right.path));
@@ -1154,10 +1287,27 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
 
   const working = new Map();
   const evidence = new Map();
+  for (const path of hubLinked) {
+    const note = byPath.get(path);
+    if (
+      note &&
+      isCurrentUsable(note) &&
+      noteInScope(note, request) &&
+      note.frontmatter.kind === "decision" &&
+      note.frontmatter.state === "accepted" &&
+      !targetMatches.has(note.path)
+    ) {
+      addCandidate(working, note, 15, "scope_hub_discovery");
+    }
+  }
   for (const [path, matches] of targetMatches) {
     const note = byPath.get(path);
     if (!note || !stateEligible(note, request.mode)) continue;
-    if (note.frontmatter.kind === "concept") {
+    if (note.frontmatter.kind === "decision") {
+      // Accepted decisions with an explicit task binding are mandatory and
+      // therefore already selected above.
+      continue;
+    } else if (note.frontmatter.kind === "concept") {
       addCandidate(working, note, 10, "target_binding", matches);
     } else if (note.frontmatter.kind === "reference") {
       addCandidate(evidence, note, 10, "target_binding", matches);
@@ -1166,7 +1316,11 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
     }
   }
 
-  const seedPaths = new Set([hub.path, ...mandatoryNotes.map((note) => note.path)]);
+  const seedPaths = new Set([
+    hub.path,
+    ...mandatoryNotes.map((note) => note.path),
+    ...[...hubLinked].filter((path) => working.has(path)),
+  ]);
   const graphNeighborEligible = (path) => {
     const note = byPath.get(path);
     return Boolean(
@@ -1175,6 +1329,7 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       noteInScope(note, request) &&
       stateEligible(note, request.mode) &&
       (
+        note.frontmatter.kind === "decision" ||
         note.frontmatter.kind === "concept" ||
         note.frontmatter.kind === "reference" ||
         (note.frontmatter.kind === "session" && includeHistory)
@@ -1189,7 +1344,9 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       !noteInScope(note, request) ||
       !stateEligible(note, request.mode)
     ) continue;
-    if (note.frontmatter.kind === "concept") {
+    if (note.frontmatter.kind === "decision") {
+      addCandidate(working, note, 18, "bounded_graph_neighbor");
+    } else if (note.frontmatter.kind === "concept") {
       addCandidate(working, note, 20, "bounded_graph_neighbor");
     } else if (note.frontmatter.kind === "reference") {
       addCandidate(evidence, note, 20, "bounded_graph_neighbor");
@@ -1223,7 +1380,9 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       !stateEligible(note, request.mode) ||
       mandatoryNotes.some((item) => item.path === note.path)
     ) continue;
-    if (note.frontmatter.kind === "concept") {
+    if (note.frontmatter.kind === "decision") {
+      addCandidate(working, note, 28 + rank, "lexical_intent_match", [], result.score);
+    } else if (note.frontmatter.kind === "concept") {
       addCandidate(working, note, 30 + rank, "lexical_intent_match", [], result.score);
     } else if (note.frontmatter.kind === "reference") {
       addCandidate(evidence, note, 30 + rank, "lexical_intent_match", [], result.score);
@@ -1271,13 +1430,7 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       })),
     ...mandatoryNotes.map((note) =>
       noteItem(note, bodies.get(note.path), {
-        reasons: [
-          ...((note.frontmatter.applies_to?.length ?? 0) === 0
-            ? ["scope_wide_accepted_decision"]
-            : []),
-          ...(hubLinked.has(note.path) ? ["scope_hub_governing_decision"] : []),
-          ...(targetMatches.has(note.path) ? ["target_binding"] : []),
-        ],
+        reasons: ["target_binding"],
         targetMatches: targetMatches.get(note.path) ?? [],
       })),
   ];
@@ -1297,6 +1450,24 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
     budget: request.budget,
   };
   const requestDigest = taggedDigest("syncora-context-request-v1", requestForDigest);
+  const continuationPage = request.continuation?.page ?? 0;
+  if (
+    request.continuation &&
+    (
+      request.continuation.graphRevision !== inspection.report.graph.revision ||
+      request.continuation.requestDigest !== requestDigest
+    )
+  ) {
+    throw contextError(
+      "CONTEXT_CONTINUATION_STALE",
+      "The continuation cursor does not match this exact request and graph revision.",
+      {
+        cursorGraphRevision: request.continuation.graphRevision,
+        currentGraphRevision: inspection.report.graph.revision,
+        requestMatches: request.continuation.requestDigest === requestDigest,
+      },
+    );
+  }
   const sourceMap = { included: [], omitted: [], conflicting: [] };
   const renderedParts = [];
   const lanes = { mandatory: [], working: [], evidence: [] };
@@ -1312,34 +1483,6 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
         inspection.report.graph.revision,
       ),
     );
-  }
-
-  for (const item of mandatoryItems) {
-    if (!appendLane({
-      item,
-      lane: "mandatory",
-      selected: lanes.mandatory,
-      renderedParts,
-      budget: request.budget,
-      sourceMap,
-      requestDigest,
-      graphRevision: inspection.report.graph.revision,
-    })) {
-      const requiredCharacters = renderedParts.reduce((sum, part) => sum + part.characters, 0) +
-        characterLength(renderedItem(item, "mandatory"));
-      throw contextError(
-        "CONTEXT_BUDGET_EXCEEDED",
-        "Mandatory context exceeds the selected character budget and was not truncated.",
-        {
-          maximumCharacters: request.budget.maximumCharacters,
-          requiredCharacters,
-          ...boundedErrorList(
-            "mandatoryIds",
-            mandatoryItems.map((entry) => entry.id),
-          ),
-        },
-      );
-    }
   }
 
   const hubWorkingItems = hubParts.working.map((fragment) =>
@@ -1379,59 +1522,135 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
   const evidenceItems = evidenceCandidates
     .map((candidate) => itemForCandidate(candidate, bodies));
 
-  for (const item of requiredHubItems) {
+  const requiredEntries = [
+    ...mandatoryItems.map((item) => ({ item, lane: "mandatory" })),
+    ...requiredHubItems.map((item) => ({ item, lane: "working" })),
+  ].map(({ item, lane }) => ({
+    item,
+    lane,
+    characters: characterLength(renderedItem(item, lane)),
+  }));
+  const requiredCharacters = requiredEntries.reduce(
+    (sum, entry) => sum + entry.characters,
+    0,
+  );
+  if (requiredCharacters > request.budget.hardCeilingCharacters) {
+    const largestContributors = [...requiredEntries]
+      .sort((left, right) =>
+        right.characters - left.characters || portableCompare(left.item.id, right.item.id))
+      .slice(0, 8)
+      .map((entry) => ({
+        id: entry.item.id,
+        path: entry.item.path,
+        lane: entry.lane,
+        characters: entry.characters,
+        reasons: entry.item.reasons,
+      }));
+    throw contextError(
+      "CONTEXT_BUDGET_EXCEEDED",
+      "Required task context exceeds the single-pack hard ceiling and was not truncated.",
+      {
+        softTargetCharacters: request.budget.softTargetCharacters,
+        hardCeilingCharacters: request.budget.hardCeilingCharacters,
+        maximumCharacters: request.budget.maximumCharacters,
+        requiredCharacters,
+        excessCharacters: requiredCharacters - request.budget.hardCeilingCharacters,
+        requiredItems: requiredEntries.length,
+        largestContributors,
+        ...boundedErrorList(
+          "requiredIds",
+          requiredEntries.map((entry) => entry.item.id),
+        ),
+        suggestedActions: request.budget.explicit
+          ? ["Increase --max-characters or narrow the task scope and targets."]
+          : [
+              "Narrow the task scope or explicit targets.",
+              `Raise context.hardCeilingCharacters, up to ${TASK_CONTEXT_POLICY.maximumBudgetCharacters}.`,
+            ],
+      },
+    );
+  }
+
+  for (const { item, lane } of requiredEntries) {
+    const selected = lane === "mandatory" ? lanes.mandatory : lanes.working;
     if (!appendLane({
       item,
-      lane: "working",
-      selected: lanes.working,
+      lane,
+      selected,
       renderedParts,
       budget: request.budget,
       sourceMap,
       requestDigest,
       graphRevision: inspection.report.graph.revision,
     })) {
-      const requiredCharacters = renderedParts.reduce((sum, part) => sum + part.characters, 0) +
-        characterLength(renderedItem(item, "working"));
       throw contextError(
-        "CONTEXT_BUDGET_EXCEEDED",
-        "The authoritative scope hub cannot fit the selected character budget and was not truncated.",
-        {
-          maximumCharacters: request.budget.maximumCharacters,
-          requiredCharacters,
-          ...boundedErrorList(
-            "requiredIds",
-            [...mandatoryItems, ...requiredHubItems].map((entry) => entry.id),
-          ),
-        },
+        "READ001",
+        "Required context changed after its hard-ceiling preflight.",
       );
     }
   }
 
   // Reserve evidence capacity before optional working material, then publish
   // the conventional mandatory -> working -> evidence order.
-  const requiredCharacters = renderedParts.reduce(
-    (sum, part) => sum + part.characters,
-    0,
+  const initialEffectiveTargetCharacters = Math.min(
+    request.budget.hardCeilingCharacters,
+    Math.max(request.budget.softTargetCharacters, requiredCharacters),
   );
-  const optionalCharacters = request.budget.maximumCharacters - requiredCharacters;
   const optionalSlots =
     TASK_CONTEXT_POLICY.maximumSelectedItems - lanes.mandatory.length - lanes.working.length;
-  const evidenceReservationCharacters = Math.min(
-    optionalCharacters,
-    Math.floor(request.budget.maximumCharacters * TASK_CONTEXT_POLICY.evidenceBudgetFraction),
-  );
-  const reservedEvidence = reserveOptionalItems(
-    evidenceItems,
-    "evidence",
-    evidenceReservationCharacters,
-    optionalSlots,
-  );
-  const reservedWorking = reserveOptionalItems(
-    workingItems,
-    "working",
-    optionalCharacters - reservedEvidence.usedCharacters,
-    optionalSlots - reservedEvidence.selected.length,
-  );
+  let remainingWorkingItems = workingItems;
+  let remainingEvidenceItems = evidenceItems;
+  let optionalPage = null;
+  for (let page = 0; page <= continuationPage; page += 1) {
+    const targetCharacters = page === 0
+      ? initialEffectiveTargetCharacters
+      : request.budget.hardCeilingCharacters;
+    optionalPage = reserveOptionalPage({
+      workingItems: remainingWorkingItems,
+      evidenceItems: remainingEvidenceItems,
+      targetCharacters,
+      requiredCharacters,
+      optionalSlots,
+    });
+    if (page < continuationPage) {
+      if (
+        optionalPage.selectedItems === 0 &&
+        !(page === 0 && targetCharacters < request.budget.hardCeilingCharacters)
+      ) {
+        throw contextError(
+          "CONTEXT_CONTINUATION_EXHAUSTED",
+          "The continuation cursor points beyond the available context pages.",
+          { page: continuationPage },
+        );
+      }
+      remainingWorkingItems = optionalPage.working.omitted.map(({ item }) => item);
+      remainingEvidenceItems = optionalPage.evidence.omitted.map(({ item }) => item);
+    }
+  }
+  const effectiveTargetCharacters = continuationPage === 0
+    ? initialEffectiveTargetCharacters
+    : request.budget.hardCeilingCharacters;
+  const reservedWorking = optionalPage.working;
+  const reservedEvidence = optionalPage.evidence;
+  const continuableOmissions =
+    reservedWorking.omitted.length + reservedEvidence.omitted.length;
+  const continuationAvailable =
+    continuableOmissions > 0 &&
+    continuationPage < TASK_CONTEXT_POLICY.maximumContinuationPage &&
+    (
+      optionalPage.selectedItems > 0 ||
+      (
+        continuationPage === 0 &&
+        effectiveTargetCharacters < request.budget.hardCeilingCharacters
+      )
+    );
+  const nextContinuationCursor = continuationAvailable
+    ? continuationCursor({
+        graphRevision: inspection.report.graph.revision,
+        requestDigest,
+        page: continuationPage + 1,
+      })
+    : null;
 
   for (const item of reservedWorking.selected) {
     appendLane({
@@ -1496,6 +1715,7 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
   const renderedContext = renderedParts.map((part) => part.value).join("");
   const usedCharacters = characterLength(renderedContext);
   const packId = taggedDigest("syncora-context-pack-v1", {
+    continuationPage,
     graphRevision: inspection.report.graph.revision,
     requestDigest,
     renderedContext,
@@ -1520,15 +1740,29 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
       scopeResolution: request.scopeResolution,
       mode: request.mode,
       targets: request.targets.map(compactRequestTarget),
+      continuationPage,
       digest: requestDigest,
     },
     budget: {
       preset: request.budget.preset,
+      softTargetCharacters: request.budget.softTargetCharacters,
+      effectiveTargetCharacters,
+      hardCeilingCharacters: request.budget.hardCeilingCharacters,
       maximumCharacters: request.budget.maximumCharacters,
       usedCharacters,
       remainingCharacters: request.budget.maximumCharacters - usedCharacters,
       counting: "unicode-code-points-in-renderedContext",
+      expandedBeyondSoftTarget: effectiveTargetCharacters > request.budget.softTargetCharacters,
+      explicit: request.budget.explicit,
+      legacyDefaultsUpgraded: request.budget.legacyDefaultsUpgraded === true,
       overflow: false,
+    },
+    continuation: {
+      page: continuationPage,
+      exactRevision: true,
+      available: continuationAvailable,
+      remainingItems: continuableOmissions,
+      nextCursor: nextContinuationCursor,
     },
     scopeHub: {
       id: hub.frontmatter.id,
@@ -1607,7 +1841,7 @@ async function compileTaskContextUnlocked(options, hooks = {}, readInterlockCapa
           }]),
     ],
   };
-  return finalizeOutputBudget(report, request.budget.maximumCharacters);
+  return finalizeOutputBudget(report, effectiveTargetCharacters);
 }
 
 export async function compileTaskContext(options, hooks = {}) {

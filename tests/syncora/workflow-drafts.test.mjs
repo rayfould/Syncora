@@ -45,6 +45,7 @@ test("workflow demo commands are discoverable and do not require a workspace", (
       mode: undefined,
       budget: undefined,
       maxCharacters: undefined,
+      continuation: undefined,
       targets: [],
       proposal: undefined,
       proposalDigest: undefined,

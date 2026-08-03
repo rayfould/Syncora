@@ -359,6 +359,8 @@ test("context exposes bounded repeatable task inputs without mutation flags", ()
     "implement",
     "--budget",
     "lean",
+    "--continuation",
+    "ctx2.example.example",
     "--no-cache",
   ]);
   assert.equal(parsed.command, "context");
@@ -367,9 +369,10 @@ test("context exposes bounded repeatable task inputs without mutation flags", ()
   assert.deepEqual(parsed.options.targets, ["file:src/auth.ts", "module:src"]);
   assert.equal(parsed.options.mode, "implement");
   assert.equal(parsed.options.budget, "lean");
+  assert.equal(parsed.options.continuation, "ctx2.example.example");
   assert.equal(parsed.options.noCache, true);
   assert.match(helpText(), /\n  context\s+Compile bounded task-specific project context/u);
-  assert.match(helpText("context"), /--max-characters <1000-64000>/u);
+  assert.match(helpText("context"), /--max-characters <1000-512000>/u);
 
   assert.throws(
     () => parseArgv(["context", "--workspace", workspace]),

@@ -344,17 +344,19 @@ authority state and never select canonical truth.
 4. **Source map:** compact included, omitted, and conflicting provenance;
    omitted sources retain deterministic expansion handles.
 
-Mandatory material is never silently summarized or truncated. If mandatory
-material exceeds the selected budget, the compiler returns
-`CONTEXT_BUDGET_EXCEEDED` and requires a larger budget or authority cleanup.
+Mandatory material is never silently summarized or truncated. Presets are
+soft targets: required material expands past them automatically up to the
+single-pack hard ceiling. If required material exceeds that ceiling, the
+compiler returns `CONTEXT_BUDGET_EXCEEDED` with the complete required size and
+largest contributors.
 An unresolved-conflict set above its safety ceiling fails with
 `CONTEXT_LIMIT_EXCEEDED` rather than publishing a partial mandatory list.
 
 Frontmatter `source_refs` is emitted as bounded `sourceRefs`; `targetMatches`
 is bounded the same way. The corresponding `sourceRefsTotal`,
 `sourceRefsTruncated`, `targetMatchesTotal`, and `targetMatchesTruncated` fields
-disclose omitted metadata. The selected hard character ceiling governs
-`renderedContext`. The complete report has a separate hard ceiling counted as
+disclose omitted metadata. The effective target and single-pack hard ceiling
+govern `renderedContext`. The complete report has a separate hard ceiling counted as
 Unicode code points over pretty JSON plus the final newline; overflow returns
 `CONTEXT_OUTPUT_EXCEEDED`. Token counts remain estimates.
 Error envelopes have their own global diagnostic ceiling and compact hostile
@@ -364,16 +366,27 @@ total-output ceiling.
 
 Current built-in presets:
 
-| Preset | Character ceiling | Rough token estimate |
+| Preset | Soft target | Rough token estimate |
 |---|---:|---:|
-| `lean` | 4,800 | 1,200 |
-| `standard` | 12,000 | 3,000 |
-| `deep` | 32,000 | 8,000 |
+| `lean` | 16,000 | 4,000 |
+| `standard` | 64,000 | 16,000 |
+| `deep` | 128,000 | 32,000 |
 
-Strict workspace configuration may replace all three presets and the default.
-An explicit ceiling may be from 1,000 through 64,000 Unicode code points.
+Workspace configuration may replace all three soft targets and the default.
+The default single-pack hard ceiling is 256,000 characters and may be
+configured as high as 512,000. An explicit strict ceiling may be from 1,000
+through 512,000 Unicode code points.
+The exact legacy generated profile (4,800/12,000/32,000 with no hard-ceiling
+field) upgrades in memory to the new defaults without rewriting the file;
+other configured profiles remain custom.
 Stable-release evaluation must still calibrate these defaults across supported
 hosts and representative graphs.
+
+If selected optional material remains, the report exposes an opaque,
+digest-bound continuation cursor. Replaying the same request with that cursor
+produces the next deterministic page, repeats required invariants, and fails if
+the graph revision or request changes. The hard ceiling is therefore per pack,
+not a total retrieval ceiling.
 
 ## 12. Write transaction model
 
@@ -800,7 +813,8 @@ derived lexical cache; `--no-cache` prevents that cache write:
 ```text
 syncora context --workspace ABS --intent TEXT [--scope SCOPE]
   [--target KIND:REF]... [--mode orient|implement|review|handoff|history]
-  [--budget lean|standard|deep | --max-characters 1000-64000]
+  [--budget lean|standard|deep | --max-characters 1000-512000]
+  [--continuation CURSOR]
   [--format text|json] [--no-cache]
 ```
 

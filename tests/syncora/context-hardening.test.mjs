@@ -130,6 +130,36 @@ test("budget preset lookup rejects inherited object names from CLI and config", 
   }
 });
 
+test("generated legacy context defaults upgrade in memory without rewriting config", async () => {
+  const workspace = await temporaryWorkspace();
+  try {
+    await setup(workspace);
+    const configPath = join(workspace, ".syncora", "config.json");
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    config.context = {
+      defaultBudget: "standard",
+      characterBudgets: { lean: 4_800, standard: 12_000, deep: 32_000 },
+    };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+    const before = await readFile(configPath, "utf8");
+    const result = context(workspace);
+    assert.equal(result.budget.softTargetCharacters, 64_000);
+    assert.equal(result.budget.hardCeilingCharacters, 256_000);
+    assert.equal(result.budget.maximumCharacters, 256_000);
+    assert.equal(result.budget.legacyDefaultsUpgraded, true);
+    assert.equal(await readFile(configPath, "utf8"), before);
+
+    config.context.characterBudgets = { lean: 5_000, standard: 13_000, deep: 33_000 };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+    const custom = context(workspace);
+    assert.equal(custom.budget.softTargetCharacters, 13_000);
+    assert.equal(custom.budget.legacyDefaultsUpgraded, false);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("typed targets infer one scope even when multiple active project hubs exist", async () => {
   const workspace = await temporaryWorkspace();
   try {
@@ -739,7 +769,7 @@ test("evidence is reserved before a larger optional working note consumes the le
         id: "concept-large-working",
         kind: "concept",
         appliesTo: ["file:src/auth/session.ts"],
-        body: `Authentication token rotation working model ${"working-material ".repeat(270)}`,
+        body: `Authentication token rotation working model ${"working-material ".repeat(1_200)}`,
       }),
     );
     await writeNote(
