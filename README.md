@@ -110,6 +110,18 @@ To uninstall the global skill as well, say `Uninstall Syncora globally.`
 
 ### Try the workflow demos
 
+Inside a supported agent session, say `Use Syncora to debate <idea> with me` to
+run the adaptive one-question-at-a-time Debate workflow. It challenges vague
+answers, follows the highest-value uncertainty, and ends only after each
+material gap becomes a decision, assumption, evidence request, or test.
+
+After a direction is accepted, ask Syncora to design it. Design creates one
+validated execution WorkPack under `workpacks/<id>/`: stable design truth, a
+bounded dependency graph, non-overlapping task ownership, predeclared
+acceptance evidence, and a final verification task. It does not implement or
+assign the work. WorkPacks stay outside `local/` canonical knowledge and
+`.syncora/` operational state.
+
 The development preview also exposes three read-only workflow drafts. They
 print Markdown scaffolds and do not invoke a model or change project memory:
 

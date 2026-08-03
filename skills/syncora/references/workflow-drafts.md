@@ -19,12 +19,14 @@ draft file.
 
 ## Intended future integration
 
-- `debate` adapts the one-question-at-a-time pressure-testing pattern into a
-  Syncora-owned workflow.
-- `design` creates an implementation-ready design-document outline with a
-  concise decision brief.
-- `verify` turns a completion claim into acceptance criteria and a fresh
-  evidence matrix before allowing a success verdict.
+- `debate` runs a relentless, one-question-at-a-time Syncora decision interview
+  that challenges weak answers and closes every material gap through a
+  decision, assumption, evidence request, or test.
+- `design` turns an accepted direction into one fixed, validated WorkPack under
+  `workpacks/<id>/`; that pack is the implementation-ready design and task
+  graph rather than an optional document.
+- `verify` treats a WorkPack's predeclared acceptance criteria as the primary
+  contract and requires fresh evidence before allowing a success verdict.
 
 The demo commands establish the public vocabulary and output contracts. Later
 iterations may add bounded Syncora context retrieval, artifact persistence,

@@ -31,6 +31,9 @@ const requiredPaths = [
   "skills/syncora/assets/agent-hooks/shared.md",
   "skills/syncora/assets/schemas/adoption-bundle-v1.schema.json",
   "skills/syncora/assets/schemas/authority-promotion-manifest-v2.schema.json",
+  "skills/syncora/assets/templates/workpack-design.md",
+  "skills/syncora/assets/templates/workpack-readme.md",
+  "skills/syncora/assets/templates/workpack-task.md",
   "skills/syncora/references/context.md",
   "skills/syncora/references/capture.md",
   "skills/syncora/references/drift.md",
@@ -67,8 +70,11 @@ const requiredPaths = [
   "skills/syncora/scripts/lib/version.mjs",
   "skills/syncora/scripts/lib/writer-interlock.mjs",
   "skills/syncora/scripts/lib/workflow-drafts.mjs",
+  "skills/syncora/scripts/lib/workpack-validator.mjs",
   "skills/syncora/scripts/syncora.mjs",
+  "skills/syncora/scripts/validate-workpack.mjs",
   "tests/syncora/update-status.test.mjs",
+  "tests/syncora/workpack-validator.test.mjs",
 ];
 
 const allowedRootEntries = new Set([

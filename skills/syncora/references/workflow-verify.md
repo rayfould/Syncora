@@ -5,7 +5,10 @@ passing, or ready to release.
 
 ## Execution
 
-1. Translate the claim into observable acceptance criteria.
+1. When a WorkPack exists, treat its predeclared design contracts and task
+   acceptance criteria as the primary completion contract. Do not rewrite them
+   after implementation. When no WorkPack exists, translate the claim into
+   observable acceptance criteria.
 2. Map every criterion to the full command, inspection, or reproducible
    scenario that would prove it.
 3. Run every available check fresh during the active request. Read the complete
@@ -16,6 +19,10 @@ passing, or ready to release.
    does not prove a build, and unit tests do not prove a browser flow.
 5. Classify every criterion as `proven`, `disproven`, `blocked`, or `untested`.
    Never upgrade partial evidence.
+6. For WorkPack verification, write durable evidence under that pack's
+   `evidence/<run-id>/` directory and verify that every completed task has a
+   truthful handoff. Independent regression, security, and boundary checks may
+   add evidence, but they may not weaken or replace the original contract.
 
 ## Output
 

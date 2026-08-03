@@ -1,6 +1,6 @@
 ---
 name: syncora
-description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when the user asks to set up, update, repair, remove, or adopt Syncora, when initialized project work depends on durable context, or when the user asks to debate an idea, draft a design document, or verify a completion claim. Skip pre-work memory loading for self-contained requests, but in initialized workspaces still run the pre-final durable-outcome check. It saves durable knowledge automatically, detects potentially stale notes, and exposes read-only workflow drafts for demos.
+description: Give Codex, Cursor, and Claude durable local project memory across sessions. Use this development preview when asked to set up, update, repair, remove, or adopt Syncora; when initialized project work needs durable context; or when the user asks to debate or pressure-test an idea, create a design, WorkPack, implementation plan, PRD, or architecture proposal, or verify a completion claim. It retrieves bounded context when relevant, saves durable knowledge automatically, detects stale notes, and emits read-only workflow drafts.
 ---
 
 # Syncora
@@ -138,13 +138,15 @@ command without an explicit update request.
   request as authorization for the full reviewed conversion. Validate its
   bounded preview internally, keep the exact digest internal, and continue
   through cutover without a second confirmation.
-- **Debate:** when the user asks Syncora to debate or pressure-test a proposal,
-  read [workflow-debate.md](references/workflow-debate.md) and execute that
-  multi-turn workflow in the current agent session.
-- **Design:** when the user asks Syncora for a product requirements document,
-  feature specification, architecture proposal, or design document, read
-  [workflow-design.md](references/workflow-design.md) and execute it without
-  implementing the result.
+- **Debate:** when the user asks Syncora to debate, interrogate, challenge, or
+  pressure-test a proposal, read
+  [workflow-debate.md](references/workflow-debate.md) and execute that adaptive
+  one-question-at-a-time workflow in the current agent session.
+- **Design:** when the user asks Syncora for a WorkPack, implementation plan,
+  product requirements document, feature specification, architecture proposal,
+  or design document, read
+  [workflow-design.md](references/workflow-design.md), create its fixed
+  WorkPack artifact, validate it, and do not implement its tasks.
 - **Verify:** when the user asks Syncora to verify a completion, fix, passing
   check, or release-readiness claim, read
   [workflow-verify.md](references/workflow-verify.md) and execute its
