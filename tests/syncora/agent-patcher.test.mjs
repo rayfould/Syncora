@@ -172,6 +172,69 @@ test("patch and unpatch exactly restore untouched BOM and CRLF files", async () 
   }
 });
 
+test("patch appends its hook and refreshes only Syncora-owned bytes", async () => {
+  const workspace = await temporaryWorkspace();
+  const agentsPath = join(workspace, "AGENTS.md");
+  const original = Buffer.concat([
+    bom,
+    Buffer.from("# User instructions\r\n\r\nKeep ünicode and spacing.  ", "utf8"),
+  ]);
+
+  try {
+    run([
+      "init",
+      "--workspace",
+      workspace,
+      "--no-patch-agents",
+      "--format",
+      "json",
+    ]);
+    await writeFile(agentsPath, original);
+
+    run(["patch-agents", "--workspace", workspace, "--format", "json"]);
+    const appended = await readFile(agentsPath);
+    assert.deepEqual(appended.subarray(0, original.length), original);
+
+    const appendedText = appended.toString("utf8");
+    const currentHook = appendedText.match(
+      /<!-- syncora-agent-hook:begin v\d+ -->[\s\S]*?<!-- syncora-agent-hook:end v\d+ -->/,
+    )?.[0];
+    assert.ok(currentHook, "current Syncora hook must exist");
+
+    const oldHook = currentHook
+      .replace(
+        `syncora-agent-hook:begin v${CURRENT_AGENT_HOOK_VERSION}`,
+        "syncora-agent-hook:begin v9",
+      )
+      .replace(
+        `syncora-agent-hook:end v${CURRENT_AGENT_HOOK_VERSION}`,
+        "syncora-agent-hook:end v9",
+      )
+      .replace("## Syncora", "## Older Syncora-owned instructions");
+    const userSuffix = "\r\n\r\n# User addition\r\nDo not touch this either.\r\n";
+    const diverged = `${replaceOwnedHook(appendedText, oldHook)}${userSuffix}`;
+    const markerStart = diverged.indexOf(oldHook);
+    const markerEnd = markerStart + oldHook.length;
+    const expectedPrefix = diverged.slice(0, markerStart);
+    const expectedSuffix = diverged.slice(markerEnd);
+    await writeFile(agentsPath, diverged, "utf8");
+
+    run(["patch-agents", "--workspace", workspace, "--format", "json"]);
+    const refreshed = await readFile(agentsPath, "utf8");
+    const refreshedHook = refreshed.match(
+      /<!-- syncora-agent-hook:begin v\d+ -->[\s\S]*?<!-- syncora-agent-hook:end v\d+ -->/,
+    )?.[0];
+    assert.ok(refreshedHook, "refreshed Syncora hook must exist");
+    const refreshedStart = refreshed.indexOf(refreshedHook);
+    const refreshedEnd = refreshedStart + refreshedHook.length;
+    assert.equal(refreshed.slice(0, refreshedStart), expectedPrefix);
+    assert.equal(refreshed.slice(refreshedEnd), expectedSuffix);
+    assert.match(refreshedHook, /syncora-agent-hook:begin v10/);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("malformed markers stop before any target is written", async () => {
   const workspace = await temporaryWorkspace();
   const agentsPath = join(workspace, "AGENTS.md");

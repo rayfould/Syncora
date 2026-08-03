@@ -16,6 +16,10 @@ Syncora patches only project-local instruction files.
 
 - Validate every target before writing any target.
 - Refuse duplicate, malformed, reversed, or nested Syncora markers.
+- When no Syncora marker exists, append the owned hook at the end of the file;
+  never replace, reorder, reformat, or normalize existing user instructions.
+- When refreshing an existing Syncora hook, replace only the bytes inside its
+  owned marker range. Preserve every byte before and after that range.
 - Preserve BOM, newline style, and unrelated text.
 - Read agent targets and restoration snapshots through identity-stable bounded
   readers with a 1 MiB per-file limit.

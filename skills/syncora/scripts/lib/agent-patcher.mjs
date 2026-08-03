@@ -223,6 +223,53 @@ async function loadHook(newline) {
   return normalized.replace(/\n/g, newline);
 }
 
+function assertUserInstructionsPreserved(before, after, pathForError) {
+  if (before === null) return;
+
+  const beforeDecoded = decodeUtf8File(before, pathForError);
+  const afterDecoded = decodeUtf8File(after, pathForError);
+  const beforeMarker = inspectMarker(beforeDecoded.text, pathForError);
+  const afterMarker = inspectMarker(afterDecoded.text, pathForError);
+  const fail = () => {
+    throw new SyncoraError(
+      "PATCH005",
+      `Refusing to patch ${pathForError} because bytes outside the Syncora-owned marker would change.`,
+    );
+  };
+
+  if (
+    beforeDecoded.hasBom !== afterDecoded.hasBom ||
+    afterMarker.status !== "present" ||
+    afterMarker.version !== CURRENT_VERSION
+  ) {
+    fail();
+  }
+
+  if (beforeMarker.status === "present") {
+    const beforePrefix = beforeDecoded.text.slice(0, beforeMarker.start);
+    const beforeSuffix = beforeDecoded.text.slice(beforeMarker.end);
+    const afterPrefix = afterDecoded.text.slice(0, afterMarker.start);
+    const afterSuffix = afterDecoded.text.slice(afterMarker.end);
+    if (beforePrefix !== afterPrefix || beforeSuffix !== afterSuffix) fail();
+    return;
+  }
+
+  if (!afterDecoded.text.startsWith(beforeDecoded.text)) fail();
+
+  const separator = afterDecoded.text.slice(
+    beforeDecoded.text.length,
+    afterMarker.start,
+  );
+  const suffix = afterDecoded.text.slice(afterMarker.end);
+  const newlineOnly = (value) =>
+    value.length > 0 &&
+    value.split(beforeDecoded.newline).join("").length === 0;
+  const separatorIsValid = beforeDecoded.text.length === 0
+    ? separator.length === 0
+    : newlineOnly(separator);
+  if (!separatorIsValid || !newlineOnly(suffix)) fail();
+}
+
 async function patchTextFile(buffer, pathForError) {
   const decoded = decodeUtf8File(buffer ?? Buffer.alloc(0), pathForError);
   const marker = inspectMarker(decoded.text, pathForError);
@@ -245,6 +292,7 @@ async function patchTextFile(buffer, pathForError) {
       `Patched agent instruction file exceeds ${AGENT_FILE_MAX_BYTES} bytes: ${pathForError}`,
     );
   }
+  assertUserInstructionsPreserved(buffer, encoded, pathForError);
   return encoded;
 }
 
