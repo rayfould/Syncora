@@ -4,6 +4,21 @@ All notable changes to Syncora are documented here.
 
 ## [Unreleased]
 
+## [0.1.0-preview.4] - 2026-08-04
+
+### Changed
+
+- Strengthened the once-per-chat read-only release gate: an outdated install
+  now produces an explicit owner-facing update prompt with installed and
+  available versions plus the exact scope-aware Skills CLI command.
+- Added hook v11 so initialized projects carry the explicit stale-build prompt
+  contract while retaining non-mutating checks and owner-authorized updates.
+- Kept user-home `.agents/skills/syncora` installs on the global update command
+  even when the active project is also inside the user's home directory.
+- Corrected drift-repair commit verification so canonical publication is
+  checked against the exact reviewed note post-image while every bound source
+  is still re-fingerprinted; unrelated post-images continue to fail closed.
+
 ## [0.1.0-preview.3] - 2026-07-27
 
 ### Added
@@ -211,7 +226,8 @@ First public development preview of the portable Syncora Agent Skill.
 - Changed-file drift detection.
 - Stable-release compatibility guarantees.
 
-[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.3...HEAD
+[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.4...HEAD
+[0.1.0-preview.4]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.3...v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.2...v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.2
 [0.1.0-preview.1]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.1

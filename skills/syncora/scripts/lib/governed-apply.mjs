@@ -501,7 +501,7 @@ async function preflightApplyV2(options) {
 async function verifyIrreversibleBoundary(
   options,
   context,
-  { committed = false } = {},
+  { committed = false, canonicalPublished = false } = {},
 ) {
   return withGovernedGraphLock(options, async (environment) => {
     assertProposalEnvironment(context.proposal, environment);
@@ -531,7 +531,11 @@ async function verifyIrreversibleBoundary(
       requireApproval(proposal, reviews);
       await verifyReviewArtifact({ graphRoot: environment.graphRoot, proposal });
       try {
-        await verifyProposalSourceReferences(environment, proposal);
+        await verifyProposalSourceReferences(environment, proposal, {
+          driftNoteState: canonicalPublished
+            ? "reviewed-post-image"
+            : "finding-pre-image",
+        });
       } catch (error) {
         const conflict = await recordConflict(
           environment,
@@ -765,7 +769,7 @@ async function applyGovernedProposalLocked(options, hooks = {}) {
     await invokeBoundary(hooks, "apply.after-canonical-publication", {
       transactionId: context.transactionId,
     });
-    await verifyIrreversibleBoundary(options, context);
+    await verifyIrreversibleBoundary(options, context, { canonicalPublished: true });
     const journal = await readFileTransaction({
       graphRoot: context.environment.graphRoot,
       transactionId: context.transactionId,

@@ -74,6 +74,25 @@ function proposal(sourceRefs) {
   };
 }
 
+function reviewedDriftProposal(finding, beforeText, afterText) {
+  return {
+    operations: [{
+      operationId: "reviewed-drift-repair",
+      kind: "note.update",
+      sourceRefs: [{
+        type: "drift-finding",
+        ref: finding.id,
+        expectedSha256: finding.digest,
+      }],
+      changes: [{
+        path: "knowledge/concepts/context.md",
+        expectedPriorSha256: taggedContentSha256(beforeText),
+        afterText,
+      }],
+    }],
+  };
+}
+
 async function activateDriftFinding(context, {
   bindingKind = "module",
   bindingRef = "src",
@@ -231,6 +250,78 @@ test("a drift proposal can exact-bind an immutable local finding artifact", asyn
   } finally {
     await rm(context.workspacePath, { recursive: true, force: true });
   }
+});
+
+test("post-publication drift provenance accepts only the exact reviewed note image", async (t) => {
+  await t.test("exact reviewed post-image remains source-fresh", async () => {
+    const context = await fixture();
+    try {
+      const { finding } = await activateDriftFinding(context);
+      const afterText = "# Bound note\n\nReviewed drift repair.\n";
+      await writeFile(
+        join(context.graphRoot, "knowledge", "concepts", "context.md"),
+        afterText,
+      );
+      const result = await verifyProposalSourceReferences(
+        context.environment,
+        reviewedDriftProposal(finding, context.noteBytes, afterText),
+        { driftNoteState: "reviewed-post-image" },
+      );
+      assert.equal(result.verified, 1);
+    } finally {
+      await rm(context.workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  await t.test("a different canonical post-image is rejected", async () => {
+    const context = await fixture();
+    try {
+      const { finding } = await activateDriftFinding(context);
+      const reviewed = "# Bound note\n\nReviewed drift repair.\n";
+      await writeFile(
+        join(context.graphRoot, "knowledge", "concepts", "context.md"),
+        "# Bound note\n\nUnreviewed replacement.\n",
+      );
+      await assert.rejects(
+        verifyProposalSourceReferences(
+          context.environment,
+          reviewedDriftProposal(finding, context.noteBytes, reviewed),
+          { driftNoteState: "reviewed-post-image" },
+        ),
+        (error) =>
+          error?.code === "WRITE001" &&
+          /no longer active and source-fresh/u.test(error.message) &&
+          /exact reviewed drift repair post-image/u.test(error.details?.cause ?? ""),
+      );
+    } finally {
+      await rm(context.workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  await t.test("reviewed post-image mode still re-fingerprints every bound source", async () => {
+    const context = await fixture();
+    try {
+      const { finding } = await activateDriftFinding(context);
+      const afterText = "# Bound note\n\nReviewed drift repair.\n";
+      await writeFile(
+        join(context.graphRoot, "knowledge", "concepts", "context.md"),
+        afterText,
+      );
+      await writeFile(join(context.workspacePath, "src", "later.ts"), "export {};\n");
+      await assert.rejects(
+        verifyProposalSourceReferences(
+          context.environment,
+          reviewedDriftProposal(finding, context.noteBytes, afterText),
+          { driftNoteState: "reviewed-post-image" },
+        ),
+        (error) =>
+          error?.code === "WRITE001" &&
+          /no longer active and source-fresh/u.test(error.message),
+      );
+    } finally {
+      await rm(context.workspacePath, { recursive: true, force: true });
+    }
+  });
 });
 
 test("drift provenance rechecks full bindings and active state at apply time", async (t) => {

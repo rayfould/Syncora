@@ -17,7 +17,14 @@ function provenanceError(message, details = undefined) {
   return new SyncoraError("WRITE001", message, details);
 }
 
-export async function verifyProposalSourceReferences(environment, proposalInput) {
+export async function verifyProposalSourceReferences(
+  environment,
+  proposalInput,
+  { driftNoteState = "finding-pre-image" } = {},
+) {
+  if (!new Set(["finding-pre-image", "reviewed-post-image"]).has(driftNoteState)) {
+    throw provenanceError("Proposal drift note verification state is unsupported.");
+  }
   if (!Array.isArray(proposalInput?.operations)) {
     throw provenanceError("Proposal provenance requires bounded operations.");
   }
@@ -80,6 +87,7 @@ export async function verifyProposalSourceReferences(environment, proposalInput)
       if (currentBinding === undefined) {
         bindings.set(identity, {
           operationId: operation.operationId,
+          operations: [operation],
           type: source.type,
           ref: normalizedRef,
           expectedSha256,
@@ -87,6 +95,13 @@ export async function verifyProposalSourceReferences(environment, proposalInput)
         });
       } else {
         currentBinding.occurrences += 1;
+        if (
+          !currentBinding.operations.some(
+            (entry) => entry.operationId === operation.operationId,
+          )
+        ) {
+          currentBinding.operations.push(operation);
+        }
       }
     }
   }
@@ -130,6 +145,9 @@ export async function verifyProposalSourceReferences(environment, proposalInput)
             findingId: binding.ref,
             findingDigest: binding.expectedSha256,
             maximumArtifactBytes: maximumBytes,
+            ...(driftNoteState === "reviewed-post-image"
+              ? { reviewedOperations: binding.operations }
+              : {}),
           });
           bytes = freshness.artifactBytes;
         } catch (error) {

@@ -1,8 +1,8 @@
 # Release status
 
-Current package version: **0.1.0-preview.3**
+Current package version: **0.1.0-preview.4**
 
-Latest public tag: **0.1.0-preview.2**
+Latest public tag: **0.1.0-preview.4**
 
 Current source status: **development source with adoption, context, autonomous transactional capture, and foreground changed-source drift detection**
 
@@ -22,8 +22,8 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v10 with a mandatory read-only activation update
-  check, optional pre-work retrieval, autonomous
+- relevance-gated agent hook v11 with a mandatory read-only activation update
+  check and explicit stale-build owner prompt, optional pre-work retrieval, autonomous
   transactional capture, a route-independent mandatory pre-final capture
   disposition, quiet stable-keyed open questions on owning hubs, minimal
   blocking user decision boundaries, internal change summaries, and foreground
@@ -45,7 +45,8 @@ expected to memorize.
   digests for routine capture, with explicit review commands retained for
   expert inspection and recovery;
 - projected-graph and authority-impact validation, source provenance checks,
-  and optimistic graph and target concurrency;
+  exact reviewed drift post-image verification at the canonical publication
+  boundary, and optimistic graph and target concurrency;
 - graph-scoped transactional apply with content-addressed before/after bytes,
   immutable conflicts and receipts, foreground process-interruption resume,
   exact pre-commit rollback, and irreversible receipt-bound finalization;
@@ -74,9 +75,8 @@ expected to memorize.
   and replaced bytes are retained in an inactive, non-authoritative archive;
 - cross-platform Node 22 and 24 test suite.
 
-The legacy-adoption lifecycle, task-context compiler, transactional capture path,
-and foreground changed-source detector above are included in the published
-`v0.1.0-preview.2` release.
+The capabilities above are included in the published `v0.1.0-preview.4`
+release.
 See the
 [adoption runbook](legacy-kg-adoption.md) and
 [capture contract](skill/governed-capture-contract.md). The bundled

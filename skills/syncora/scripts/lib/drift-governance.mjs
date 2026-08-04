@@ -341,7 +341,12 @@ const NO_GIT_ADVISORY_HOOKS = Object.freeze({
  */
 export async function verifyDriftFindingFreshness(
   environment,
-  { findingId: rawFindingId, findingDigest: rawFindingDigest, maximumArtifactBytes },
+  {
+    findingId: rawFindingId,
+    findingDigest: rawFindingDigest,
+    maximumArtifactBytes,
+    reviewedOperations = undefined,
+  },
 ) {
   const findingId = assertDriftFindingId(rawFindingId);
   const findingDigest = assertTaggedSha256(
@@ -383,10 +388,57 @@ export async function verifyDriftFindingFreshness(
     code: "PROPOSAL003",
     label: "Drift finding canonical note",
   });
-  if (noteBytes === null || taggedContentSha256(noteBytes) !== finding.note.sha256) {
+  let expectedCanonicalNoteSha256 = finding.note.sha256;
+  if (reviewedOperations !== undefined) {
+    if (!Array.isArray(reviewedOperations) || reviewedOperations.length < 1) {
+      throw governanceError(
+        "Reviewed drift post-image verification requires at least one bound operation.",
+        { findingId },
+      );
+    }
+    const reviewedPostImages = new Set();
+    for (const operation of reviewedOperations) {
+      const noteChange = operation?.changes?.find(
+        (change) => change.path === finding.note.path,
+      );
+      if (
+        operation?.kind !== finding.recommendedOperation ||
+        !noteChange ||
+        noteChange.expectedPriorSha256 !== finding.note.sha256 ||
+        typeof noteChange.afterText !== "string"
+      ) {
+        throw governanceError(
+          "A reviewed drift operation no longer exact-binds the finding's repair target.",
+          {
+            findingId,
+            operationId: operation?.operationId ?? null,
+            notePath: finding.note.path,
+          },
+        );
+      }
+      reviewedPostImages.add(taggedContentSha256(noteChange.afterText));
+    }
+    if (reviewedPostImages.size !== 1) {
+      throw governanceError(
+        "Bound drift operations disagree about the reviewed canonical note post-image.",
+        { findingId, notePath: finding.note.path },
+      );
+    }
+    [expectedCanonicalNoteSha256] = reviewedPostImages;
+  }
+  if (
+    noteBytes === null ||
+    taggedContentSha256(noteBytes) !== expectedCanonicalNoteSha256
+  ) {
     throw governanceError(
-      "The canonical note changed, moved, or disappeared after the drift finding was published.",
-      { findingId, notePath: finding.note.path },
+      reviewedOperations === undefined
+        ? "The canonical note changed, moved, or disappeared after the drift finding was published."
+        : "The canonical note does not match the exact reviewed drift repair post-image.",
+      {
+        findingId,
+        notePath: finding.note.path,
+        expectedCanonicalNoteSha256,
+      },
     );
   }
   const observation = await observeBoundSources({
