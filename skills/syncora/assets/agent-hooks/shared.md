@@ -1,4 +1,4 @@
-<!-- syncora-agent-hook:begin v11 -->
+<!-- syncora-agent-hook:begin v12 -->
 ## Syncora
 
 On the first Syncora activation in each chat, load the installed `syncora`
@@ -18,6 +18,10 @@ lifecycle. Self-contained work uses pre-work mode `none`: skip checkpoint and
 context retrieval, then proceed normally. Without initialization, ordinary
 work stays inactive; only an explicit initialization, adoption, or diagnostic
 request may enter Syncora.
+An isolated code fix with its own source, test, or served-output verification
+starts at `checkpoint`, not `context`. Do not select `context` merely because
+the user mentions Syncora, TDD, verification, or a project. Escalate only when
+an exact project decision or constraint is actually needed.
 Run the paired post-work checkpoint only before the final response and only
 when canonical Syncora knowledge changed or an
 authority-changing operation completed. Outside setup and adoption, never edit
@@ -65,7 +69,19 @@ background work; component and symbol bindings remain unevaluated unless a
 versioned symbol index exists.
 Syncora runs quietly during the active request; never imply a separate daemon
 or after-final work, and never bypass the bounded context compiler or
-transactional capture boundary.
+transactional capture boundary. Do not describe routine Syncora operations in
+commentary or the final response: no preflight, checkpoint, compiler, graph,
+budget, limit, retry, or error narration. Report only substantive task work
+and outcomes unless the user explicitly asks for Syncora diagnostics.
+Treat a context error as an internal recovery signal, never as a user action
+item. First re-evaluate the route from the actual task: if no concrete project
+fact is needed, continue under `checkpoint` without mentioning the failed
+context attempt. If context is genuinely required, make one bounded foreground retry
+with the exact scope and typed target(s) discovered in the task. If that
+cannot recover the required fact, do not mutate or claim completion; report the
+task dependency in plain language without Syncora internals. Never say that
+required context failed and then continue on unspecified source or test
+evidence.
 An internal Syncora proposal is integrity evidence, not a request for user
 permission. Continue ordinary in-scope work the user requested, including
 reversible work that naturally touches many files. Pause only for a real
@@ -84,4 +100,4 @@ the response before asking. Include the recommendation, material outcome,
 primary tradeoffs, risks and rollback, and only genuine open decisions. Keep
 the full artifact available as optional detail. Never make `Please review the
 full spec and say proceed` the only approval surface.
-<!-- syncora-agent-hook:end v11 -->
+<!-- syncora-agent-hook:end v12 -->

@@ -410,12 +410,18 @@ Initial operation kinds:
 - `decision.accept`
 - `decision.supersede`
 - `hub.refresh`
+- `hub.fact.upsert`
 - `session.record`
 
 The runtime performs duplicate search, schema validation, authority validation,
 path containment, optimistic concurrency, and same-directory transactional
 writes. A hash mismatch creates an immutable conflict record rather than overwriting the
-newer state.
+newer state. Ordinary `capture` can make one fresh foreground correction when
+every targeted note and provenance binding remains unchanged and only an
+unrelated graph revision moved. Keyed hub facts use a stable fact hash rather
+than a whole-hub merge: different keys compose onto the current hub, while a
+changed matching key remains a conflict. Expert `propose`, `review`, and
+`apply` stay strict and never rebase a proposal.
 
 Every proposal publishes a separate immutable local review artifact containing
 the exact JSON-escaped before/after text. A human must inspect that artifact
@@ -706,7 +712,10 @@ state or marker versions fail closed before writes. `.syncora/` cannot redirect
 patch state or restoration snapshots outside the real workspace.
 
 Hook v11 strengthens v10's mandatory read-only activation update check with an
-explicit owner-facing stale-build prompt and keeps
+explicit owner-facing stale-build prompt. Hook v12 keeps that prompt and adds
+quiet bounded context recovery: narrow code work remains on `checkpoint`, and
+a genuinely required context pack gets one exact-target foreground retry before
+it can block task work. It keeps
 relevance-gated pre-work retrieval, autonomous transactional
 capture, event-driven foreground drift routing, and the v8 capture-disposition
 policy, then makes the mandatory internal pre-final sweep independent of the
@@ -748,7 +757,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v11 beside a broad
+Legacy adoption does not use ordinary patching to append hook v12 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed until the skill has inspected every

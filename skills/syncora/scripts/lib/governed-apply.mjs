@@ -113,6 +113,7 @@ function proposalInputFromStored(proposal) {
         expectedPriorSha256: change.expectedPriorSha256,
         afterText: change.afterText,
       })),
+      ...(operation.fact ? { fact: operation.fact } : {}),
     })),
   };
 }

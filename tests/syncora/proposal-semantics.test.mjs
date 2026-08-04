@@ -9,6 +9,7 @@ import {
   PROPOSAL_SEMANTICS_POLICY,
 } from "../../skills/syncora/scripts/lib/proposal-semantics.mjs";
 import { parseNoteBytes } from "../../skills/syncora/scripts/lib/note-parser.mjs";
+import { upsertHubFact } from "../../skills/syncora/scripts/lib/hub-facts.mjs";
 import {
   parseProposalInput,
   taggedContentSha256,
@@ -94,7 +95,7 @@ function declaredChange(change) {
   };
 }
 
-function operation(operationId, kind, changes) {
+function operation(operationId, kind, changes, fact = undefined) {
   return {
     declaration: {
       operationId,
@@ -105,6 +106,7 @@ function operation(operationId, kind, changes) {
         expectedSha256: null,
       }],
       changes: changes.map(declaredChange),
+      ...(fact ? { fact } : {}),
     },
     changes,
   };
@@ -255,6 +257,34 @@ test("note.repair fixes one exact invalid schema-v1 note without bypassing owner
       ),
       /Repair-origin proposals may contain only note\.repair operations/u,
     );
+  } finally {
+    await rm(fixture.workspace, { recursive: true, force: true });
+  }
+});
+
+test("keyed hub facts preserve unrelated hub content in the projected graph", async () => {
+  const fixture = await baseFixture();
+  try {
+    const hubPath = "knowledge/projects/workspace.md";
+    const before = fixture.notes.get(hubPath);
+    const fact = {
+      key: "promotion:semantics",
+      expectedSha256: null,
+      afterText: "Promotion fact from the semantic test.\n",
+    };
+    const after = Buffer.from(upsertHubFact(before.toString("utf8"), fact), "utf8");
+    const packageValue = proposal([
+      operation("upsert-hub-fact", "hub.fact.upsert", [{
+        path: hubPath,
+        before,
+        after,
+      }], fact),
+    ]);
+
+    const { projection } = runAssessment(fixture.inspection, packageValue);
+    assert.equal(projection.ok, true);
+    assert.match(after.toString("utf8"), /Current project status\./u);
+    assert.match(after.toString("utf8"), /promotion:semantics/u);
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }

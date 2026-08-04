@@ -14,10 +14,12 @@ import {
   readProposalInputFile,
   withGovernedGraphLock,
 } from "./governed-environment.mjs";
+import { HubFactError, upsertHubFact } from "./hub-facts.mjs";
 import { validateProjectedGraph } from "./projected-graph.mjs";
 import { verifyProposalSourceReferences } from "./proposal-provenance.mjs";
 import {
   parseProposalInputBytes,
+  parseProposalInput,
   sealProposal,
   summarizeProposal,
   taggedContentSha256,
@@ -82,7 +84,8 @@ async function hydrateProposalInput(environment, parsed) {
         );
       }
       const currentSha256 = before === null ? null : taggedContentSha256(before);
-      if (change.expectedPriorSha256 !== currentSha256) {
+      const factUpsert = operation.kind === "hub.fact.upsert";
+      if (!factUpsert && change.expectedPriorSha256 !== currentSha256) {
         throw proposalError(
           "WRITE001",
           `Proposal input was composed against stale note bytes: ${change.path}`,
@@ -98,14 +101,33 @@ async function hydrateProposalInput(environment, parsed) {
           `Proposal create must require path absence: ${change.path}`,
         );
       }
-      const after = change.afterText === null
-        ? null
-        : Buffer.from(change.afterText, "utf8");
+      let afterText = change.afterText;
+      if (factUpsert) {
+        try {
+          afterText = upsertHubFact(before.toString("utf8"), operation.fact);
+        } catch (error) {
+          throw proposalError(
+            "WRITE001",
+            error instanceof HubFactError
+              ? error.message
+              : "Hub fact could not be applied to current canonical bytes.",
+            { path: change.path, factKey: operation.fact.key },
+          );
+        }
+        if (currentSha256 === change.expectedPriorSha256 && change.afterText !== afterText) {
+          throw proposalError(
+            "PROPOSAL003",
+            "Hub fact upsert afterText must exactly match the declared keyed fact update.",
+            { path: change.path, factKey: operation.fact.key },
+          );
+        }
+      }
+      const after = afterText === null ? null : Buffer.from(afterText, "utf8");
       flattened.push(Object.freeze({ path: change.path, before, after }));
       changes.push({
         path: change.path,
-        expectedPriorSha256: change.expectedPriorSha256,
-        afterText: change.afterText,
+        expectedPriorSha256: factUpsert ? currentSha256 : change.expectedPriorSha256,
+        afterText,
       });
     }
     operations.push({
@@ -113,6 +135,7 @@ async function hydrateProposalInput(environment, parsed) {
       kind: operation.kind,
       sourceRefs: operation.sourceRefs.map((source) => ({ ...source })),
       changes,
+      ...(operation.fact ? { fact: { ...operation.fact } } : {}),
     });
   }
   return {
@@ -219,8 +242,9 @@ export async function createGovernedProposal(options) {
   return withGovernedGraphLock(options, async (environment) => {
     await assertNoActiveMigration(environment);
     await assertFileTransactionAvailable({ graphRoot: environment.graphRoot });
-    const inputBytes = await readProposalInputFile(options.input);
-    const parsed = parseProposalInputBytes(inputBytes);
+    const parsed = options.inputValue === undefined
+      ? parseProposalInputBytes(await readProposalInputFile(options.input))
+      : parseProposalInput(options.inputValue);
     if (
       options.command === "capture" &&
       !new Set(["capture", "drift", "repair"]).has(parsed.origin)

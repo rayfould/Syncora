@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { SyncoraError } from "./cli.mjs";
+import { normalizeHubFactText } from "./hub-facts.mjs";
 
 export const PROPOSAL_SCHEMA_VERSION = 1;
 
@@ -13,6 +14,7 @@ export const PROPOSAL_OPERATION_KINDS = Object.freeze([
   "decision.accept",
   "decision.supersede",
   "hub.refresh",
+  "hub.fact.upsert",
   "session.record",
 ]);
 
@@ -325,6 +327,25 @@ function parseChange(value, pointer) {
   };
 }
 
+function parseHubFact(value, pointer) {
+  exactKeys(value, ["key", "expectedSha256", "afterText"], pointer);
+  let afterText;
+  try {
+    afterText = normalizeHubFactText(value.afterText);
+  } catch (error) {
+    throw proposalError(
+      error instanceof Error ? error.message : "Hub fact text is invalid.",
+    );
+  }
+  return {
+    key: identifier(value.key, `${pointer} key`),
+    expectedSha256: value.expectedSha256 === null
+      ? null
+      : assertTaggedSha256(value.expectedSha256, `${pointer} expected hash`),
+    afterText,
+  };
+}
+
 function requirePriorHash(change, pointer) {
   if (change.expectedPriorSha256 === null) {
     throw proposalError(`${pointer} must bind the exact prior note hash.`);
@@ -364,6 +385,14 @@ function validateOperationShape(operation, pointer) {
       requireCount(1);
       requireAfter(changes[0], `${pointer} change`);
       requirePriorHash(changes[0], `${pointer} change`);
+      break;
+    case "hub.fact.upsert":
+      requireCount(1);
+      requireAfter(changes[0], `${pointer} change`);
+      requirePriorHash(changes[0], `${pointer} change`);
+      if (operation.fact === undefined) {
+        throw proposalError(`${pointer} requires one keyed hub fact.`);
+      }
       break;
     case "decision.accept":
       // Accepting a decision may either publish a new decision note (null
@@ -416,7 +445,17 @@ function validateOperationShape(operation, pointer) {
 
 function parseOperation(value, index) {
   const pointer = `Proposal operation ${index + 1}`;
-  exactKeys(value, ["operationId", "kind", "sourceRefs", "changes"], pointer);
+  if (!isPlainObject(value)) {
+    throw proposalError(`${pointer} must be a JSON object.`);
+  }
+  const isHubFactUpsert = value.kind === "hub.fact.upsert";
+  exactKeys(
+    value,
+    isHubFactUpsert
+      ? ["operationId", "kind", "sourceRefs", "changes", "fact"]
+      : ["operationId", "kind", "sourceRefs", "changes"],
+    pointer,
+  );
   if (!OPERATION_KIND_SET.has(value.kind)) {
     throw proposalError(`${pointer} kind is unsupported.`);
   }
@@ -441,6 +480,7 @@ function parseOperation(value, index) {
       parseSourceReference(entry, `${pointer} sourceRef ${sourceIndex + 1}`)),
     changes: value.changes.map((entry, changeIndex) =>
       parseChange(entry, `${pointer} change ${changeIndex + 1}`)),
+    ...(isHubFactUpsert ? { fact: parseHubFact(value.fact, `${pointer} fact`) } : {}),
   };
   validateOperationShape(operation, pointer);
   return operation;
@@ -825,6 +865,7 @@ function inputFromRecord(record) {
         expectedPriorSha256: change.expectedPriorSha256,
         afterText: change.afterText,
       })),
+      ...(operation.fact ? { fact: operation.fact } : {}),
     })),
   };
 }
@@ -879,7 +920,17 @@ function parseStoredChange(value, pointer) {
 
 function parseStoredOperation(value, index) {
   const pointer = `Stored proposal operation ${index + 1}`;
-  exactKeys(value, ["operationId", "kind", "sourceRefs", "changes"], pointer);
+  if (!isPlainObject(value)) {
+    throw proposalError(`${pointer} must be a JSON object.`);
+  }
+  const isHubFactUpsert = value.kind === "hub.fact.upsert";
+  exactKeys(
+    value,
+    isHubFactUpsert
+      ? ["operationId", "kind", "sourceRefs", "changes", "fact"]
+      : ["operationId", "kind", "sourceRefs", "changes"],
+    pointer,
+  );
   const draft = {
     operationId: value.operationId,
     kind: value.kind,
@@ -892,6 +943,7 @@ function parseStoredOperation(value, index) {
         afterText: parsed.afterText,
       };
     }),
+    ...(isHubFactUpsert ? { fact: value.fact } : {}),
   };
   const parsed = parseOperation(draft, index);
   return {

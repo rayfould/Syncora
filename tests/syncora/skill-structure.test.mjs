@@ -134,6 +134,10 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
     join(skillRoot, "assets", "templates", "project-hub.md"),
     "utf8",
   );
+  const activationEvaluation = await readFile(
+    join(repositoryRoot, "docs", "skill", "activation-evaluation.md"),
+    "utf8",
+  );
 
   assert.match(skill, /Do not load context\s+merely because `\.syncora\/config\.json` exists/);
   assert.match(skill, /ordinary work in an uninitialized workspace/);
@@ -168,7 +172,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v11/);
+  assert.match(hook, /syncora-agent-hook:begin v12/);
   assert.match(hook, /first Syncora activation in each chat/);
   assert.match(hook, /mandatory read-only `update-status` gate/);
   assert.match(hook, /a passive warning is insufficient/);
@@ -200,6 +204,31 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(captureReference, /Pre-final disposition sweep/);
   assert.match(captureReference, /run no Syncora command/);
   assert.match(hook, /installed does not make every request load project memory/);
+  assert.match(
+    policy,
+    /remove an incorrect navigation condition, add a regression test,\s+and verify the served tree/iu,
+  );
+  assert.match(policy, /Context failures are internal recovery signals/iu);
+  assert.match(
+    policy,
+    /make one foreground retry using the exact scope and typed target\(s\)/iu,
+  );
+  assert.match(hook, /isolated code fix.*starts at `checkpoint`, not `context`/isu);
+  assert.match(hook, /Do not describe routine Syncora operations/iu);
+  assert.match(hook, /one bounded foreground retry/iu);
+  assert.match(hook, /without Syncora internals/iu);
+  assert.match(
+    activationEvaluation,
+    /Remove an incorrect navigation condition, add a regression test, and verify a served tree/iu,
+  );
+  assert.match(
+    activationEvaluation,
+    /Routine Syncora preflights, compiler failures, retries, budgets, and graph\s+details are internal tool state/iu,
+  );
+  assert.match(
+    activationEvaluation,
+    /failed context command does not itself authorize continuing on unspecified\s+evidence/iu,
+  );
   assert.match(hook, /Without initialization, ordinary\s+work stays inactive/);
   assert.match(hook, /never edit\s+canonical graph Markdown directly/);
   assert.match(hook, /validates, internally authorizes, and\s+applies the exact transaction automatically/);
@@ -209,6 +238,7 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(normalizedSkill, /never stop at a sealed proposal/);
   assert.match(normalizedSkill, /through `state: "applied"`/);
   assert.match(contextReference, /run non-dry `capture` through `state: "applied"`/);
+  assert.match(contextReference, /Treat every compiler error as internal tool data/);
   assert.doesNotMatch(
     contextReference,
     /present its bounded semantic summary|plain-language decision/iu,

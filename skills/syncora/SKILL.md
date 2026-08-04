@@ -185,6 +185,9 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    `context`, or `maintenance`) independently from the final capture
    disposition. Mode `none` skips only pre-work checkpoint and context loading;
    it never skips the final durable-outcome sweep in an initialized workspace.
+   An isolated source/test/served-output change starts at `checkpoint`; the
+   words Syncora, TDD, verification, or project do not by themselves justify
+   context retrieval.
 4. When the route requires a checkpoint, run the pre-work phase before
    substantial exploration or mutation:
    `node "<syncora-skill-root>/scripts/syncora.mjs" checkpoint --phase pre --profile <profile> --workspace <absolute-path>`.
@@ -204,7 +207,7 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    choose a note; treat that state as a repair issue. `owner_missing` is not by
    itself permission to create a node. Then prepare one bounded proposal input
    and run non-dry `capture`. The runtime enforces edit-before-create: hubs use
-   `hub.refresh`, existing canonical identities must be edited, and new
+   `hub.refresh` or keyed `hub.fact.upsert`, existing canonical identities must be edited, and new
    canonical notes are admitted only as an ownerless active concept or an
    ownerless accepted decision using `decision.accept`; an accepted successor
    may be created only atomically with predecessor supersession through
@@ -253,6 +256,16 @@ after the save, never a pre-save approval surface. Do not ask "Save it?",
    the pre-work checkpoint ID. Nothing runs in the background or after the
    final response.
 
+Keep routine Syncora work invisible to the user. Do not announce or explain a
+preflight, checkpoint, compiler, graph, budget, limit, retry, proposal, or
+ordinary error in commentary or the final response. A context error is an
+internal signal: re-evaluate the route, silently keep `checkpoint` for an
+isolated code task, or make one bounded foreground retry with the exact scope
+and typed targets when a project fact is genuinely required. Never present a
+context error as a user action item, or say it failed and then continue from
+unspecified evidence. If recovery cannot obtain a required fact, leave sources
+untouched and state only the plain-language task dependency.
+
 The `context` checkpoint profile records routing intent; the separate
 `context` command performs compilation. In an initialized project, a relevant
 foreground task authorizes Syncora to save its own durable memory
@@ -288,9 +301,12 @@ unconditional `doctor`, or unconditional full-graph validation.
   a finding invent replacement knowledge.
 - Use `capture` for normal autonomous saves. Use `propose`, `review`, and
   `apply` only for expert inspection, manual dispositions, and recovery. A
-  stale baseline or semantic conflict must produce a corrected proposal rather
-  than a force or rebase. Resume interrupted transactions only in a later
-  foreground request; no recovery runs after the response.
+  stale baseline or semantic conflict must never force or overwrite newer
+  bytes. `capture` may produce one fresh, immutable correction in the same
+  foreground request when exact targets and provenance remain valid; keyed
+  hub facts can independently compose when their stable fact keys differ.
+  Resume interrupted transactions only in a later foreground request; no
+  recovery runs after the response.
 - Keep `bundle`, `migrate --phase authority --dry-run`, and the individual
   migration phases as expert compatibility, inspection, recovery, and rollback
   tools.

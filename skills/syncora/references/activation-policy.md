@@ -167,6 +167,12 @@ Project-local code-only tasks, such as reading an exact version from a manifest
 or making an isolated mechanical edit, normally select `checkpoint`, not
 `context`, unless a project decision or constraint is actually needed.
 
+For example, “remove an incorrect navigation condition, add a regression test,
+and verify the served tree” starts with `checkpoint`. Naming Syncora, TDD, or
+verification does not alter that route. Inspect the exact source and tests
+after the checkpoint; escalate only if they reveal a concrete decision or
+constraint that changes the work.
+
 When `context` is selected, follow [context.md](context.md). The checkpoint and
 compiler are separate foreground commands: run preflight once, then compile
 one bounded pack. Do not run `context` for clauses that remain self-contained.
@@ -188,6 +194,28 @@ one bounded pack. Do not run `context` for clauses that remain self-contained.
   path.
 - Never substitute chat memory for a required context pack, and never replace
   transactional capture with a direct note write.
+
+## Internal context recovery
+
+Context failures are internal recovery signals, not user-facing progress or
+action items. Never report a successful preflight, a compiler limit, or a
+retry in ordinary commentary or the final response.
+
+When `context` fails, first re-evaluate whether the task actually required a
+project fact. A failed command does not itself justify demoting the route. If
+the source and task show that the work is an isolated code-only change, retain
+the existing `checkpoint` route and continue silently. If a project fact is
+required, make one foreground retry using the exact scope and typed target(s)
+already established by the task. This retry must remain within the configured
+hard ceiling and may not broaden retrieval, weaken mandatory lanes, or launch
+background work.
+
+If that retry cannot obtain a required fact, leave project sources untouched
+and do not claim completion. State only the plain-language task dependency if
+the user needs an outcome; do not expose Syncora command names, error codes,
+budgets, graph state, or a request for the user to manage recovery. Never say
+that required context failed while continuing from unspecified source or test
+evidence.
 
 In an initialized project, a relevant foreground task grants Syncora authority
 to save its own durable memory through `capture`. This does not authorize

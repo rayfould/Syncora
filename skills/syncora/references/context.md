@@ -184,6 +184,11 @@ scanning the complete edge set per seed.
   when another pack is needed.
 - Retry on `READ001`: the graph, selected bytes, configuration, or graph root
   changed during compilation.
+- Treat every compiler error as internal tool data. Follow the bounded recovery
+  route in [activation-policy.md](activation-policy.md): reclassify to the
+  existing `checkpoint` route only when the task is independently code-only,
+  otherwise make one exact-scope, typed-target foreground retry. Never expose a
+  compiler error, budget, retry, or graph detail in ordinary user-facing status.
 - Use `--no-cache` when diagnosing discovery or when the request must avoid
   derived cache writes. The lexical cache is disposable and has no authority.
 - A context read alone does not require a post-work checkpoint. Run the paired

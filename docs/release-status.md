@@ -22,7 +22,7 @@ expected to memorize.
   only the exact predecessor marker, with hub-first graph bootstrap;
 - workspace and resolved-path containment;
 - Codex, Cursor, and Claude project instruction patching;
-- relevance-gated agent hook v11 with a mandatory read-only activation update
+- relevance-gated agent hook v12 with a mandatory read-only activation update
   check and explicit stale-build owner prompt, optional pre-work retrieval, autonomous
   transactional capture, a route-independent mandatory pre-final capture
   disposition, quiet stable-keyed open questions on owning hubs, minimal

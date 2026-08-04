@@ -61,7 +61,7 @@ pre-work activations or 168 hours. Existing schema-v1 configuration remains
 valid and receives those defaults in memory when the `maintenance` object is
 absent. Malformed or unknown maintenance fields fail with `CONFIG001`.
 
-The installed relevance-gated hook v11 teaches the mandatory read-only
+The installed relevance-gated hook v12 teaches the mandatory read-only
 activation update check with an explicit owner prompt for stale installs,
 optional pre-work retrieval,
 autonomous transactional capture, foreground changed-source drift routing, the

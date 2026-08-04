@@ -24,7 +24,7 @@ function sourceRef(overrides = {}) {
   };
 }
 
-function inputWith({ kind = "note.create", changes = undefined, extra = {} } = {}) {
+function inputWith({ kind = "note.create", changes = undefined, fact = undefined, extra = {} } = {}) {
   return {
     schemaVersion: 1,
     kind: "syncora.proposal-input",
@@ -46,6 +46,7 @@ function inputWith({ kind = "note.create", changes = undefined, extra = {} } = {
         expectedPriorSha256: null,
         afterText: "# Proposal foundation\n\nSealed body marker: PRIVATE-BODY.\n",
       }],
+      ...(fact ? { fact } : {}),
     }],
     ...extra,
   };
@@ -154,17 +155,31 @@ test("the semantic operation kinds enforce their exact change shapes", () => {
       { path: "knowledge/decisions/new.md", expectedPriorSha256: priorB, afterText: "# New\n\nAccepted.\n" },
     ]],
     ["hub.refresh", [{ path: "index.md", expectedPriorSha256: priorA, afterText: "# Index\n" }]],
+    ["hub.fact.upsert", [{ path: "index.md", expectedPriorSha256: priorA, afterText: "# Index\n" }]],
     ["session.record", [{ path: "knowledge/sessions/session.md", expectedPriorSha256: null, afterText: "# Session\n" }]],
   ]);
 
   assert.deepEqual([...cases.keys()], PROPOSAL_OPERATION_KINDS);
   for (const [kind, changes] of cases) {
-    const input = inputWith({ kind, changes });
+    const input = inputWith({
+      kind,
+      changes,
+      ...(kind === "hub.fact.upsert"
+        ? {
+            fact: {
+              key: "promotion:fixture",
+              expectedSha256: null,
+              afterText: "Fixture promotion fact.\n",
+            },
+          }
+        : {}),
+    });
     const paths = changes.map((change) => change.path);
-    assert.doesNotThrow(() => sealProposal(input, bindings(), {
+    const sealed = sealProposal(input, bindings(), {
       assessment: assessment(paths),
       createdAt: "2026-07-17T10:00:00.000Z",
-    }), kind);
+    });
+    assert.deepEqual(parseSealedProposal(sealed), sealed, kind);
   }
 });
 

@@ -19,6 +19,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { taggedContentSha256 } from "../../skills/syncora/scripts/lib/proposal-schema.mjs";
+import { upsertHubFact } from "../../skills/syncora/scripts/lib/hub-facts.mjs";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const cli = join(
@@ -239,6 +240,50 @@ function updateInput({ key, before, after, suffix }) {
   };
 }
 
+function hubFactInput({ key, before, factKey, factText }) {
+  const after = upsertHubFact(before, {
+    key: factKey,
+    expectedSha256: null,
+    afterText: factText,
+  });
+  return {
+    path: TARGET_NOTE,
+    afterText: after,
+    input: {
+      schemaVersion: 1,
+      kind: "syncora.proposal-input",
+      idempotencyKey: key,
+      origin: "capture",
+      actor: {
+        type: "agent",
+        id: "governed-concurrency-test",
+        runtime: process.version,
+      },
+      reason: `Exercise keyed hub fact promotion for ${factKey}.`,
+      correctsProposalId: null,
+      operations: [{
+        operationId: `upsert-${factKey.replaceAll(/[^A-Za-z0-9]+/gu, "-")}`,
+        kind: "hub.fact.upsert",
+        sourceRefs: [{
+          type: "user",
+          ref: `current-task:${factKey}`,
+          expectedSha256: null,
+        }],
+        fact: {
+          key: factKey,
+          expectedSha256: null,
+          afterText: factText,
+        },
+        changes: [{
+          path: TARGET_NOTE,
+          expectedPriorSha256: taggedContentSha256(before),
+          afterText: after,
+        }],
+      }],
+    },
+  };
+}
+
 async function writeInput(workspace, name, input) {
   const path = join(workspace, `${name}.json`);
   await writeFile(path, `${JSON.stringify(input, null, 2)}\n`, "utf8");
@@ -273,6 +318,10 @@ function applyArgs(workspace, graph, proposal) {
     "--proposal",
     proposal.id,
   ];
+}
+
+function captureArgs(workspace, graph, inputPath) {
+  return ["capture", ...externalOptions(workspace, graph), "--input", inputPath];
 }
 
 function inspectProposal(workspace, graph, proposal) {
@@ -724,6 +773,132 @@ test("disjoint proposals from one baseline yield one apply and one durable confl
     );
     assert.equal(inspectedLoser.proposal.state, "conflicted");
     assert.equal(inspectedLoser.conflicts.length, 1);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+test("concurrent ordinary captures correct a graph-only race in the foreground", async () => {
+  const fixture = await externalFixture();
+  try {
+    const first = createInput({
+      key: "capture-rebase-first",
+      suffix: "capture-rebase-first",
+    });
+    const second = createInput({
+      key: "capture-rebase-second",
+      suffix: "capture-rebase-second",
+    });
+    const [firstInput, secondInput] = await Promise.all([
+      writeInput(fixture.workspaceA, "capture-rebase-first", first.input),
+      writeInput(fixture.workspaceA, "capture-rebase-second", second.input),
+    ]);
+    const argsList = [
+      captureArgs(fixture.workspaceA, fixture.graph, firstInput),
+      captureArgs(fixture.workspaceA, fixture.graph, secondInput),
+    ];
+    const initial = await Promise.all(argsList.map((args) => asyncResult(args)));
+    const results = await settleBoundedLockContention(argsList, initial);
+
+    assert.equal(
+      results.every((result) => result.status === 0),
+      true,
+      JSON.stringify(results, null, 2),
+    );
+    assert.ok(results.some((result) => result.output.rebase?.automatic === true));
+    const existing = await Promise.all(
+      [first, second].map((item) =>
+        readFile(join(fixture.graph, ...item.path.split("/")), "utf8")),
+    );
+    assert.equal(existing.length, 2);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+test("different keyed hub facts converge through foreground capture correction", async () => {
+  const fixture = await externalFixture();
+  const target = join(fixture.graph, ...TARGET_NOTE.split("/"));
+  try {
+    const before = await readFile(target, "utf8");
+    const first = hubFactInput({
+      key: "hub-fact-branch-a",
+      before,
+      factKey: "promotion:branch-a",
+      factText: "Branch A promoted the runtime fix.\n",
+    });
+    const second = hubFactInput({
+      key: "hub-fact-branch-b",
+      before,
+      factKey: "promotion:branch-b",
+      factText: "Branch B promoted the test coverage.\n",
+    });
+    const [firstInput, secondInput] = await Promise.all([
+      writeInput(fixture.workspaceA, "hub-fact-branch-a", first.input),
+      writeInput(fixture.workspaceA, "hub-fact-branch-b", second.input),
+    ]);
+    const argsList = [
+      captureArgs(fixture.workspaceA, fixture.graph, firstInput),
+      captureArgs(fixture.workspaceA, fixture.graph, secondInput),
+    ];
+    const initial = await Promise.all(argsList.map((args) => asyncResult(args)));
+    const results = await settleBoundedLockContention(argsList, initial);
+
+    assert.equal(
+      results.every((result) => result.status === 0),
+      true,
+      JSON.stringify(results, null, 2),
+    );
+    assert.ok(results.some((result) => result.output.rebase?.keyedHubFacts === 1));
+    const after = await readFile(target, "utf8");
+    assert.match(after, /promotion:branch-a/u);
+    assert.match(after, /promotion:branch-b/u);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+test("competing keyed hub facts remain a durable conflict", async () => {
+  const fixture = await externalFixture();
+  const target = join(fixture.graph, ...TARGET_NOTE.split("/"));
+  try {
+    const before = await readFile(target, "utf8");
+    const first = hubFactInput({
+      key: "hub-fact-same-first",
+      before,
+      factKey: "promotion:shared",
+      factText: "First promotion claim.\n",
+    });
+    const second = hubFactInput({
+      key: "hub-fact-same-second",
+      before,
+      factKey: "promotion:shared",
+      factText: "Second incompatible promotion claim.\n",
+    });
+    const [firstInput, secondInput] = await Promise.all([
+      writeInput(fixture.workspaceA, "hub-fact-same-first", first.input),
+      writeInput(fixture.workspaceA, "hub-fact-same-second", second.input),
+    ]);
+    const argsList = [
+      captureArgs(fixture.workspaceA, fixture.graph, firstInput),
+      captureArgs(fixture.workspaceA, fixture.graph, secondInput),
+    ];
+    const initial = await Promise.all(argsList.map((args) => asyncResult(args)));
+    const results = await settleBoundedLockContention(argsList, initial);
+
+    assert.equal(
+      results.filter((result) => result.status === 0).length,
+      1,
+      JSON.stringify(results, null, 2),
+    );
+    const rejected = results.find((result) => result.status !== 0);
+    assert.equal(rejected.output.error.code, "WRITE001");
+    const after = await readFile(target, "utf8");
+    assert.match(after, /promotion:shared/u);
+    assert.equal(
+      /First promotion claim/u.test(after) || /Second incompatible promotion claim/u.test(after),
+      true,
+    );
   } finally {
     await cleanupFixture(fixture);
   }

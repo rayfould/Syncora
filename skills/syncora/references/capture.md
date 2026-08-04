@@ -31,8 +31,10 @@ evidence, not user approval steps.
   or another pre-save question.
 - Keep exact proposal, artifact, authorization, and receipt details internal
   unless the user requests audit evidence.
-- A stale or conflicted proposal must be corrected as a new proposal. Never
-  force, rebase, or overwrite newer bytes.
+- Never force or overwrite newer bytes. `capture` may create one bounded,
+  receipt-bound correction in the same foreground request when every ordinary
+  target is unchanged and only an unrelated graph revision moved. The stale
+  proposal remains immutable and terminal; Syncora never edits it in place.
 
 ## Pre-final disposition sweep
 
@@ -106,7 +108,8 @@ only, run during the active request, and create no canonical Markdown.
 `capture` independently enforces owner admission after exact current-note reads
 and projected validation. Prompt instructions cannot bypass it:
 
-- an existing active project hub must be edited with `hub.refresh`;
+- an existing active project hub must be edited with `hub.refresh` or the
+  keyed `hub.fact.upsert` operation;
 - an existing canonical concept identity must be edited at its exact path;
 - an accepted decision must use `decision.accept` or
   `decision.supersede`;
@@ -208,6 +211,14 @@ Initial operation kinds:
   reciprocal, acyclic supersession.
 - `hub.refresh`: refresh one existing active canonical project hub without
   changing its identity.
+- `hub.fact.upsert`: add or replace one exact-hash keyed fact in an active
+  canonical project hub. It preserves all other hub prose and can compose
+  against unrelated concurrent hub-fact updates. The fact object is
+  `{ "key", "expectedSha256", "afterText" }`; `afterText` is bounded,
+  non-empty, and LF-terminated. Use `null` only when adding a previously
+  absent key. Syncora stores facts in an append-only `## Syncora facts`
+  container; an absent container is added at the end of the hub without
+  replacing user-authored content. Competing updates to the same key fail.
 - `session.record`: create one historical session note.
 
 ## Save and inspect
@@ -281,7 +292,10 @@ and fails with `PATCH005` when the lifecycle remains owned. Retry `apply` in a
 later foreground request rather than bypassing or deleting a live lock. A
 completed retry is byte-idempotent. A later foreground retry resumes the same
 transaction after process interruption. A stale baseline records a separate
-conflict and does not alter canonical Markdown. A graph-scoped interlock
+conflict and does not alter canonical Markdown. Ordinary `capture` makes at
+most one fresh correction automatically when all targeted bytes and provenance
+remain valid; expert `propose`, `review`, and `apply` remain strict and never
+rebase. A graph-scoped interlock
 prevents Syncora readers and cooperating writers from proceeding through a
 nonterminal file transaction.
 

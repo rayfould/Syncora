@@ -26,6 +26,8 @@ same installed skill and project hook.
 | Explain an accepted project decision | `context` | Compile one bounded pack with `orient` or `review`, then answer from its mandatory and working lanes | Only if canonical knowledge later changes |
 | Change architecture using existing constraints | `context` plus capture intent | Compile with `implement`, perform the authorized project work, then run autonomous transactional capture with an internal exact authorization and receipt | Only after capture changes canonical knowledge |
 | Isolated project edit with no context dependency | `checkpoint` | Normal project work | Only if the task later changes canonical knowledge |
+| Remove an incorrect navigation condition, add a regression test, and verify a served tree | `checkpoint` | Inspect the exact source and tests, make the authorized narrow edit, and verify the served result; do not compile context merely because the request mentions Syncora, TDD, or verification | Only if the task later changes canonical knowledge |
+| Context compiler reports a recoverable failure during an otherwise active task | Re-evaluate the existing route | Keep `checkpoint` for an independently code-only task, or make one bounded exact-scope, typed-target foreground retry when a concrete project fact is required | Only after a real canonical change |
 | Substantive project-source mutation with eligible knowledge bindings | Minimum task-relevant pre route | Perform the authorized source work, then run foreground `check --changed`; treat findings as zero-authority review work, not replacement truth | Only if an autonomous validated drift repair changes canonical knowledge |
 | Explicit changed-source drift request | Direct `maintenance` | Run `check --changed`; first observation establishes a baseline rather than freshness | Operation-owned lifecycle |
 | Review says an exact finding is harmless | Direct `maintenance` | Run `check --changed --acknowledge-current` with the exact finding ID, digest, and bounded reason | Operation-owned lifecycle; no canonical change |
@@ -49,6 +51,14 @@ same installed skill and project hook.
   compatibility, inspection, and recovery tools, not additional approval
   steps.
 - Uncertainty selects `checkpoint`, never recursive graph loading.
+- Routine Syncora preflights, compiler failures, retries, budgets, and graph
+  details are internal tool state. They do not appear in ordinary commentary or
+  final responses, and they never become a user action item.
+- A failed context command does not itself authorize continuing on unspecified
+  evidence. The agent may retain `checkpoint` only when the task is
+  independently code-only; otherwise it makes one bounded exact-target retry
+  before it can leave sources untouched and describe the plain-language task
+  dependency.
 - One active request publishes at most one preflight and one activation-sequence
   increment.
 - Capture intent does not mean capture succeeded. Initialized relevant work
@@ -101,7 +111,7 @@ same installed skill and project hook.
 
 ## Host coverage
 
-Codex and Cursor receive the same v7 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v12 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

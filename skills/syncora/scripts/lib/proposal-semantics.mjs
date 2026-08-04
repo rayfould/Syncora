@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { SyncoraError } from "./cli.mjs";
+import { HubFactError, upsertHubFact } from "./hub-facts.mjs";
 import { parseNoteBytes } from "./note-parser.mjs";
 import {
   assertPortableGraphPath,
@@ -677,6 +678,30 @@ function assertHubRefresh(context, projectionByPath) {
   );
 }
 
+function assertHubFactUpsert(operation, context, projectionByPath) {
+  assertHubRefresh(context, projectionByPath);
+  let expectedAfter;
+  try {
+    expectedAfter = upsertHubFact(
+      context.exact.before.toString("utf8"),
+      operation.fact,
+    );
+  } catch (error) {
+    throw semanticError(
+      error instanceof HubFactError
+        ? error.message
+        : "hub.fact.upsert could not be applied to the canonical hub.",
+      { path: context.exact.path, factKey: operation.fact?.key },
+    );
+  }
+  if (!context.exact.after.equals(Buffer.from(expectedAfter, "utf8"))) {
+    throw semanticError(
+      "hub.fact.upsert must change only its declared keyed fact block.",
+      { path: context.exact.path, factKey: operation.fact.key },
+    );
+  }
+}
+
 function assertSessionRecord(context, projectionByPath) {
   const after = requireCreate(context, projectionByPath, "session.record");
   if (
@@ -775,6 +800,9 @@ function assertOperationSemantics(
       break;
     case "hub.refresh":
       assertHubRefresh(contexts[0], projectionByPath);
+      break;
+    case "hub.fact.upsert":
+      assertHubFactUpsert(operation, contexts[0], projectionByPath);
       break;
     case "session.record":
       assertSessionRecord(contexts[0], projectionByPath);
@@ -957,9 +985,9 @@ function assertCanonicalOwnerAdmission(
     }
     if (!declaredCanonical(after)) continue;
     if (after.frontmatter.kind === "project") {
-      if (operation.kind !== "hub.refresh") {
+      if (!new Set(["hub.refresh", "hub.fact.upsert"]).has(operation.kind)) {
         throw semanticError(
-          "Canonical project hubs must be edited with hub.refresh.",
+          "Canonical project hubs must be edited with hub.refresh or hub.fact.upsert.",
           { operationId: operation.operationId, path: context.exact.path },
         );
       }

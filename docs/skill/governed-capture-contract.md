@@ -75,10 +75,11 @@ The initial semantic operation kinds are:
 - `decision.accept`
 - `decision.supersede`
 - `hub.refresh`
+- `hub.fact.upsert`
 - `session.record`
 
 The semantic kernel also enforces canonical-owner admission. Project hubs can
-only be edited with `hub.refresh`; accepted decisions use decision operations;
+only be edited with `hub.refresh` or keyed `hub.fact.upsert`; accepted decisions use decision operations;
 existing concept and decision identities cannot be bypassed by creating a new
 path. Ordinary capture can create canonical knowledge only for an ownerless
 active concept or an ownerless accepted decision through `decision.accept`.
@@ -90,8 +91,28 @@ internally without a user note-selection prompt.
 
 Proposal files never change. Reviews, conflicts, transaction journals,
 application receipts, and correction links are separate unique records. A
-correction is a new proposal; Syncora never silently edits or rebases an old
-one.
+correction is a new proposal; Syncora never edits or rebases an old one in
+place.
+
+## Foreground conflict correction
+
+Ordinary `capture` may make one bounded automatic correction before it returns.
+It is permitted only when every ordinary target still has its exact prior hash,
+all bound provenance is still current, and the only change is the graph
+revision from unrelated canonical activity. The correction receives a fresh
+proposal and idempotency identity, and points to the terminal conflicted
+proposal when one exists. `propose`, `review`, and `apply` remain strict expert
+commands and never do this automatically.
+
+`hub.fact.upsert` is a more granular opt-in for project hubs. It carries a
+stable fact key, an exact hash for that fact's prior body (or `null` for an
+absent fact), and replacement fact text. At capture time Syncora composes the
+complete project hub from its current bytes, preserving all unrelated prose and
+facts. It may append the `## Syncora facts` container when a first fact is
+added. Different keys can converge through a fresh foreground correction; a
+changed matching key remains a visible conflict. The resulting immutable
+proposal still binds the complete resulting hub bytes, full projected graph,
+and exact source provenance.
 
 Ordinary proposals are bounded to 64 semantic operations, 256 file changes,
 256 provenance references per operation, 512 provenance references per
