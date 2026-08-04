@@ -52,9 +52,11 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v10 is current. It adds a mandatory read-only `update-status` gate on the
-first Syncora activation in each chat, with visible outdated or unknown status
-and no automatic update. It keeps relevance-gated pre-work retrieval,
+Hook v11 is current. It strengthens v10's mandatory read-only `update-status` gate
+on the first Syncora activation in each chat: an outdated result must
+explicitly prompt the owner with installed and available versions plus the
+scope-aware update command; an unknown result remains visible, and automatic
+updates remain forbidden. It keeps relevance-gated pre-work retrieval,
 autonomous capture, foreground drift routing, and the v8 capture-disposition
 policy, plus v9's retrieval-independent pre-final sweep. Every
 request in an initialized workspace ends as `durable_change`, `open_question`,
@@ -76,12 +78,12 @@ foreground `check --changed` operation while forbidding checks on every turn,
 background work, and after-final work. Exact proposal, artifact,
 authorization, and receipt details remain internal audit evidence.
 
-An exact tracked v1 through v9 hook retains its original pre-Syncora restoration
-snapshot while its owned marker is upgraded to v10. A diverged or untracked v1
-through v9 hook instead refreshes the
+An exact tracked v1 through v10 hook retains its original pre-Syncora
+restoration snapshot while its owned marker is upgraded to v11. A diverged or
+untracked v1 through v10 hook instead refreshes the
 restoration baseline from current user-owned bytes with only the old marker
 removed, so a later unpatch cannot erase intervening edits. A hook newer than
-v10 fails closed before target writes.
+v11 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
@@ -93,7 +95,7 @@ without another approval prompt. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v10, and records a predecessor-free restoration baseline in the
+with hook v11, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 

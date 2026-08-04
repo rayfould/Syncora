@@ -1781,7 +1781,8 @@ export function renderResult(result, format = "text") {
         `warning ${terminalSafe(result.warning.code)}: ${terminalSafe(result.warning.message)}`,
       );
     }
-    if (result.notificationRequired && result.state === "outdated") {
+    if (result.ownerPromptRequired && result.state === "outdated") {
+      lines.push("Owner action: update Syncora to the available version.");
       lines.push(`Update: ${terminalSafe(result.update.command)}`);
     }
     return `${lines.join("\n")}\n`;

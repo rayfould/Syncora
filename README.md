@@ -9,7 +9,7 @@ Markdown, loads only what a task needs, and gives each project or work area one
 clear home for current truth.
 
 > **Development preview.** The current public release is
-> `v0.1.0-preview.3`. Use it in a Git repository or another recoverable
+> `v0.1.0-preview.4`. Use it in a Git repository or another recoverable
 > workspace while stable-release acceptance remains in progress.
 
 ## Why Syncora
@@ -105,6 +105,12 @@ Remove Syncora from this project.
   subsystem while preserving canonical Markdown.
 - **Remove from this project** removes Syncora-owned agent instructions but
   preserves `local/` and version-control history.
+
+On the first Syncora activation in each chat, the installed skill performs one
+read-only check against the published release version. A stale installation
+must show the installed and available versions, give the exact scope-aware
+Skills CLI command, and explicitly ask the owner to update. Syncora never
+updates itself without that request.
 
 To uninstall the global skill as well, say `Uninstall Syncora globally.`
 

@@ -1,7 +1,7 @@
 # Syncora Activation Evaluation
 
 Status: Preview semantic acceptance fixture
-Applies to: `0.1.0-preview.3` development source
+Applies to: `0.1.0-preview.4` development source
 Updated: 2026-07-20
 
 This matrix tests routing independently of graph contents. It is a semantic

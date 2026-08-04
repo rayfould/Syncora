@@ -296,8 +296,9 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v10",
+  "syncora-agent-hook:begin v11",
   "mandatory read-only `update-status` gate",
+  "a passive warning is insufficient",
   "never auto-update",
   "internally authorizes",
   "applies the exact transaction automatically",
@@ -320,13 +321,13 @@ for (const requiredHookText of [
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v10 activation, capture-disposition, and autonomy guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v11 activation, capture-disposition, and autonomy guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v10")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v11")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v10 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v11 hook",
   );
 }
 
@@ -353,20 +354,21 @@ for (const [description, pattern] of [
   }
 }
 for (const [description, pattern] of [
-  ["current hook v10 declaration", /Hook v10 is current\./u],
+  ["current hook v11 declaration", /Hook v11 is current\./u],
   ["mandatory activation update gate", /mandatory read-only `update-status` gate/u],
+  ["explicit stale owner prompt", /explicitly prompt the owner/u],
   ["mandatory pre-final disposition", /mandatory internal pre-final capture-disposition sweep/u],
   ["autonomous capture declaration", /autonomous capture/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v9 snapshot preservation",
-    /exact tracked v1 through v9 hook retains its original pre-Syncora restoration\s+snapshot/u,
+    "exact tracked v1-v10 snapshot preservation",
+    /exact tracked v1 through v10 hook retains its original pre-Syncora\s+restoration snapshot/u,
   ],
   [
-    "diverged or untracked v1-v9 baseline refresh",
-    /diverged or untracked v1\s+through v9 hook instead refreshes the\s+restoration baseline/u,
+    "diverged or untracked v1-v10 baseline refresh",
+    /diverged or\s+untracked v1 through v10 hook instead refreshes the\s+restoration baseline/u,
   ],
-  ["future hook fail-closed behavior", /v10 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /v11 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -416,6 +418,11 @@ if (!/Hook v10 adds the\s+mandatory read-only update-status gate/u.test(implemen
     "docs/skill/implementation-plan.md: hook history must identify the v10 activation update gate",
   );
 }
+if (!/Hook v11 makes\s+an outdated result an explicit owner-facing update prompt/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify the v11 stale-build prompt upgrade",
+  );
+}
 
 const initializationReference = await readFile(
   path.join(skillRoot, "references", "initialize.md"),
@@ -430,8 +437,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v10/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v10`);
+  if (!/hook v11/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v11`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,

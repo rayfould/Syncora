@@ -255,7 +255,7 @@ Status: Implemented in the `0.1.0-preview.3` development release
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v10 is implemented in current
+Status: Core included in `0.1.0-preview.1`; hook v11 is implemented in current
 development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -275,7 +275,9 @@ development source
       separate blocking `user_decision_required` boundary. Hook v9 makes that
       sweep independent of the pre-work retrieval route. Hook v10 adds the
       mandatory read-only update-status gate at the first Syncora activation
-      in each chat without granting automatic update authority.
+      in each chat without granting automatic update authority. Hook v11 makes
+      an outdated result an explicit owner-facing update prompt rather than a
+      passive notification.
 - [x] Add a deterministic read-only canonical-owner backend that resolves
       active hubs by scope, accepted decisions by `scope + decision_key`, and
       active concepts by `scope + id`; return bounded found, missing, or
@@ -283,7 +285,7 @@ development source
 - [x] Enforce edit-before-create admission in capture, allowing a new node only
       when the separate independently-governed creation policy succeeds.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v10.
+      changing-target upgrades from older markers to hook v11.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint

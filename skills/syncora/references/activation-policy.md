@@ -5,7 +5,12 @@
 Loading Syncora in a new chat first requires the read-only `update-status`
 activation gate from `SKILL.md`. This check does not load project knowledge,
 create runtime state, or authorize an update. An outdated or unknown result is
-user-visible but does not block unrelated work.
+user-visible but does not block unrelated work. An outdated result must produce
+an explicit owner-facing update prompt with the installed version, available
+version, and exact scope-aware command; a passive warning is insufficient. An
+unknown result remains a visible warning because staleness was not established.
+An explicit Update request already authorizes the returned command and does not
+need a redundant confirmation.
 
 An explicit request to set up, update, repair, remove, adopt, or diagnose
 Syncora may run the corresponding maintenance workflow before project

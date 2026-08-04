@@ -168,9 +168,10 @@ test("activation is relevance-gated and exposes all five profiles", async () => 
   assert.match(checkpoint, /`unattributed-change`/);
   assert.match(checkpoint, /normal\s+code edit, discussion, proposal/);
   assert.match(checkpoint, /never run a second\s+preflight/);
-  assert.match(hook, /syncora-agent-hook:begin v10/);
+  assert.match(hook, /syncora-agent-hook:begin v11/);
   assert.match(hook, /first Syncora activation in each chat/);
   assert.match(hook, /mandatory read-only `update-status` gate/);
+  assert.match(hook, /a passive warning is insufficient/);
   assert.match(hook, /never auto-update/);
   assert.match(
     normalizedSkill,

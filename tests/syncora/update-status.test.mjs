@@ -26,14 +26,14 @@ function releaseResponse(version) {
 }
 
 test("semantic version comparison handles preview releases", () => {
-  assert.equal(compareVersions("0.1.0-preview.2", "0.1.0-preview.3"), -1);
-  assert.equal(compareVersions("0.1.0-preview.3", "0.1.0-preview.3"), 0);
+  assert.equal(compareVersions("0.1.0-preview.3", "0.1.0-preview.4"), -1);
+  assert.equal(compareVersions("0.1.0-preview.4", "0.1.0-preview.4"), 0);
   assert.equal(compareVersions("0.1.0", "0.1.0-preview.99"), 1);
   assert.equal(compareVersions("invalid", "0.1.0"), null);
 });
 
 test("update-status reports an available release without mutating", async () => {
-  const latest = "0.1.0-preview.4";
+  const latest = "0.1.0-preview.5";
   const projectRoot = resolve("project");
   const result = await checkForSyncoraUpdate({
     fetchImpl: async () => releaseResponse(latest),
@@ -46,8 +46,10 @@ test("update-status reports an available release without mutating", async () => 
   assert.equal(result.latestVersion, latest);
   assert.equal(result.automaticUpdate, false);
   assert.equal(result.notificationRequired, true);
+  assert.equal(result.ownerPromptRequired, true);
   assert.equal(result.update.command, "npx skills update syncora");
   assert.match(renderResult(result), /SYNCORA_UPDATE_AVAILABLE/u);
+  assert.match(renderResult(result), /Owner action: update Syncora/u);
   assert.match(renderResult(result), /npx skills update syncora/u);
 });
 
@@ -57,6 +59,7 @@ test("update-status is quiet when current and fail-open when unavailable", async
   });
   assert.equal(current.state, "current");
   assert.equal(current.notificationRequired, false);
+  assert.equal(current.ownerPromptRequired, false);
   assert.equal(current.warning, null);
 
   const unavailable = await checkForSyncoraUpdate({
@@ -67,6 +70,7 @@ test("update-status is quiet when current and fail-open when unavailable", async
   assert.equal(unavailable.ok, true);
   assert.equal(unavailable.state, "unknown");
   assert.equal(unavailable.notificationRequired, true);
+  assert.equal(unavailable.ownerPromptRequired, false);
   assert.match(unavailable.warning.message, /Could not verify/u);
 });
 
@@ -93,9 +97,14 @@ test("update-status has no workspace, update, or suppression option", () => {
 });
 
 test("global or shared installs receive the explicit global update command", () => {
-  const currentDirectory = resolve("project");
-  const skillRoot = join(resolve("home"), ".agents", "skills", "syncora");
-  const update = inferUpdateCommand({ skillRoot, currentDirectory });
+  const homeDirectory = resolve("home");
+  const currentDirectory = join(homeDirectory, "projects", "app");
+  const skillRoot = join(homeDirectory, ".agents", "skills", "syncora");
+  const update = inferUpdateCommand({
+    skillRoot,
+    currentDirectory,
+    homeDirectory,
+  });
   assert.equal(update.installationScope, "global-or-shared");
   assert.equal(update.command, "npx skills update syncora --global");
 });

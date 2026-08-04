@@ -30,8 +30,8 @@ the response ends.
 
 The first time Syncora is activated in each chat, it also performs a mandatory
 read-only release check. It never updates itself. When a newer release exists,
-the agent shows the exact Skills CLI command to run and continues the requested
-work.
+the agent shows the installed and available versions, gives the exact Skills
+CLI command, and explicitly prompts the owner to update.
 
 ```text
 Review the authentication flow and fix the session expiry bug.
@@ -105,10 +105,13 @@ node "<syncora-skill-root>/scripts/syncora.mjs" update-status --format json
 This gate has no auto-update or suppression option. Do not substitute a generic
 Skills CLI check. If the result is `outdated`, visibly tell the user which
 version is installed, which version is available, and show the returned update
-command. If it is `unknown`, visibly report that the check could not complete.
-In either case, continue the requested work unless it independently requires an
-update. A `current` or `ahead` result stays quiet. Never run the returned update
-command without an explicit update request.
+command. Explicitly ask the owner to update Syncora; do not reduce this to a
+passive warning. If the active request already asks to update Syncora, run the
+returned command without asking again. If the result is `unknown`, visibly
+report that the check could not complete. Continue requested work unless it
+independently requires the newer release. A `current` or `ahead` result stays
+quiet. Never run the returned update command without an explicit update
+request.
 
 ### Route the public intent
 

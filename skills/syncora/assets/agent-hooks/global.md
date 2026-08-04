@@ -2,7 +2,11 @@
 
 On the first Syncora activation in each chat, load the installed `syncora`
 skill and complete its mandatory read-only `update-status` gate before any
-other Syncora operation. Never auto-update.
+other Syncora operation. If it is outdated, show the installed and available
+versions plus the exact scope-aware update command and explicitly ask the owner
+to update; a passive warning is insufficient. If the request already asks to
+update Syncora, run that command without asking again. Surface an unknown
+result and never auto-update.
 
 For the current workspace, first check whether `.syncora/config.json` exists.
 If it does not, do not use Syncora for ordinary work; only explicit setup,

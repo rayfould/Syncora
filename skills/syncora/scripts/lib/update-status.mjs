@@ -1,4 +1,5 @@
 import { dirname, relative, sep } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 import { VERSION } from "./version.mjs";
@@ -69,11 +70,14 @@ function isWithin(candidate, root) {
 export function inferUpdateCommand({
   skillRoot,
   currentDirectory = process.cwd(),
+  homeDirectory = homedir(),
 }) {
   const normalized = skillRoot.split(sep).join("/").toLowerCase();
   const projectRoot = dirname(dirname(dirname(skillRoot)));
+  const isUserHomeInstall = relative(homeDirectory, projectRoot) === "";
   const isProjectInstall =
     normalized.endsWith("/.agents/skills/syncora") &&
+    !isUserHomeInstall &&
     isWithin(currentDirectory, projectRoot);
   return {
     installationScope: isProjectInstall ? "project" : "global-or-shared",
@@ -92,6 +96,7 @@ function unknownResult({ reason, update }) {
     latestVersion: null,
     automaticUpdate: false,
     notificationRequired: true,
+    ownerPromptRequired: false,
     update,
     warning: {
       code: "UPDATE_STATUS_UNKNOWN",
@@ -204,6 +209,7 @@ export async function checkForSyncoraUpdate({
       latestVersion,
       automaticUpdate: false,
       notificationRequired: state === "outdated",
+      ownerPromptRequired: state === "outdated",
       update,
       warning: state === "outdated"
         ? {

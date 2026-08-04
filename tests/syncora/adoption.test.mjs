@@ -354,7 +354,7 @@ test("one adopt command runs the reviewed lifecycle and safely resumes as idempo
     assert.equal(adopted.summary.rollbackRetained, true);
     assert.equal(
       (await readFile(join(fixture.workspace, "AGENTS.md"), "utf8")).includes(
-      "syncora-agent-hook:begin v10",
+      "syncora-agent-hook:begin v11",
       ),
       true,
     );
@@ -616,7 +616,7 @@ test("adopt resumes after an unmarked predecessor is explicitly reviewed", async
       "utf8",
     );
     assert.match(patchedAgents, /Reviewed custom instructions/);
-    assert.match(patchedAgents, /syncora-agent-hook:begin v10/);
+    assert.match(patchedAgents, /syncora-agent-hook:begin v11/);
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }
@@ -657,7 +657,7 @@ test("adopt refuses residual custom activation outside an exact predecessor bloc
     const patched = await readFile(agentsPath, "utf8");
     assert.doesNotMatch(patched, /BEGIN KNOWLEDGE GRAPH WORKFLOW/);
     assert.doesNotMatch(patched, /Always load local\/index\.md/);
-    assert.match(patched, /syncora-agent-hook:begin v10/);
+    assert.match(patched, /syncora-agent-hook:begin v11/);
   } finally {
     await rm(fixture.workspace, { recursive: true, force: true });
   }
@@ -815,7 +815,7 @@ test("legacy adoption stages, shadow-tests, atomically cuts over, verifies, reti
     assert.equal(cutover.status, "cutover-applied");
     const agents = await readFile(join(fixture.workspace, "AGENTS.md"), "utf8");
     assert.equal(agents.includes("BEGIN KNOWLEDGE GRAPH WORKFLOW"), false);
-    assert.equal(agents.includes("syncora-agent-hook:begin v10"), true);
+    assert.equal(agents.includes("syncora-agent-hook:begin v11"), true);
     assert.equal(agents.includes("# Custom preface"), true);
     assert.deepEqual(await readFile(join(fixture.graph, "notes.md")), fixture.legacyNote);
     assert.deepEqual(
@@ -1016,7 +1016,7 @@ test("cutover without an exact predecessor marker requires a durable review atte
     assert.equal(cutover.summary.predecessorReview, "operator-confirmed-absent");
     const agents = await readFile(join(fixture.workspace, "AGENTS.md"), "utf8");
     assert.match(agents, /Reviewed custom instructions/);
-    assert.match(agents, /syncora-agent-hook:begin v10/);
+    assert.match(agents, /syncora-agent-hook:begin v11/);
     await rollbackMigration({ ...common, phase: "rollback", dryRun: false });
     assert.deepEqual(await readFile(join(fixture.workspace, "AGENTS.md")), fixture.legacyAgents);
   } finally {
