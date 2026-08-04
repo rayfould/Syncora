@@ -328,12 +328,12 @@ function isBoundedLockContention(result) {
   return (
     result.status !== 0 &&
     result.output.error.code === "PATCH005" &&
-    /timed out (?:after \d+ms )?waiting for (?:the )?(?:workspace )?patch(?:-lock)?(?: recovery guard)?/iu
+    /timed out (?:after \d+ms )?waiting for (?:the )?(?:workspace )?patch(?:-| )lock(?: recovery guard)?/iu
       .test(result.output.error.message)
   );
 }
 
-async function settleConcurrentProposalAttempts(argsList, initialResults) {
+async function settleBoundedLockContention(argsList, initialResults) {
   const settled = [];
   for (let index = 0; index < initialResults.length; index += 1) {
     const result = initialResults[index];
@@ -355,6 +355,22 @@ async function settleConcurrentApply({ workspace, graph, proposal, result }) {
   );
   return asyncResult(applyArgs(workspace, graph, proposal));
 }
+
+test("bounded patch-lock timeouts are recognized as retryable contention", () => {
+  for (const message of [
+    "Timed out waiting for the workspace patch lock: C:\\graph\\.syncora\\locks\\agent-patcher.lock",
+    "Timed out after 10000ms waiting for the patch-lock recovery guard C:\\graph\\.syncora\\locks\\agent-patcher.lock.recovery",
+  ]) {
+    assert.equal(isBoundedLockContention({
+      status: 1,
+      output: { error: { code: "PATCH005", message } },
+    }), true);
+  }
+  assert.equal(isBoundedLockContention({
+    status: 1,
+    output: { error: { code: "PATCH005", message: "Patch lock path is unsafe." } },
+  }), false);
+});
 
 test("the full governed lifecycle works through an exact external graph allowlist", async () => {
   const fixture = await externalFixture();
@@ -514,7 +530,7 @@ test("concurrent identical proposals converge on one immutable proposal", async 
     const initialResults = await Promise.all(
       argsList.map((args) => asyncResult(args)),
     );
-    const results = await settleConcurrentProposalAttempts(
+    const results = await settleBoundedLockContention(
       argsList,
       initialResults,
     );
@@ -556,7 +572,7 @@ test("one intent wins when concurrent proposals reuse an idempotency key", async
     const initialResults = await Promise.all(
       argsList.map((args) => asyncResult(args)),
     );
-    const results = await settleConcurrentProposalAttempts(
+    const results = await settleBoundedLockContention(
       argsList,
       initialResults,
     );
@@ -584,17 +600,22 @@ test("concurrent approve and reject attempts persist exactly one terminal dispos
     });
     const inputPath = await writeInput(fixture.workspaceA, "review-race", drafted.input);
     const proposal = await propose(fixture.workspaceA, fixture.graph, inputPath);
-    const results = await Promise.all(
-      Array.from({ length: 10 }, (_, index) => {
-        const decision = index % 2 === 0 ? "approve" : "reject";
-        return asyncResult(reviewArgs(
-          fixture.workspaceA,
-          fixture.graph,
-          proposal,
-          decision,
-          `race-${decision}`,
-        ));
-      }),
+    const argsList = Array.from({ length: 10 }, (_, index) => {
+      const decision = index % 2 === 0 ? "approve" : "reject";
+      return reviewArgs(
+        fixture.workspaceA,
+        fixture.graph,
+        proposal,
+        decision,
+        `race-${decision}`,
+      );
+    });
+    const initialResults = await Promise.all(
+      argsList.map((args) => asyncResult(args)),
+    );
+    const results = await settleBoundedLockContention(
+      argsList,
+      initialResults,
     );
     const successes = results.filter((result) => result.status === 0);
     const failures = results.filter((result) => result.status !== 0);
