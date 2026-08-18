@@ -153,7 +153,9 @@ export async function captureKnowledge(options) {
         throw error;
       }
       attempt += 1;
-      const correctedProposalId = error.captureProposalId ?? inputValue.correctsProposalId;
+      const correctedProposalId = code === "WRITE001"
+        ? error.captureProposalId ?? inputValue.correctsProposalId
+        : null;
       inputValue = {
         ...rebased.input,
         idempotencyKey: correctionKey(originalInput, correctedProposalId, attempt),
