@@ -255,7 +255,7 @@ Status: Implemented in the `0.1.0-preview.3` development release
 
 ### Milestone 2.5: Relevance-gated foreground orchestration
 
-Status: Core included in `0.1.0-preview.1`; hook v12 is implemented in current
+Status: Core included in `0.1.0-preview.1`; hook v13 is implemented in current
 development source
 
 - [x] Define `none`, `checkpoint`, `context`, `capture`, and `maintenance`
@@ -280,7 +280,10 @@ development source
       passive notification. Hook v12 keeps routine Syncora operations and
       recoverable context errors internal, routes narrow code work through
       `checkpoint`, and requires one bounded exact-target foreground recovery
-      before a genuinely required context pack can block the task.
+      before a genuinely required context pack can block the task. Hook v13
+      keeps transient unknown update freshness internal during ordinary
+      activation while preserving visible diagnostics for explicit status
+      requests and explicit owner prompts for confirmed outdated installs.
 - [x] Add a deterministic read-only canonical-owner backend that resolves
       active hubs by scope, accepted decisions by `scope + decision_key`, and
       active concepts by `scope + id`; return bounded found, missing, or
@@ -288,7 +291,7 @@ development source
 - [x] Enforce edit-before-create admission in capture, allowing a new node only
       when the separate independently-governed creation policy succeeds.
 - [x] Preserve reversible baselines across untouched, diverged, untracked, and
-      changing-target upgrades from older markers to hook v12.
+      changing-target upgrades from older markers to hook v13.
 - [x] Implement `checkpoint --phase pre|post` with paired checkpoint IDs,
       idempotent post behavior, and compact results.
 - [x] Persist bounded, strictly validated, concurrency-safe derived checkpoint

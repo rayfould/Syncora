@@ -95,7 +95,7 @@ function unknownResult({ reason, update }) {
     currentVersion: VERSION,
     latestVersion: null,
     automaticUpdate: false,
-    notificationRequired: true,
+    notificationRequired: false,
     ownerPromptRequired: false,
     update,
     warning: {

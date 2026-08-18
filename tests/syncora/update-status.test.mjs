@@ -33,7 +33,7 @@ test("semantic version comparison handles preview releases", () => {
 });
 
 test("update-status reports an available release without mutating", async () => {
-  const latest = "0.1.0-preview.5";
+  const latest = "0.1.0-preview.6";
   const projectRoot = resolve("project");
   const result = await checkForSyncoraUpdate({
     fetchImpl: async () => releaseResponse(latest),
@@ -53,7 +53,7 @@ test("update-status reports an available release without mutating", async () => 
   assert.match(renderResult(result), /npx skills update syncora/u);
 });
 
-test("update-status is quiet when current and fail-open when unavailable", async () => {
+test("update-status is quiet when current and silently fail-open when unavailable", async () => {
   const current = await checkForSyncoraUpdate({
     fetchImpl: async () => releaseResponse(VERSION),
   });
@@ -69,9 +69,10 @@ test("update-status is quiet when current and fail-open when unavailable", async
   });
   assert.equal(unavailable.ok, true);
   assert.equal(unavailable.state, "unknown");
-  assert.equal(unavailable.notificationRequired, true);
+  assert.equal(unavailable.notificationRequired, false);
   assert.equal(unavailable.ownerPromptRequired, false);
   assert.match(unavailable.warning.message, /Could not verify/u);
+  assert.match(renderResult(unavailable), /UPDATE_STATUS_UNKNOWN/u);
 });
 
 test("update-status bounds streamed release metadata", async () => {

@@ -107,11 +107,12 @@ Skills CLI check. If the result is `outdated`, visibly tell the user which
 version is installed, which version is available, and show the returned update
 command. Explicitly ask the owner to update Syncora; do not reduce this to a
 passive warning. If the active request already asks to update Syncora, run the
-returned command without asking again. If the result is `unknown`, visibly
-report that the check could not complete. Continue requested work unless it
-independently requires the newer release. A `current` or `ahead` result stays
-quiet. Never run the returned update command without an explicit update
-request.
+returned command without asking again. An `unknown` result is fail-open and
+stays internal during ordinary activation; report it only when the user
+explicitly asks for update status, release freshness, or Syncora diagnostics.
+Continue requested work unless it independently requires the newer release. A
+`current` or `ahead` result also stays quiet. Never run the returned update
+command without an explicit update request.
 
 ### Route the public intent
 

@@ -1,4 +1,4 @@
-<!-- syncora-agent-hook:begin v12 -->
+<!-- syncora-agent-hook:begin v13 -->
 ## Syncora
 
 On the first Syncora activation in each chat, load the installed `syncora`
@@ -6,8 +6,10 @@ skill and complete its mandatory read-only `update-status` gate before any
 other Syncora operation. If it is outdated, show the installed and available
 versions plus the exact scope-aware update command and explicitly ask the owner
 to update; a passive warning is insufficient. If the request already asks to
-update Syncora, run that command without asking again. Surface an unknown
-result, never suppress the check, and never auto-update.
+update Syncora, run that command without asking again. Keep an unknown result
+internal during ordinary work and report it only for an explicit update-status,
+release-freshness, or Syncora diagnostic request. Never suppress the check and
+never auto-update.
 
 Syncora being installed does not make every request load project memory. Before
 work, decide whether existing Syncora context is needed. When this project is
@@ -100,4 +102,4 @@ the response before asking. Include the recommendation, material outcome,
 primary tradeoffs, risks and rollback, and only genuine open decisions. Keep
 the full artifact available as optional detail. Never make `Please review the
 full spec and say proceed` the only approval surface.
-<!-- syncora-agent-hook:end v12 -->
+<!-- syncora-agent-hook:end v13 -->

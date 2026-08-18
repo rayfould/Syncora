@@ -1,12 +1,10 @@
 import { constants as fsConstants } from "node:fs";
-import { spawn } from "node:child_process";
 import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { Worker } from "node:worker_threads";
 
 import { SyncoraError } from "./cli.mjs";
 import {
-  BOUNDED_READ_MAX_STDERR_BYTES,
   boundedReadIdentityFromStat,
   boundedReadStdoutLimit,
   decodeBoundedReadEnvelope,
@@ -17,13 +15,13 @@ import { normalizeSyncoraRuntimeConfig } from "./checkpoint-config.mjs";
 const CONFIG_MAX_BYTES = 1_048_576;
 export const LOCAL_CONFIG_SCHEMA_VERSION = 1;
 export const LOCAL_CONFIG_MAX_BYTES = 65_536;
-// The isolated-reader deadline includes a cold Node process start as well as
-// the bounded file operation. Windows process startup can exceed two seconds
-// under antivirus or CI load, so keep enough scheduling headroom while still
-// failing closed on a hung or hostile file.
+// The isolated-reader deadline includes worker startup as well as the bounded
+// file operation. Keep enough scheduling headroom while still failing closed
+// on a hung or hostile file.
 const WINDOWS_SAFE_READ_TIMEOUT_MS = 5_000;
-const WINDOWS_SAFE_READER_PATH = fileURLToPath(
-  new URL("./bounded-reader-worker.mjs", import.meta.url),
+const WINDOWS_SAFE_READER_URL = new URL(
+  "./bounded-reader-thread.mjs",
+  import.meta.url,
 );
 
 async function pathType(path) {
@@ -153,27 +151,12 @@ async function readWindowsFileIsolated(
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) {
     throw new SyncoraError(code, `${label} read timeout policy is invalid.`);
   }
-  const maximumStdoutBytes = boundedReadStdoutLimit(maximumBytes);
-  const arguments_ = program
-    ? ["-e", program, path, String(maximumBytes)]
-    : [WINDOWS_SAFE_READER_PATH, path, String(maximumBytes)];
-  const childEnvironment = { ...process.env };
-  delete childEnvironment.NODE_OPTIONS;
-  delete childEnvironment.NODE_PATH;
+  const maximumEnvelopeBytes = boundedReadStdoutLimit(maximumBytes);
 
   const outcome = await new Promise((resolve) => {
-    const child = spawn(process.execPath, arguments_, {
-      env: childEnvironment,
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    });
-    const stdout = [];
-    const stderr = [];
-    let stdoutBytes = 0;
-    let stderrBytes = 0;
     let settled = false;
     let timer;
+    let worker;
 
     const finish = (value) => {
       if (settled) return;
@@ -182,40 +165,27 @@ async function readWindowsFileIsolated(
       resolve(value);
     };
     const terminate = (kind) => {
-      child.kill("SIGKILL");
-      child.stdout?.destroy();
-      child.stderr?.destroy();
+      void worker?.terminate();
       finish({ kind });
     };
-
-    child.stdout.on("data", (chunk) => {
-      stdoutBytes += chunk.length;
-      if (stdoutBytes > maximumStdoutBytes) {
-        terminate("stdout-limit");
-        return;
-      }
-      stdout.push(Buffer.from(chunk));
-    });
-    child.stderr.on("data", (chunk) => {
-      stderrBytes += chunk.length;
-      if (stderrBytes > BOUNDED_READ_MAX_STDERR_BYTES) {
-        terminate("stderr-limit");
-        return;
-      }
-      stderr.push(Buffer.from(chunk));
-    });
-    child.once("error", (error) => finish({ kind: "spawn-error", error }));
-    child.once("close", (status, signal) =>
-      finish({
-        kind: "exit",
-        status,
-        signal,
-        stdout: Buffer.concat(stdout, stdoutBytes),
-        stderr: Buffer.concat(stderr, stderrBytes),
-      }),
-    );
-    timer = setTimeout(() => terminate("timeout"), timeoutMs);
-    if (settled) clearTimeout(timer);
+    try {
+      const workerData = { maximumBytes, path };
+      worker = program
+        ? new Worker(program, { eval: true, workerData })
+        : new Worker(WINDOWS_SAFE_READER_URL, { workerData });
+      worker.once("message", (message) => finish({ kind: "message", message }));
+      worker.once("messageerror", (error) =>
+        finish({ kind: "worker-error", error }),
+      );
+      worker.once("error", (error) => finish({ kind: "worker-error", error }));
+      worker.once("exit", (status) => {
+        if (!settled) finish({ kind: "worker-exit", status });
+      });
+      timer = setTimeout(() => terminate("timeout"), timeoutMs);
+      if (settled) clearTimeout(timer);
+    } catch (error) {
+      finish({ kind: "worker-error", error });
+    }
   });
 
   if (outcome.kind === "timeout") {
@@ -225,19 +195,12 @@ async function readWindowsFileIsolated(
       { reason: "timeout" },
     );
   }
-  if (outcome.kind === "stdout-limit" || outcome.kind === "stderr-limit") {
+  if (outcome.kind === "worker-error") {
     throw new SyncoraError(
       code,
-      `${label} isolated reader exceeded its output limit: ${path}`,
-      { reason: "protocol" },
-    );
-  }
-  if (outcome.kind === "spawn-error") {
-    throw new SyncoraError(
-      code,
-      `${label} isolated reader could not be started: ${path}`,
+      `${label} isolated reader failed: ${path}`,
       {
-        reason: "spawn",
+        reason: "worker",
         cause:
           outcome.error instanceof Error
             ? outcome.error.message
@@ -245,52 +208,62 @@ async function readWindowsFileIsolated(
       },
     );
   }
-  if (outcome.kind !== "exit") {
+  if (outcome.kind !== "message") {
     throw new SyncoraError(code, `${label} isolated reader failed safely: ${path}`);
   }
 
-  const stderrText = outcome.stderr.toString("ascii");
-  if (outcome.status !== 0 || outcome.signal !== null) {
-    if (outcome.stdout.length !== 0) {
-      throw new SyncoraError(
-        code,
-        `${label} isolated reader returned an invalid error envelope: ${path}`,
-        { reason: "protocol" },
-      );
-    }
-    if (stderrText === "SYNCORA_SAFE_READ:NOT_REGULAR") {
+  const message = outcome.message;
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    throw new SyncoraError(
+      code,
+      `${label} isolated reader returned an invalid envelope: ${path}`,
+      { reason: "protocol" },
+    );
+  }
+  if (message.kind === "error") {
+    const keys = Object.keys(message).sort().join(",");
+    if (message.reason === "NOT_REGULAR" && keys === "kind,reason") {
       throw new SyncoraError(code, `${label} is not a safe regular file: ${path}`);
     }
-    if (stderrText === "SYNCORA_SAFE_READ:TOO_LARGE") {
+    if (message.reason === "TOO_LARGE" && keys === "kind,reason") {
       throw new SyncoraError(
         code,
         `${label} exceeds ${maximumBytes} bytes: ${path}`,
       );
     }
-    const fsCode = /^SYNCORA_SAFE_READ:FS:([A-Z0-9_]{1,48})$/.exec(
-      stderrText,
-    )?.[1];
-    if (fsCode) {
-      const error = new Error(`${label} isolated read failed with ${fsCode}.`);
-      error.code = fsCode;
+    if (
+      message.reason === "FS" &&
+      keys === "code,kind,reason" &&
+      typeof message.code === "string" &&
+      /^[A-Z0-9_]{1,48}$/.test(message.code)
+    ) {
+      const error = new Error(
+        `${label} isolated read failed with ${message.code}.`,
+      );
+      error.code = message.code;
       throw error;
     }
     throw new SyncoraError(
       code,
-      `${label} isolated reader failed safely: ${path}`,
+      `${label} isolated reader returned an invalid error envelope: ${path}`,
       { reason: "protocol" },
     );
   }
-  if (outcome.stderr.length !== 0) {
+  if (
+    message.kind !== "success" ||
+    Object.keys(message).sort().join(",") !== "envelope,kind" ||
+    !(message.envelope instanceof Uint8Array) ||
+    message.envelope.byteLength > maximumEnvelopeBytes
+  ) {
     throw new SyncoraError(
       code,
-      `${label} isolated reader returned unexpected diagnostics: ${path}`,
+      `${label} isolated reader returned an invalid envelope: ${path}`,
       { reason: "protocol" },
     );
   }
 
   try {
-    return decodeBoundedReadEnvelope(outcome.stdout, maximumBytes);
+    return decodeBoundedReadEnvelope(Buffer.from(message.envelope), maximumBytes);
   } catch (error) {
     throw new SyncoraError(
       code,

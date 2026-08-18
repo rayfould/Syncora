@@ -296,9 +296,10 @@ const adoptionSmoke = await readFile(
   "utf8",
 );
 for (const requiredHookText of [
-  "syncora-agent-hook:begin v12",
+  "syncora-agent-hook:begin v13",
   "mandatory read-only `update-status` gate",
   "a passive warning is insufficient",
+  "internal during ordinary work",
   "never auto-update",
   "internally authorizes",
   "applies the exact transaction automatically",
@@ -324,13 +325,13 @@ for (const requiredHookText of [
 ]) {
   if (!sharedHook.toLowerCase().includes(requiredHookText.toLowerCase())) {
     errors.push(
-      `skills/syncora/assets/agent-hooks/shared.md: v12 activation, capture-disposition, and quiet-recovery guidance is missing (${requiredHookText})`,
+      `skills/syncora/assets/agent-hooks/shared.md: v13 activation, capture-disposition, and quiet-recovery guidance is missing (${requiredHookText})`,
     );
   }
 }
-if (!adoptionSmoke.includes("syncora-agent-hook:begin v12")) {
+if (!adoptionSmoke.includes("syncora-agent-hook:begin v13")) {
   errors.push(
-    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v12 hook",
+    "scripts/smoke-legacy-adoption.mjs: installed-copy assertion must require the current v13 hook",
   );
 }
 
@@ -357,21 +358,21 @@ for (const [description, pattern] of [
   }
 }
 for (const [description, pattern] of [
-  ["current hook v12 declaration", /Hook v12 is current\./u],
+  ["current hook v13 declaration", /Hook v13 is current\./u],
   ["mandatory activation update gate", /mandatory read-only `update-status` gate/u],
   ["explicit stale owner prompt", /explicitly prompt the owner/u],
   ["mandatory pre-final disposition", /mandatory internal pre-final capture-disposition sweep/u],
   ["autonomous capture declaration", /autonomous capture/u],
   ["foreground drift routing", /foreground `check --changed` operation/u],
   [
-    "exact tracked v1-v11 snapshot preservation",
-    /exact tracked v1 through v11 hook retains its original pre-Syncora\s+restoration snapshot/u,
+    "exact tracked v1-v12 snapshot preservation",
+    /exact tracked v1 through v12 hook retains its original pre-Syncora\s+restoration snapshot/u,
   ],
   [
-    "diverged or untracked v1-v11 baseline refresh",
-    /diverged or\s+untracked v1 through v11 hook instead refreshes the\s+restoration baseline/u,
+    "diverged or untracked v1-v12 baseline refresh",
+    /diverged or\s+untracked v1 through v12 hook instead refreshes the\s+restoration baseline/u,
   ],
-  ["future hook fail-closed behavior", /v12 fails closed before target writes/u],
+  ["future hook fail-closed behavior", /v13 fails closed before target writes/u],
 ]) {
   if (!pattern.test(agentPatchingReference)) {
     errors.push(
@@ -431,6 +432,11 @@ if (!/Hook v12 keeps routine Syncora operations and\s+recoverable context errors
     "docs/skill/implementation-plan.md: hook history must identify the v12 quiet-recovery upgrade",
   );
 }
+if (!/Hook v13\s+keeps transient unknown update freshness internal/u.test(implementationPlan)) {
+  errors.push(
+    "docs/skill/implementation-plan.md: hook history must identify the v13 quiet-unknown update upgrade",
+  );
+}
 
 const initializationReference = await readFile(
   path.join(skillRoot, "references", "initialize.md"),
@@ -445,8 +451,8 @@ for (const [displayPath, source] of [
   ["skills/syncora/references/initialize.md", initializationReference],
   ["docs/legacy-kg-adoption.md", legacyAdoptionGuide],
 ]) {
-  if (!/hook v12/iu.test(source)) {
-    errors.push(`${displayPath}: current operational guidance must name hook v12`);
+  if (!/hook v13/iu.test(source)) {
+    errors.push(`${displayPath}: current operational guidance must name hook v13`);
   }
   for (const stalePattern of [
     /Hook v4 is current/iu,

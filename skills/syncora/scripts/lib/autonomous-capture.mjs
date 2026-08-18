@@ -5,6 +5,7 @@ import { createGovernedProposal } from "./governed-capture.mjs";
 import {
   readCanonicalNoteBytes,
   readProposalInputFile,
+  withGovernedApplyLock,
   withGovernedGraphLock,
 } from "./governed-environment.mjs";
 import { reviewGovernedProposal } from "./governed-review.mjs";
@@ -126,12 +127,19 @@ export async function captureKnowledge(options) {
       outcome = await captureOnce(options, inputValue);
       break;
     } catch (error) {
+      const code = failureCode(error);
       if (
         options.dryRun ||
-        failureCode(error) !== "WRITE001" ||
+        !new Set(["WRITE001", "WRITE007"]).has(code) ||
         attempt >= MAXIMUM_AUTOMATIC_REBASES
       ) {
         throw error;
+      }
+      if (code === "WRITE007") {
+        // A different capture may still be finalizing its canonical transaction.
+        // Acquiring the same lifecycle lock creates a bounded, foreground wait
+        // without polling or reading through the active-writer boundary.
+        await withGovernedApplyLock(options, async () => undefined);
       }
       const rebased = await rebaseCaptureInput(options, originalInput);
       if (rebased === null) throw error;

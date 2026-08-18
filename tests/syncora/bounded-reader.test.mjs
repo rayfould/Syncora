@@ -11,6 +11,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   decodeBoundedReadEnvelope,
@@ -71,6 +72,14 @@ test("bounded-reader binary envelopes are exact, binary-safe, and versioned", ()
   );
 });
 
+test("the Windows bounded reader does not depend on child-process creation", async () => {
+  const sourcePath = fileURLToPath(
+    new URL("../../skills/syncora/scripts/lib/workspace.mjs", import.meta.url),
+  );
+  const source = await readFile(sourcePath, "utf8");
+  assert.doesNotMatch(source, /node:child_process|\bspawn\s*\(/);
+});
+
 test(
   "the parent rejects a different file opened in the final race window",
   async (t) => {
@@ -113,7 +122,7 @@ test(
 );
 
 test(
-  "the Windows isolated reader kills a child at its hard deadline",
+  "the Windows isolated reader terminates a worker at its hard deadline",
   { skip: process.platform !== "win32" },
   async () => {
     const workspace = await temporaryWorkspace();
@@ -141,12 +150,18 @@ test(
   },
 );
 
-for (const [stream, program] of [
-  ["stdout", "process.stdout.write(Buffer.alloc(100_000));"],
-  ["stderr", "process.stderr.write(Buffer.alloc(2_000));"],
+for (const [caseName, program] of [
+  [
+    "an oversized envelope",
+    'const { parentPort } = require("node:worker_threads"); parentPort.postMessage({ kind: "success", envelope: new Uint8Array(100_000) });',
+  ],
+  [
+    "a malformed error envelope",
+    'const { parentPort } = require("node:worker_threads"); parentPort.postMessage({ code: "bad code", kind: "error", reason: "FS" });',
+  ],
 ]) {
   test(
-    `the Windows isolated reader caps ${stream}`,
+    `the Windows isolated reader rejects ${caseName}`,
     { skip: process.platform !== "win32" },
     async () => {
       const workspace = await temporaryWorkspace();

@@ -52,11 +52,13 @@ node "<syncora-skill-root>/scripts/syncora.mjs" unpatch-agents --workspace <abso
 
 Both support `--dry-run` and `--format json`.
 
-Hook v12 is current. It retains v11's mandatory read-only `update-status` gate
+Hook v13 is current. It retains v12's mandatory read-only `update-status` gate
 on the first Syncora activation in each chat: an outdated result must
 explicitly prompt the owner with installed and available versions plus the
-scope-aware update command; an unknown result remains visible, and automatic
-updates remain forbidden. It keeps relevance-gated pre-work retrieval,
+scope-aware update command; an unknown result stays internal during ordinary
+work and remains visible for explicit update-status, release-freshness, or
+diagnostic requests; automatic updates remain forbidden. It keeps
+relevance-gated pre-work retrieval,
 autonomous capture, foreground drift routing, and the v8 capture-disposition
 policy, plus v9's retrieval-independent pre-final sweep. Every
 request in an initialized workspace ends as `durable_change`, `open_question`,
@@ -78,19 +80,19 @@ foreground `check --changed` operation while forbidding checks on every turn,
 background work, and after-final work. Exact proposal, artifact,
 authorization, and receipt details remain internal audit evidence.
 
-Hook v12 also makes narrow source/test/served-output work start at `checkpoint`
+Hook v13 retains v12's rule that narrow source/test/served-output work starts at `checkpoint`
 rather than `context`, unless an exact project decision or constraint is needed.
 Routine Syncora operations and recoverable context failures remain internal.
 When context is genuinely required, the agent makes one bounded foreground retry
 with exact scope and typed targets; it never presents a compiler failure as a
 user action item or claims to continue on unspecified evidence.
 
-An exact tracked v1 through v11 hook retains its original pre-Syncora
-restoration snapshot while its owned marker is upgraded to v12. A diverged or
-untracked v1 through v11 hook instead refreshes the
+An exact tracked v1 through v12 hook retains its original pre-Syncora
+restoration snapshot while its owned marker is upgraded to v13. A diverged or
+untracked v1 through v12 hook instead refreshes the
 restoration baseline from current user-owned bytes with only the old marker
 removed, so a later unpatch cannot erase intervening edits. A hook newer than
-v12 fails closed before target writes.
+v13 fails closed before target writes.
 
 ## Legacy-workflow cutover
 
@@ -102,7 +104,7 @@ without another approval prompt. Its internal cutover gate
 runs only after staging and a passing shadow comparison; the equivalent
 `migrate --phase cutover` command remains available for expert recovery. By
 default, cutover requires the exact delimited predecessor workflow, replaces it
-with hook v12, and records a predecessor-free restoration baseline in the
+with hook v13, and records a predecessor-free restoration baseline in the
 migration recovery journal. It preserves unrelated bytes, BOM, and newline
 style.
 

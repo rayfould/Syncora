@@ -1,17 +1,19 @@
 import { constants as fsConstants } from "node:fs";
 import { open } from "node:fs/promises";
+import { parentPort, workerData } from "node:worker_threads";
 
 import {
   boundedReadIdentityFromStat,
   encodeBoundedReadEnvelope,
 } from "./bounded-reader-protocol.mjs";
 
-const [path, maximumText] = process.argv.slice(2);
-const maximumBytes = Number.parseInt(maximumText, 10);
+const path = workerData?.path;
+const maximumBytes = workerData?.maximumBytes;
 
-function fail(reason, status) {
-  process.stderr.write(`SYNCORA_SAFE_READ:${reason}`);
-  process.exitCode = status;
+function fail(reason, code = undefined) {
+  return code === undefined
+    ? { kind: "error", reason }
+    : { code, kind: "error", reason };
 }
 
 async function readAtMost(handle, maximum) {
@@ -39,54 +41,37 @@ async function main() {
     maximumBytes < 0 ||
     maximumBytes > 16_777_216
   ) {
-    fail("PROTOCOL", 40);
-    return;
+    return fail("PROTOCOL");
   }
 
   let handle;
   try {
     handle = await open(path, fsConstants.O_RDONLY);
     const beforeMetadata = await handle.stat({ bigint: true });
-    if (!beforeMetadata.isFile()) {
-      fail("NOT_REGULAR", 41);
-      return;
-    }
-    if (beforeMetadata.size > BigInt(maximumBytes)) {
-      fail("TOO_LARGE", 42);
-      return;
-    }
+    if (!beforeMetadata.isFile()) return fail("NOT_REGULAR");
+    if (beforeMetadata.size > BigInt(maximumBytes)) return fail("TOO_LARGE");
 
     const bytes = await readAtMost(handle, maximumBytes);
     const afterMetadata = await handle.stat({ bigint: true });
-    if (!afterMetadata.isFile()) {
-      fail("NOT_REGULAR", 41);
-      return;
-    }
-    if (
-      bytes.length > maximumBytes ||
-      afterMetadata.size > BigInt(maximumBytes)
-    ) {
-      fail("TOO_LARGE", 42);
-      return;
+    if (!afterMetadata.isFile()) return fail("NOT_REGULAR");
+    if (bytes.length > maximumBytes || afterMetadata.size > BigInt(maximumBytes)) {
+      return fail("TOO_LARGE");
     }
 
-    const envelope = encodeBoundedReadEnvelope({
-      before: boundedReadIdentityFromStat(beforeMetadata),
-      after: boundedReadIdentityFromStat(afterMetadata),
-      bytes,
-    });
-    await new Promise((resolve, reject) => {
-      process.stdout.write(envelope, (error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
+    return {
+      kind: "success",
+      envelope: encodeBoundedReadEnvelope({
+        before: boundedReadIdentityFromStat(beforeMetadata),
+        after: boundedReadIdentityFromStat(afterMetadata),
+        bytes,
+      }),
+    };
   } catch (error) {
     const code = String(error?.code ?? "UNKNOWN");
-    fail(`FS:${/^[A-Z0-9_]{1,48}$/.test(code) ? code : "UNKNOWN"}`, 43);
+    return fail("FS", /^[A-Z0-9_]{1,48}$/.test(code) ? code : "UNKNOWN");
   } finally {
     if (handle) await handle.close().catch(() => undefined);
   }
 }
 
-await main();
+parentPort?.postMessage(await main());

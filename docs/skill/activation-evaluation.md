@@ -1,8 +1,8 @@
 # Syncora Activation Evaluation
 
 Status: Preview semantic acceptance fixture
-Applies to: `0.1.0-preview.4` development source
-Updated: 2026-07-20
+Applies to: `0.1.0-preview.5` development source
+Updated: 2026-08-18
 
 This matrix tests routing independently of graph contents. It is a semantic
 agent evaluation, not a deterministic classifier API. Hosts must apply the
@@ -111,7 +111,7 @@ same installed skill and project hook.
 
 ## Host coverage
 
-Codex and Cursor receive the same v12 block through root `AGENTS.md` and an
+Codex and Cursor receive the same v13 block through root `AGENTS.md` and an
 existing `AGENTS.override.md`. Claude receives the block through root
 `CLAUDE.md`, nested `.claude/CLAUDE.md`, or an import of the patched
 `AGENTS.md`. Patcher tests cover topology changes and deduplication. A public

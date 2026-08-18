@@ -715,7 +715,8 @@ Hook v11 strengthens v10's mandatory read-only activation update check with an
 explicit owner-facing stale-build prompt. Hook v12 keeps that prompt and adds
 quiet bounded context recovery: narrow code work remains on `checkpoint`, and
 a genuinely required context pack gets one exact-target foreground retry before
-it can block task work. It keeps
+it can block task work. Hook v13 keeps transient unknown update freshness
+internal during ordinary activation while preserving explicit diagnostics. It keeps
 relevance-gated pre-work retrieval, autonomous transactional
 capture, event-driven foreground drift routing, and the v8 capture-disposition
 policy, then makes the mandatory internal pre-final sweep independent of the
@@ -757,7 +758,7 @@ diverged before upgrade, the patcher refreshes the reversible baseline from
 current user-owned bytes with only the old marker removed, so a later unpatch
 cannot erase intervening user edits.
 
-Legacy adoption does not use ordinary patching to append hook v12 beside a broad
+Legacy adoption does not use ordinary patching to append hook v13 beside a broad
 predecessor workflow. The migration cutover atomically replaces an exact
 predecessor marker and records a predecessor-free unpatch baseline. When no
 exact marker remains, cutover fails closed until the skill has inspected every

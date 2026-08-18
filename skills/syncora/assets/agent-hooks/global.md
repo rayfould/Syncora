@@ -5,8 +5,9 @@ skill and complete its mandatory read-only `update-status` gate before any
 other Syncora operation. If it is outdated, show the installed and available
 versions plus the exact scope-aware update command and explicitly ask the owner
 to update; a passive warning is insufficient. If the request already asks to
-update Syncora, run that command without asking again. Surface an unknown
-result and never auto-update.
+update Syncora, run that command without asking again. Keep an unknown result
+internal during ordinary work and report it only for an explicit update-status,
+release-freshness, or Syncora diagnostic request. Never auto-update.
 
 For the current workspace, first check whether `.syncora/config.json` exists.
 If it does not, do not use Syncora for ordinary work; only explicit setup,

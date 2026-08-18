@@ -4,6 +4,25 @@ All notable changes to Syncora are documented here.
 
 ## [Unreleased]
 
+## [0.1.0-preview.5] - 2026-08-18
+
+### Changed
+
+- Replaced the Windows bounded configuration reader's child-process isolation
+  with worker-thread isolation so restricted agent hosts no longer fail on
+  `spawn EPERM`, while preserving deadline, size, file-identity, race, and
+  protocol checks.
+- Kept transient release-endpoint failures internal during ordinary Syncora
+  activation while retaining structured and explicit diagnostic visibility;
+  confirmed outdated installs remain user-visible and actionable.
+- Added hook v13 so initialized projects carry the quiet ordinary unknown-status
+  contract, including deterministic upgrades from prior tracked hooks.
+- Strengthened foreground context and capture recovery so isolated context
+  failures recover quietly and exact hub facts can self-heal under transactional
+  capture instead of interrupting ordinary work.
+- Made Windows CI retry bounded review-lock contention without weakening the
+  underlying concurrency and ownership checks.
+
 ## [0.1.0-preview.4] - 2026-08-04
 
 ### Changed
@@ -226,7 +245,8 @@ First public development preview of the portable Syncora Agent Skill.
 - Changed-file drift detection.
 - Stable-release compatibility guarantees.
 
-[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.4...HEAD
+[Unreleased]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.5...HEAD
+[0.1.0-preview.5]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.4...v0.1.0-preview.5
 [0.1.0-preview.4]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.3...v0.1.0-preview.4
 [0.1.0-preview.3]: https://github.com/rayfould/Syncora/compare/v0.1.0-preview.2...v0.1.0-preview.3
 [0.1.0-preview.2]: https://github.com/rayfould/Syncora/releases/tag/v0.1.0-preview.2
