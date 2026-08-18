@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { applyGovernedProposal } from "./governed-apply.mjs";
+import { SyncoraError } from "./cli.mjs";
 import { createGovernedProposal } from "./governed-capture.mjs";
 import {
   readCanonicalNoteBytes,
@@ -142,7 +143,15 @@ export async function captureKnowledge(options) {
         await withGovernedApplyLock(options, async () => undefined);
       }
       const rebased = await rebaseCaptureInput(options, originalInput);
-      if (rebased === null) throw error;
+      if (rebased === null) {
+        if (code === "WRITE007") {
+          throw new SyncoraError(
+            "WRITE001",
+            "Capture input became stale while another canonical writer completed.",
+          );
+        }
+        throw error;
+      }
       attempt += 1;
       const correctedProposalId = error.captureProposalId ?? inputValue.correctsProposalId;
       inputValue = {
